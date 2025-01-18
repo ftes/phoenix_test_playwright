@@ -28,6 +28,7 @@ defmodule PhoenixTest.Playwright.Frame do
     params =
       opts
       |> Keyword.validate!(
+        # Playwright options: https://playwright.dev/docs/api/class-page#page-screenshot
         full_page: true,
         omit_background: false
       )
