@@ -13,6 +13,7 @@ defmodule PhoenixTest.Case do
     quote do
       import PhoenixTest
       import PhoenixTest.Case
+      import PhoenixTest.Playwright, only: [screenshot: 2, screenshot: 3]
 
       setup do
         [phoenix_test: unquote(opts)]

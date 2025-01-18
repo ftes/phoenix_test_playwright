@@ -12,6 +12,31 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
+  describe "screenshot/3" do
+    setup do
+      File.rm_rf("screenshots")
+      :ok
+    end
+
+    test "takes a screenshot of the current page as a PNG", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> assert_has("h1", text: "LiveView main page")
+      |> screenshot("test_screenshot.png", full_page: false, omit_background: true)
+
+      assert File.exists?("screenshots/test_screenshot.png")
+    end
+
+    test "takes a screenshot of the current page as a JPEG", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> assert_has("h1", text: "LiveView main page")
+      |> screenshot("test_screenshot.jpg")
+
+      assert File.exists?("screenshots/test_screenshot.jpg")
+    end
+  end
+
   describe "click_link/2" do
     test "follows 'navigate' links", %{conn: conn} do
       conn
