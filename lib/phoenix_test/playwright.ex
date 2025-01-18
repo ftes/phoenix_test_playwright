@@ -46,6 +46,7 @@ defmodule PhoenixTest.Playwright do
     playwright: [
       cli: "assets/node_modules/playwright/cli.js",
       browser: [browser: :chromium, headless: System.get_env("PLAYWRIGHT_HEADLESS", "t") in ~w(t true)],
+      screenshot_dir: "screenshots",
       trace: System.get_env("PLAYWRIGHT_TRACE", "false") in ~w(t true),
       trace_dir: "tmp",
       js_logger:
@@ -231,6 +232,25 @@ defmodule PhoenixTest.Playwright do
 
     Frame.goto(session.frame_id, url)
     session
+  end
+
+  @doc """
+  Takes a screenshot of the current page and saves it to the given file path.
+
+  The screenshot type will be inferred from the file extension on the path you provide.
+  If the path is relative (e.g., "my_screenshot.png" or "my_test/my_screenshot.jpg"), it will
+  be saved in the directory specified by the `:screenshot_dir` config option, which defaults
+  to `"screenshots"`.
+
+  ## Options
+
+  - `:full_page` (boolean): Whether to take a full page screenshot. If false,
+    only the current viewport will be captured. Defaults to true.
+  - `:omit_background` (boolean): Whether to omit the background, allowing screenshots
+    to be captured with transparency. Only applicable to PNG images. Defaults to false.
+  """
+  def screenshot(session, file_path, opts \\ [full_page: true]) do
+    Frame.screenshot(session.page_id, file_path, opts)
   end
 
   def assert_has(session, "title") do

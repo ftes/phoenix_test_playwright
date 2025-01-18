@@ -24,6 +24,30 @@ defmodule PhoenixTest.Playwright.Frame do
     |> unwrap_response(& &1.result.value)
   end
 
+  def screenshot(frame_id, path, opts \\ []) do
+    params =
+      opts
+      |> Keyword.validate!(
+        # Playwright options: https://playwright.dev/docs/api/class-page#page-screenshot
+        full_page: true,
+        omit_background: false
+      )
+      |> Serialization.camel_case_keys()
+
+    [guid: frame_id, method: :screenshot, params: params]
+    |> post()
+    |> unwrap_response(fn %{result: %{binary: binary_img}} ->
+      default_dir = Application.get_env(:phoenix_test, :screenshot_dir, "screenshots")
+      full_path = Path.join(default_dir, path)
+
+      full_path
+      |> Path.dirname()
+      |> File.mkdir_p!()
+
+      File.write!(full_path, Base.decode64!(binary_img))
+    end)
+  end
+
   def evaluate(frame_id, js, opts \\ []) do
     params =
       opts
