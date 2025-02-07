@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: Document and validate global and per-test configuration
 - Docs: Document non-standard driver functions (`click/4`, `click_button/4` etc.). Also, exclude standard driver functions from docs.
 - Config: Override config via `Case` opts, e.g. `use PhoenixTest.Playwright.Case, headless: false`
+- Keyboard simulation: `type/{3,4}` and `press/{3,4}`
 
 ### Changed
 - Renamed: `PheonixTest.Case` to `PhoenixTest.Playwright.Case`

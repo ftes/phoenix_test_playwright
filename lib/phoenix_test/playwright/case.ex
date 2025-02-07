@@ -20,7 +20,18 @@ defmodule PhoenixTest.Playwright.Case do
       import PhoenixTest
 
       import PhoenixTest.Playwright,
-        only: [click: 3, click: 4, click_button: 4, click_link: 4, screenshot: 2, screenshot: 3]
+        only: [
+          click: 3,
+          click: 4,
+          click_button: 4,
+          click_link: 4,
+          press: 3,
+          press: 4,
+          screenshot: 2,
+          screenshot: 3,
+          type: 3,
+          type: 4
+        ]
 
       import PhoenixTest.Playwright.Case
 

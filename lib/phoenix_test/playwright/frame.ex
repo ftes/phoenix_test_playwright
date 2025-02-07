@@ -8,8 +8,9 @@ defmodule PhoenixTest.Playwright.Frame do
   - https://github.com/microsoft/playwright/blob/main/packages/playwright-core/src/client/frame.ts
   """
 
-  import PhoenixTest.Playwright.Connection, only: [post: 1]
+  import PhoenixTest.Playwright.Connection, only: [post: 1, post: 2]
 
+  alias PhoenixTest.Playwright.Config
   alias PhoenixTest.Playwright.Serialization
 
   def goto(frame_id, url) do
@@ -36,10 +37,26 @@ defmodule PhoenixTest.Playwright.Frame do
     |> Serialization.deserialize_arg()
   end
 
-  def press(frame_id, selector, key) do
+  def press(frame_id, selector, key, opts \\ []) do
+    opts = Keyword.validate!(opts, delay: 0)
     params = %{selector: selector, key: key}
-    post(guid: frame_id, method: :press, params: params)
-    :ok
+    params = Enum.into(opts, params)
+    timeout = (params[:timeout] || Config.global(:timeout)) + params.delay
+
+    [guid: frame_id, method: :press, params: params]
+    |> post(timeout)
+    |> unwrap_response(& &1)
+  end
+
+  def type(frame_id, selector, text, opts \\ []) do
+    opts = Keyword.validate!(opts, delay: 0)
+    params = %{selector: selector, text: text}
+    params = Enum.into(opts, params)
+    timeout = (params[:timeout] || Config.global(:timeout)) + params.delay * String.length(text)
+
+    [guid: frame_id, method: :type, params: params]
+    |> post(timeout)
+    |> unwrap_response(& &1)
   end
 
   def title(frame_id) do

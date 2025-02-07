@@ -65,9 +65,9 @@ defmodule PhoenixTest.Playwright.Connection do
   Post a message and await the response.
   We wait for an additional grace period after the timeout that we pass to playwright.
   """
-  def post(msg) do
+  def post(msg, timeout \\ nil) do
     default = %{params: %{}, metadata: %{}}
-    msg = msg |> Enum.into(default) |> update_in(~w(params timeout)a, &(&1 || Config.global(:timeout)))
+    msg = msg |> Enum.into(default) |> update_in(~w(params timeout)a, &(&1 || timeout || Config.global(:timeout)))
     call_timeout = round(msg.params.timeout * @timeout_grace_factor)
     GenServer.call(@name, {:post, msg}, call_timeout)
   end

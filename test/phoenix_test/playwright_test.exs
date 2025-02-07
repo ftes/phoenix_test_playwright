@@ -742,4 +742,23 @@ defmodule PhoenixTest.PlaywrightTest do
       |> refute_path("/page/index", query_params: %{"hello" => "not-world"})
     end
   end
+
+  describe "type/3" do
+    test "fills in a single text field based on the label", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> type("#email", "someone@example.com")
+      |> assert_has("#form-data", text: "email: someone@example.com")
+    end
+  end
+
+  describe "press/3" do
+    test "submits a form via Enter key", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> type("#redirect-form-name", "name")
+      |> press("#redirect-form-name", "Enter")
+      |> assert_path("/live/page_2")
+    end
+  end
 end

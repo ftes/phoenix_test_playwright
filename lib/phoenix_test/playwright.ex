@@ -397,7 +397,67 @@ defmodule PhoenixTest.Playwright do
     session
   end
 
-  @doc false
+  @type_opts_schema [
+    delay: [type: :non_neg_integer, default: 0, doc: "Time to wait between key presses in milliseconds."]
+  ]
+  @doc """
+  Focuses the matching element and simulates user typing.
+
+  In most cases, you should use `PhoenixTest.fill_in/4` instead.
+
+  ## Options
+  #{NimbleOptions.docs(@type_opts_schema)}
+
+  ## Examples
+      |> type("#id", "some text")
+      |> type(Selector.role("heading", "Untitled", exact: true), "New title")
+  """
+  @spec type(t(), selector(), String.t(), [unquote(NimbleOptions.option_typespec(@type_opts_schema))]) :: t()
+  def type(session, selector, text, opts \\ []) when is_binary(text) do
+    opts = NimbleOptions.validate!(opts, @type_opts_schema)
+
+    session.frame_id
+    |> Frame.type(selector, text, opts)
+    |> handle_response(selector)
+
+    session
+  end
+
+  @press_opts_schema [
+    delay: [type: :non_neg_integer, default: 0, doc: "Time to wait between keydown and keyup in milliseconds."]
+  ]
+  @doc """
+  Focuses the matching element and presses a combination of the keyboard keys.
+
+  Use `type/4` if you don't need to press special keys.
+
+  Examples of [supported keys](https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values):
+  `F1 - F12, Digit0- Digit9, KeyA- KeyZ, Backquote, Minus, Equal, Backslash, Backspace, Tab, Delete, Escape, ArrowDown, End, Enter, Home, Insert, PageDown, PageUp, ArrowRight, ArrowUp`
+
+  Modifiers are also supported:
+  `Shift, Control, Alt, Meta, ShiftLeft, ControlOrMeta`
+
+  Combinations are also supported:
+  `Control+o, Control++, Control+Shift+T`
+
+  ## Options
+  #{NimbleOptions.docs(@press_opts_schema)}
+
+  ## Examples
+      |> press("#id", "Control+Shift+T")
+      |> press(Selector.button("Submit", exact: true), "Enter")
+  """
+  @spec press(t(), selector(), String.t(), [unquote(NimbleOptions.option_typespec(@press_opts_schema))]) :: t()
+  def press(session, selector, key, opts \\ []) when is_binary(key) do
+    opts = NimbleOptions.validate!(opts, @press_opts_schema)
+
+    session.frame_id
+    |> Frame.press(selector, key, opts)
+    |> handle_response(selector)
+
+    session
+  end
+
   def assert_has(session, "title") do
     retry(fn -> assert render_page_title(session) != nil end)
   end
