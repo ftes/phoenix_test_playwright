@@ -220,10 +220,10 @@ defmodule PhoenixTest.Playwright do
     assert_receive({:playwright, %{method: :download} = download_msg}, 2000)
     artifact_guid = download_msg.params.artifact.guid
     assert_receive({:playwright, %{method: :__create__, params: %{guid: ^artifact_guid}} = artifact_msg}, 2000)
-    download_path = artifact_msg.params.initializer.absolutePath
+    download_path = artifact_msg.params.initializer.absolute_path
     wait_for_file(download_path)
 
-    assert download_msg.params.suggestedFilename =~ name
+    assert download_msg.params.suggested_filename =~ name
     assert File.read!(download_path) =~ content
 
     session
