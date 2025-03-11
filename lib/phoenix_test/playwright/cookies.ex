@@ -50,8 +50,4 @@ defmodule PhoenixTest.Playwright.Cookies do
       plug_cookie.resp_cookies[cookie.name].value
     end)
   end
-
-  def downcase_first(<<first::utf8, rest::binary>>) do
-    String.downcase(<<first::utf8>>) <> rest
-  end
 end
