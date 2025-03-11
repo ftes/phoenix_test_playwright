@@ -765,21 +765,13 @@ defmodule PhoenixTest.PlaywrightTest do
   describe "add_cookie/3" do
     alias PhoenixTest.Plugs.RequireCookiePlug
 
-    for cookie_flavor <- [:plain] do
-      # for cookie_flavor <- [:encrypted, :signed, :plain] do
+    for cookie_flavor <- [:encrypted, :signed, :plain] do
       test "puts a #{cookie_flavor} cookie on the Conn", %{conn: conn} do
         cookie_flavor = unquote(cookie_flavor)
 
         conn
         |> visit("/live/protected")
         |> refute_has("[data-role='title']")
-
-        # cookie value must be a binary unless the cookie is signed/encrypted
-        cookie_value =
-          case cookie_flavor do
-            :plain -> "the secret is mighty_boosh"
-            _ -> %{secret: "mighty_boosh"}
-          end
 
         cookie =
           cookie_flavor
@@ -788,7 +780,7 @@ defmodule PhoenixTest.PlaywrightTest do
           |> Map.merge(%{
             url: Application.fetch_env!(:phoenix_test, :base_url),
             name: RequireCookiePlug.cookie_name(cookie_flavor),
-            value: cookie_value
+            value: RequireCookiePlug.valid_cookie_value(cookie_flavor)
           })
 
         conn

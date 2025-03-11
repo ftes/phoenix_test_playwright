@@ -27,6 +27,14 @@ defmodule PhoenixTest.Plugs.RequireCookiePlug do
     [sign: false, encrypt: false, same_site: "Lax", http_only: false, secure: false]
   end
 
+  @doc """
+  Return a cookie value that will pass through the plug's check.
+
+  A cookie value must be a binary unless the cookie is signed/encrypted.
+  """
+  def valid_cookie_value(:plain), do: "the secret is mighty_boosh"
+  def valid_cookie_value(_), do: %{secret: "mighty_boosh"}
+
   def init(_opts), do: nil
 
   def call(conn, _opts) do
