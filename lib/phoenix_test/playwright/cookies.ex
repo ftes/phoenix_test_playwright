@@ -41,7 +41,8 @@ defmodule PhoenixTest.Playwright.Cookies do
 
   defp ensure_binary_cookie_value(%{value: _value} = cookie) do
     Map.update!(cookie, :value, fn value ->
-      secret_key_base = Application.get_env(:phoenix_test_playwright, PhoenixTest.Endpoint)[:secret_key_base]
+      endpoint = Application.get_env(:phoenix_test, :endpoint)
+      secret_key_base = Application.get_env(:phoenix_test_playwright, endpoint)[:secret_key_base]
 
       opts =
         cookie
