@@ -3,6 +3,8 @@ defmodule PhoenixTest.Router do
 
   import Phoenix.LiveView.Router
 
+  alias PhoenixTest.Plugs.RequireCookiePlug
+
   pipeline :setup_session do
     plug(Plug.Session,
       store: :cookie,
@@ -17,6 +19,10 @@ defmodule PhoenixTest.Router do
     plug(:setup_session)
     plug(:accepts, ["html"])
     plug(:fetch_live_flash)
+  end
+
+  pipeline :protected do
+    plug(RequireCookiePlug)
   end
 
   scope "/", PhoenixTest do
@@ -38,5 +44,13 @@ defmodule PhoenixTest.Router do
 
     live("/live/index_no_layout", IndexLive)
     live("/live/redirect_on_mount/:redirect_type", RedirectLive)
+  end
+
+  scope "/", PhoenixTest do
+    pipe_through([:browser, :protected])
+
+    live_session :protected_live_pages, root_layout: {PhoenixTest.PageView, :layout} do
+      live("/live/protected", IndexLive)
+    end
   end
 end

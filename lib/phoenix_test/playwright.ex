@@ -308,6 +308,7 @@ defmodule PhoenixTest.Playwright do
   import ExUnit.Assertions
 
   alias PhoenixTest.OpenBrowser
+  alias PhoenixTest.Playwright.BrowserContext
   alias PhoenixTest.Playwright.Config
   alias PhoenixTest.Playwright.Connection
   alias PhoenixTest.Playwright.Frame
@@ -356,6 +357,15 @@ defmodule PhoenixTest.Playwright do
 
     Frame.goto(session.frame_id, url)
     session
+  end
+
+  @doc """
+  Add cookies to the browser context, useful for emulating a logged-in user.
+
+  See `PhoenixTest.Playwright.Cookies` for the type of the cookie.
+  """
+  def add_cookies(session, cookies) do
+    tap(session, &BrowserContext.add_cookies(&1.context_id, cookies))
   end
 
   @screenshot_opts_schema [
