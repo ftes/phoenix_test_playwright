@@ -34,13 +34,7 @@ defmodule PhoenixTest.Playwright.Cookies do
   Converts the atom-keyed cookie map into a string-keyed map suitable for posting
   """
   def to_params_map(cookie) do
-    cookie
-    |> ensure_binary_cookie_value()
-    |> transform_to_camel_case_params_map()
-  end
-
-  defp ensure_binary_cookie_value(%{value: _value} = cookie) do
-    Map.update!(cookie, :value, fn value ->
+    Map.update(cookie, :value, "", fn value ->
       otp_app = Application.get_env(:phoenix_test, :otp_app)
       endpoint = Application.get_env(:phoenix_test, :endpoint)
       secret_key_base = Application.get_env(otp_app, endpoint)[:secret_key_base]
@@ -54,17 +48,6 @@ defmodule PhoenixTest.Playwright.Cookies do
         Plug.Conn.put_resp_cookie(%Plug.Conn{secret_key_base: secret_key_base}, to_string(cookie.name), value, opts)
 
       plug_cookie.resp_cookies[cookie.name].value
-    end)
-  end
-
-  defp ensure_binary_cookie_value(cookie) do
-    cookie
-  end
-
-  defp transform_to_camel_case_params_map(cookie) do
-    Enum.reduce(cookie, %{}, fn {key, val}, acc ->
-      string_key = key |> to_string() |> Macro.camelize() |> downcase_first()
-      Map.put(acc, string_key, val)
     end)
   end
 
