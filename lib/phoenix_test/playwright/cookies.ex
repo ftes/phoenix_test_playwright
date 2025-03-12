@@ -18,6 +18,7 @@ defmodule PhoenixTest.Playwright.Cookies do
   | `:secure`    | `boolean()` | *(optional)* |
   | `:same_site` | `binary()`  | *(optional)* one of "Strict", "Lax", "None" |
   """
+
   @type cookie :: %{
           :name => binary(),
           :value => binary(),
@@ -49,5 +50,36 @@ defmodule PhoenixTest.Playwright.Cookies do
 
       plug_cookie.resp_cookies[cookie.name].value
     end)
+  end
+
+  def to_session_params_map(cookie, session_options) do
+    Map.update(cookie, :value, "", fn value ->
+      otp_app = Application.get_env(:phoenix_test, :otp_app)
+      endpoint = Application.get_env(:phoenix_test, :endpoint)
+      secret_key_base = Application.get_env(otp_app, endpoint)[:secret_key_base]
+
+      %Plug.Conn{secret_key_base: secret_key_base, owner: self()}
+      |> Plug.Session.call(Plug.Session.init(session_options))
+      |> Plug.Conn.fetch_session()
+      |> then(fn conn ->
+        Enum.reduce(value, conn, fn {key, val}, conn ->
+          Plug.Conn.put_session(conn, key, val)
+        end)
+      end)
+      |> Plug.Conn.fetch_cookies(signed: [session_options[:key]])
+      |> Map.update!(:adapter, fn {_adapter, nil} ->
+        {PhoenixTest.Playwright.Cookies.PseudoAdapter, nil}
+      end)
+      |> Plug.Conn.send_resp(200, "")
+      |> Map.get(:cookies)
+      |> Map.get(session_options[:key])
+    end)
+  end
+end
+
+defmodule PhoenixTest.Playwright.Cookies.PseudoAdapter do
+  @moduledoc false
+  def send_resp(_, _, _, _) do
+    {:ok, "", ""}
   end
 end

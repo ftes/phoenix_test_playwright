@@ -28,6 +28,11 @@ defmodule PhoenixTest.Playwright.BrowserContext do
     post(guid: context_id, method: :add_cookies, params: %{cookies: cookies})
   end
 
+  def add_session_cookie(context_id, cookie, session_options) do
+    cookie = Cookies.to_session_params_map(cookie, session_options)
+    post(guid: context_id, method: :add_cookies, params: %{cookies: [cookie]})
+  end
+
   @doc """
   Start tracing. The results can be retrieved via `stop_tracing/2`.
   """

@@ -360,12 +360,28 @@ defmodule PhoenixTest.Playwright do
   end
 
   @doc """
-  Add cookies to the browser context, useful for emulating a logged-in user.
+  Add cookies to the browser context, using `Plug.Conn.put_resp_cookie/3`
+
+  Note that for signed cookies the signing salt is **not** configurable.
+  As such, this function is not appropriate for signed `Plug.Session` cookies.
+  For signed session cookies, use `add_session_cookie/3`
 
   See `PhoenixTest.Playwright.Cookies` for the type of the cookie.
   """
   def add_cookies(session, cookies) do
     tap(session, &BrowserContext.add_cookies(&1.context_id, cookies))
+  end
+
+  @doc """
+  Add a `Plug.Session` cookie to the browser context.
+
+  This is useful for emulating a logged-in user.
+
+  The `session_options` are exactly the same as the opts used when
+  writing `plug Plug.Session` in your router/endpoint module.
+  """
+  def add_session_cookie(session, cookie, session_options) do
+    tap(session, &BrowserContext.add_session_cookie(&1.context_id, cookie, session_options))
   end
 
   @screenshot_opts_schema [

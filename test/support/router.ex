@@ -4,14 +4,11 @@ defmodule PhoenixTest.Router do
   import Phoenix.LiveView.Router
 
   alias PhoenixTest.Plugs.RequireCookiePlug
+  alias PhoenixTest.Plugs.RequireSessionCookiePlug
+  alias PhoenixTest.SessionOptions
 
   pipeline :setup_session do
-    plug(Plug.Session,
-      store: :cookie,
-      key: "_phoenix_test_key",
-      signing_salt: "/VADsdfSfdMnp5"
-    )
-
+    plug(Plug.Session, SessionOptions.session_options())
     plug(:fetch_session)
   end
 
@@ -21,8 +18,12 @@ defmodule PhoenixTest.Router do
     plug(:fetch_live_flash)
   end
 
-  pipeline :protected do
+  pipeline :cookie_protected do
     plug(RequireCookiePlug)
+  end
+
+  pipeline :session_protected do
+    plug(RequireSessionCookiePlug)
   end
 
   scope "/", PhoenixTest do
@@ -47,10 +48,18 @@ defmodule PhoenixTest.Router do
   end
 
   scope "/", PhoenixTest do
-    pipe_through([:browser, :protected])
+    pipe_through([:browser, :cookie_protected])
 
-    live_session :protected_live_pages, root_layout: {PhoenixTest.PageView, :layout} do
-      live("/live/protected", IndexLive)
+    live_session :cookie_protected_live_pages, root_layout: {PhoenixTest.PageView, :layout} do
+      live("/live/cookie_protected", IndexLive)
+    end
+  end
+
+  scope "/", PhoenixTest do
+    pipe_through([:browser, :session_protected])
+
+    live_session :session_protected_live_pages, root_layout: {PhoenixTest.PageView, :layout} do
+      live("/live/session_protected", IndexLive)
     end
   end
 end

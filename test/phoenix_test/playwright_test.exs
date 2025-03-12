@@ -3,6 +3,7 @@ defmodule PhoenixTest.PlaywrightTest do
 
   alias ExUnit.AssertionError
   alias PhoenixTest.Playwright
+  alias PhoenixTest.SessionOptions
 
   describe "visit/2" do
     test "navigates to given LiveView page", %{conn: conn} do
@@ -762,7 +763,7 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
-  describe "add_cookie/3" do
+  describe "add_cookies/2" do
     alias PhoenixTest.Plugs.RequireCookiePlug
 
     for cookie_flavor <- [:encrypted, :signed, :plain] do
@@ -770,7 +771,7 @@ defmodule PhoenixTest.PlaywrightTest do
         cookie_flavor = unquote(cookie_flavor)
 
         conn
-        |> visit("/live/protected")
+        |> visit("/live/cookie_protected")
         |> refute_has("[data-role='title']")
 
         cookie =
@@ -785,9 +786,30 @@ defmodule PhoenixTest.PlaywrightTest do
 
         conn
         |> Playwright.add_cookies([cookie])
-        |> visit("/live/protected")
+        |> visit("/live/cookie_protected")
         |> assert_has("[data-role='title']")
       end
+    end
+  end
+
+  describe "add_session_cookie/3" do
+    test "puts a signed, encrypted cookie on the Conn", %{conn: conn} do
+      conn
+      |> visit("/live/session_protected")
+      |> refute_has("[data-role='title']")
+
+      session_options = SessionOptions.session_options()
+
+      cookie = %{
+        url: Application.fetch_env!(:phoenix_test, :base_url),
+        name: session_options[:key],
+        value: %{secret: "mighty_boosh"}
+      }
+
+      conn
+      |> Playwright.add_session_cookie(cookie, session_options)
+      |> visit("/live/session_protected")
+      |> assert_has("[data-role='title']")
     end
   end
 end
