@@ -46,4 +46,14 @@ defmodule PhoenixTest.PageController do
     |> put_status(:unauthorized)
     |> render("unauthorized.html")
   end
+
+  def cookie_counter(conn, _) do
+    current = conn.cookies["counter"]
+    next = if current, do: String.to_integer(current) + 1, else: 1
+
+    conn
+    |> Plug.Conn.put_resp_cookie("counter", to_string(next))
+    |> assign(:params, counter: current)
+    |> render("record_updated.html")
+  end
 end
