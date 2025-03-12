@@ -382,7 +382,6 @@ defmodule PhoenixTest.Playwright do
   to the cookie.
 
   The `session_options` are exactly the same as the opts used when
-  The `session_options` are exactly the same as the opts used when
   writing `plug Plug.Session` in your router/endpoint module.
   """
   def add_session_cookie(session, cookie, session_options) do
