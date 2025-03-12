@@ -802,7 +802,6 @@ defmodule PhoenixTest.PlaywrightTest do
 
       cookie = %{
         url: Application.fetch_env!(:phoenix_test, :base_url),
-        name: session_options[:key],
         value: %{secret: "mighty_boosh"}
       }
 

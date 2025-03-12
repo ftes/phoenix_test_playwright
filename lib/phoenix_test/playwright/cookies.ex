@@ -53,7 +53,8 @@ defmodule PhoenixTest.Playwright.Cookies do
   end
 
   def to_session_params_map(cookie, session_options) do
-    Map.update(cookie, :value, "", fn value ->
+cookie
+    |> Map.update(:value, "", fn value ->
       otp_app = Application.get_env(:phoenix_test, :otp_app)
       endpoint = Application.get_env(:phoenix_test, :endpoint)
       secret_key_base = Application.get_env(otp_app, endpoint)[:secret_key_base]
@@ -74,6 +75,7 @@ defmodule PhoenixTest.Playwright.Cookies do
       |> Map.get(:cookies)
       |> Map.get(session_options[:key])
     end)
+    |> Map.update(:name, session_options[:key], & &1)
   end
 end
 
