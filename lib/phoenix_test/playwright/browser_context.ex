@@ -21,7 +21,9 @@ defmodule PhoenixTest.Playwright.BrowserContext do
   end
 
   @doc """
-  Add cookies to the browser context, useful for emulating a logged-in user.
+  Add cookies to the browser context.
+
+  See `PhoenixTest.Playwright.Cookies` for the "shape" of the cookie map.
   """
   def add_cookies(context_id, cookies) do
     cookies = Enum.map(cookies, &Cookies.to_params_map/1)
