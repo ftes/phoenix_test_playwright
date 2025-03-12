@@ -377,6 +377,11 @@ defmodule PhoenixTest.Playwright do
 
   This is useful for emulating a logged-in user.
 
+  Note that that the cookie `:value` must be a map, since we are using
+  `Plug.Conn.put_session/3` to write each of value's key-value pairs
+  to the cookie.
+
+  The `session_options` are exactly the same as the opts used when
   The `session_options` are exactly the same as the opts used when
   writing `plug Plug.Session` in your router/endpoint module.
   """

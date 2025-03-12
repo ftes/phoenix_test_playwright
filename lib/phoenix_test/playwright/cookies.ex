@@ -19,9 +19,12 @@ defmodule PhoenixTest.Playwright.Cookies do
   | `:same_site` | `binary()`  | *(optional)* one of "Strict", "Lax", "None" |
   """
 
+  alias Plug.Conn
+  alias Plug.Session
+
   @type cookie :: %{
           :name => binary(),
-          :value => binary(),
+          :value => binary() | map(),
           :url => binary(),
           :domain => binary(),
           :path => binary(),
@@ -32,7 +35,7 @@ defmodule PhoenixTest.Playwright.Cookies do
         }
 
   @doc """
-  Converts the atom-keyed cookie map into a string-keyed map suitable for posting
+  Converts the cookie map into a string-keyed map suitable for posting
   """
   def to_params_map(cookie) do
     Map.update(cookie, :value, "", fn value ->
@@ -46,12 +49,15 @@ defmodule PhoenixTest.Playwright.Cookies do
         |> Map.to_list()
 
       plug_cookie =
-        Plug.Conn.put_resp_cookie(%Plug.Conn{secret_key_base: secret_key_base}, to_string(cookie.name), value, opts)
+        Conn.put_resp_cookie(%Conn{secret_key_base: secret_key_base}, to_string(cookie.name), value, opts)
 
       plug_cookie.resp_cookies[cookie.name].value
     end)
   end
 
+  @doc """
+  Converts the session cookie map (with value that is also a map) into a string-keyed map suitable for posting
+  """
   def to_session_params_map(cookie, session_options) do
     cookie
     |> Map.update(:value, "", fn value ->
@@ -59,19 +65,19 @@ defmodule PhoenixTest.Playwright.Cookies do
       endpoint = Application.get_env(:phoenix_test, :endpoint)
       secret_key_base = Application.get_env(otp_app, endpoint)[:secret_key_base]
 
-      %Plug.Conn{secret_key_base: secret_key_base, owner: self()}
-      |> Plug.Session.call(Plug.Session.init(session_options))
-      |> Plug.Conn.fetch_session()
+      %Conn{secret_key_base: secret_key_base, owner: self()}
+      |> Session.call(Session.init(session_options))
+      |> Conn.fetch_session()
       |> then(fn conn ->
         Enum.reduce(value, conn, fn {key, val}, conn ->
-          Plug.Conn.put_session(conn, key, val)
+          Conn.put_session(conn, key, val)
         end)
       end)
-      |> Plug.Conn.fetch_cookies(signed: [session_options[:key]])
+      |> Conn.fetch_cookies(signed: [session_options[:key]])
       |> Map.update!(:adapter, fn {_adapter, nil} ->
         {PhoenixTest.Playwright.Cookies.PseudoAdapter, nil}
       end)
-      |> Plug.Conn.send_resp(200, "")
+      |> Conn.send_resp(200, "")
       |> Map.get(:cookies)
       |> Map.get(session_options[:key])
     end)

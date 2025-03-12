@@ -28,6 +28,18 @@ defmodule PhoenixTest.Playwright.BrowserContext do
     post(guid: context_id, method: :add_cookies, params: %{cookies: cookies})
   end
 
+  @doc """
+  Add a `Plug.Session` cookie to the browser context.
+
+  This is useful for emulating a logged-in user.
+
+  Note that that the cookie `:value` must be a map, since we are using
+  `Plug.Conn.put_session/3` to write each of value's key-value pairs
+  to the cookie.
+
+  The `session_options` are exactly the same as the opts used when
+  writing `plug Plug.Session` in your router/endpoint module.
+  """
   def add_session_cookie(context_id, cookie, session_options) do
     cookie = Cookies.to_session_params_map(cookie, session_options)
     post(guid: context_id, method: :add_cookies, params: %{cookies: [cookie]})
