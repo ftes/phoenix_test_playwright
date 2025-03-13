@@ -31,6 +31,13 @@ defmodule PhoenixTest.Playwright.BrowserContext do
   end
 
   @doc """
+  Removes all cookies from the context
+  """
+  def clear_cookies(context_id) do
+    post(guid: context_id, method: :clear_cookies, params: %{})
+  end
+
+  @doc """
   Start tracing. The results can be retrieved via `stop_tracing/2`.
   """
   def start_tracing(context_id, opts \\ []) do

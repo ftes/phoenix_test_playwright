@@ -375,6 +375,13 @@ defmodule PhoenixTest.Playwright do
   end
 
   @doc """
+  Removes all cookies from the context
+  """
+  def clear_cookies(session) do
+    tap(session, &BrowserContext.clear_cookies(&1.context_id))
+  end
+
+  @doc """
   Add a `Plug.Session` cookie to the browser context.
 
   This is useful for emulating a logged-in user.

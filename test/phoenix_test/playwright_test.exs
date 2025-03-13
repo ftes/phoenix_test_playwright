@@ -835,7 +835,7 @@ defmodule PhoenixTest.PlaywrightTest do
       |> Playwright.add_session_cookie(session_cookie, session_options)
       |> visit("/page/cookie_count")
       |> assert_has("h1", text: "Cookie count: 4")
-      |> Playwright.clear_cookies(cookie, session_options)
+      |> Playwright.clear_cookies()
       |> visit("/page/cookie_count")
       |> assert_has("h1", text: "Cookie count: 0")
     end
