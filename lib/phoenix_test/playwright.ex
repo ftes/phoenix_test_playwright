@@ -312,7 +312,7 @@ defmodule PhoenixTest.Playwright do
   alias PhoenixTest.Playwright.BrowserContext
   alias PhoenixTest.Playwright.Config
   alias PhoenixTest.Playwright.Connection
-  alias PhoenixTest.Playwright.Cookies
+  alias PhoenixTest.Playwright.CookieArgs
   alias PhoenixTest.Playwright.Frame
   alias PhoenixTest.Playwright.Page
   alias PhoenixTest.Playwright.Selector
@@ -368,7 +368,7 @@ defmodule PhoenixTest.Playwright do
   As such, this function is not appropriate for signed `Plug.Session` cookies.
   For signed session cookies, use `add_session_cookie/3`
 
-  See `PhoenixTest.Playwright.Cookies` for the type of the cookie.
+  See `PhoenixTest.Playwright.CookieArgs` for the type of the cookie.
   """
   def add_cookies(session, cookies) do
     tap(session, &BrowserContext.add_cookies(&1.context_id, cookies))
@@ -388,7 +388,7 @@ defmodule PhoenixTest.Playwright do
   """
   def add_session_cookie(session, cookie, session_options) do
     tap(session, fn session ->
-      cookie = Cookies.to_session_params_map(cookie, session_options)
+      cookie = CookieArgs.from_session_options(cookie, session_options)
       post(guid: session.context_id, method: :add_cookies, params: %{cookies: [cookie]})
     end)
   end

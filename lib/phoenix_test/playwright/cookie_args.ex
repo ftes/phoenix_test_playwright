@@ -1,4 +1,4 @@
-defmodule PhoenixTest.Playwright.Cookies do
+defmodule PhoenixTest.Playwright.CookieArgs do
   @moduledoc """
   Functions to assist with adding cookies to the browser context
 
@@ -65,10 +65,26 @@ defmodule PhoenixTest.Playwright.Cookies do
   @doc """
   Converts the cookie kw list into a map suitable for posting
   """
-  @spec to_params_map(cookie()) :: playwright_cookie_args()
-  def to_params_map(cookie) do
+  @spec from_cookie(cookie()) :: playwright_cookie_args()
+  def from_cookie(cookie) do
     cookie
-    |> Keyword.update(:value, "", fn value ->
+    |> ensure_value_is_valid_plug_conn_cookie()
+    |> plug_cookie_fields_to_playwright_cookie_fields()
+  end
+
+  @doc """
+  Converts the session cookie kw list (with value that is a map) into a map suitable for posting
+  """
+  @spec from_session_options(cookie(), Keyword.t()) :: playwright_cookie_args()
+  def from_session_options(cookie, session_options) do
+    cookie
+    |> ensure_value_is_valid_session_cookie(session_options)
+    |> ensure_session_cookie_name(session_options)
+    |> plug_cookie_fields_to_playwright_cookie_fields()
+  end
+
+  defp ensure_value_is_valid_plug_conn_cookie(cookie) do
+    Keyword.update(cookie, :value, "", fn value ->
       otp_app = Application.get_env(:phoenix_test, :otp_app)
       endpoint = Application.get_env(:phoenix_test, :endpoint)
       secret_key_base = Application.get_env(otp_app, endpoint)[:secret_key_base]
@@ -81,16 +97,10 @@ defmodule PhoenixTest.Playwright.Cookies do
 
       plug_cookie.resp_cookies[name].value
     end)
-    |> plug_cookie_fields_to_playwright_cookie_fields()
   end
 
-  @doc """
-  Converts the session cookie kw list (with value that is a map) into a map suitable for posting
-  """
-  @spec to_session_params_map(cookie(), Keyword.t()) :: playwright_cookie_args()
-  def to_session_params_map(cookie, session_options) do
-    cookie
-    |> Keyword.update(:value, "", fn value ->
+  defp ensure_value_is_valid_session_cookie(cookie, session_options) do
+    Keyword.update(cookie, :value, "", fn value ->
       otp_app = Application.get_env(:phoenix_test, :otp_app)
       endpoint = Application.get_env(:phoenix_test, :endpoint)
       secret_key_base = Application.get_env(otp_app, endpoint)[:secret_key_base]
@@ -105,14 +115,16 @@ defmodule PhoenixTest.Playwright.Cookies do
       end)
       |> Conn.fetch_cookies(signed: [session_options[:key]])
       |> Map.update!(:adapter, fn {_adapter, nil} ->
-        {PhoenixTest.Playwright.Cookies.PseudoAdapter, nil}
+        {PhoenixTest.Playwright.CookieArgs.PseudoAdapter, nil}
       end)
       |> Conn.send_resp(200, "")
       |> Map.get(:cookies)
       |> Map.get(session_options[:key])
     end)
-    |> Keyword.put_new(:name, session_options[:key])
-    |> plug_cookie_fields_to_playwright_cookie_fields()
+  end
+
+  defp ensure_session_cookie_name(cookie, session_options) do
+    Keyword.put_new(cookie, :name, session_options[:key])
   end
 
   defp plug_cookie_fields_to_playwright_cookie_fields(cookie) do
@@ -132,7 +144,7 @@ defmodule PhoenixTest.Playwright.Cookies do
   end
 end
 
-defmodule PhoenixTest.Playwright.Cookies.PseudoAdapter do
+defmodule PhoenixTest.Playwright.CookieArgs.PseudoAdapter do
   @moduledoc false
   def send_resp(_, _, _, _) do
     {:ok, "", ""}
