@@ -101,25 +101,36 @@ defmodule PhoenixTest.Playwright.CookieArgs do
 
   defp ensure_value_is_valid_session_cookie(cookie, session_options) do
     Keyword.update(cookie, :value, "", fn value ->
-      otp_app = Application.get_env(:phoenix_test, :otp_app)
-      endpoint = Application.get_env(:phoenix_test, :endpoint)
-      secret_key_base = Application.get_env(otp_app, endpoint)[:secret_key_base]
+      name = session_options[:key]
+      %Conn{cookies: %{^name => cookie_value}} = build_pseudo_conn_with_session(value, session_options)
+      cookie_value
+    end)
+  end
 
-      %Conn{secret_key_base: secret_key_base, owner: self()}
-      |> Session.call(Session.init(session_options))
-      |> Conn.fetch_session()
-      |> then(fn conn ->
-        Enum.reduce(value, conn, fn {key, val}, conn ->
-          Conn.put_session(conn, key, val)
-        end)
-      end)
-      |> Conn.fetch_cookies(signed: [session_options[:key]])
-      |> Map.update!(:adapter, fn {_adapter, nil} ->
-        {PhoenixTest.Playwright.CookieArgs.PseudoAdapter, nil}
-      end)
-      |> Conn.send_resp(200, "")
-      |> Map.get(:cookies)
-      |> Map.get(session_options[:key])
+  defp build_pseudo_conn_with_session(value, session_options) do
+    otp_app = Application.get_env(:phoenix_test, :otp_app)
+    endpoint = Application.get_env(:phoenix_test, :endpoint)
+    secret_key_base = Application.get_env(otp_app, endpoint)[:secret_key_base]
+    name = session_options[:key]
+
+    %Conn{secret_key_base: secret_key_base, owner: self()}
+    |> Session.call(Session.init(session_options))
+    |> Conn.fetch_session()
+    |> put_map_value_in_session(value)
+    |> Conn.fetch_cookies(signed: [name])
+    |> use_pseudo_adapter()
+    |> Conn.send_resp(200, "")
+  end
+
+  defp put_map_value_in_session(plug_conn, value) do
+    Enum.reduce(value, plug_conn, fn {key, val}, plug_conn ->
+      Conn.put_session(plug_conn, key, val)
+    end)
+  end
+
+  defp use_pseudo_adapter(plug_conn) do
+    Map.update!(plug_conn, :adapter, fn {_adapter, nil} ->
+      {PhoenixTest.Playwright.CookieArgs.PseudoAdapter, nil}
     end)
   end
 
