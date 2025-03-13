@@ -81,7 +81,7 @@ defmodule PhoenixTest.Playwright.Cookies do
       |> Map.get(:cookies)
       |> Map.get(session_options[:key])
     end)
-    |> Map.update(:name, session_options[:key], & &1)
+    |> Map.put_new(:name, session_options[:key])
   end
 end
 
