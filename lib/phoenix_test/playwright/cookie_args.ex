@@ -117,7 +117,7 @@ defmodule PhoenixTest.Playwright.CookieArgs do
     |> Session.call(Session.init(session_options))
     |> Conn.fetch_session()
     |> put_map_value_in_session(value)
-    |> Conn.fetch_cookies(signed: [name])
+    |> Conn.fetch_cookies(signed: [name], encrypted: [name])
     |> use_pseudo_adapter()
     |> Conn.send_resp(200, "")
   end
