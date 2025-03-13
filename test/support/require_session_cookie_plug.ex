@@ -15,7 +15,7 @@ defmodule PhoenixTest.Plugs.RequireSessionCookiePlug do
   end
 
   defp ensure_correct(conn) do
-    if get_session(conn, :secret) == "mighty_boosh" do
+    if get_session(conn, :secret) == "monty_python" do
       conn
     else
       conn

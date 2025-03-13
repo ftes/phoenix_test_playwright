@@ -2,7 +2,7 @@ defmodule PhoenixTest.Playwright.Cookies do
   @moduledoc """
   Functions to assist with adding cookies to the browser context
 
-  Note that a cookie's value must be a binary unless the cookie is signed/encrypted
+  A cookie's value must be a binary unless the cookie is signed/encrypted
 
   ## Cookie fields
 
@@ -13,54 +13,84 @@ defmodule PhoenixTest.Playwright.Cookies do
   | `:url`       | `binary()`  | *(optional)* either url or domain / path are required |
   | `:domain`    | `binary()`  | *(optional)* either url or domain / path are required |
   | `:path`      | `binary()`  | *(optional)* either url or domain / path are required |
-  | `:expires`   | `float()`   | *(optional)* Unix time in seconds. |
+  | `:max_age`   | `float()`   | *(optional)* The cookie max age, in seconds. |
   | `:http_only` | `boolean()` | *(optional)* |
   | `:secure`    | `boolean()` | *(optional)* |
+  | `:encrypt`   | `boolean()` | *(optional)* |
+  | `:sign`      | `boolean()` | *(optional)* |
   | `:same_site` | `binary()`  | *(optional)* one of "Strict", "Lax", "None" |
+
+  Two of the cookie fields mean nothing to Playwright. These are:
+
+  1. `:encrypt`
+  2. `:sign`
+
+  The `:max_age` cookie field means the same thing as documented in `Plug.Conn.put_resp_cookie/4`.
+  The `:max_age` value is used to infer the correct `expires` value that Playwright requires.
+
+  See https://playwright.dev/docs/api/class-browsercontext#browser-context-add-cookies
   """
 
   alias Plug.Conn
   alias Plug.Session
 
-  @type cookie :: %{
+  @type cookie :: [
+          {:domain, binary()}
+          | {:encrypt, boolean()}
+          | {:http_only, boolean()}
+          | {:max_age, integer()}
+          | {:name, binary()}
+          | {:path, binary()}
+          | {:same_site, binary()}
+          | {:secure, boolean()}
+          | {:sign, boolean()}
+          | {:url, binary()}
+          | {:value, binary() | map()}
+        ]
+
+  @type playwright_cookie_args :: %{
           :name => binary(),
-          :value => binary() | map(),
-          :url => binary(),
-          :domain => binary(),
-          :path => binary(),
-          :expires => float(),
-          :http_only => boolean(),
-          :secure => boolean(),
-          :same_site => binary()
+          :value => binary(),
+          optional(:domain) => binary(),
+          optional(:expires) => integer(),
+          optional(:http_only) => binary(),
+          optional(:path) => binary(),
+          optional(:same_site) => binary(),
+          optional(:secure) => binary(),
+          optional(:url) => binary()
         }
 
+  @playwright_cookie_fields [:domain, :expires, :http_only, :name, :path, :same_site, :secure, :url, :value]
+
   @doc """
-  Converts the cookie map into a string-keyed map suitable for posting
+  Converts the cookie kw list into a map suitable for posting
   """
+  @spec to_params_map(cookie()) :: playwright_cookie_args()
   def to_params_map(cookie) do
-    Map.update(cookie, :value, "", fn value ->
+    cookie
+    |> Keyword.update(:value, "", fn value ->
       otp_app = Application.get_env(:phoenix_test, :otp_app)
       endpoint = Application.get_env(:phoenix_test, :endpoint)
       secret_key_base = Application.get_env(otp_app, endpoint)[:secret_key_base]
 
-      opts =
-        cookie
-        |> Map.take([:domain, :max_age, :path, :http_only, :secure, :extra, :sign, :encrypt, :same_site])
-        |> Map.to_list()
+      opts = Keyword.take(cookie, [:domain, :encrypt, :extra, :http_only, :max_age, :path, :secure, :sign, :same_site])
+      name = cookie[:name]
 
       plug_cookie =
-        Conn.put_resp_cookie(%Conn{secret_key_base: secret_key_base}, to_string(cookie.name), value, opts)
+        Conn.put_resp_cookie(%Conn{secret_key_base: secret_key_base}, name, value, opts)
 
-      plug_cookie.resp_cookies[cookie.name].value
+      plug_cookie.resp_cookies[name].value
     end)
+    |> plug_cookie_fields_to_playwright_cookie_fields()
   end
 
   @doc """
-  Converts the session cookie map (with value that is also a map) into a string-keyed map suitable for posting
+  Converts the session cookie kw list (with value that is a map) into a map suitable for posting
   """
+  @spec to_session_params_map(cookie(), Keyword.t()) :: playwright_cookie_args()
   def to_session_params_map(cookie, session_options) do
     cookie
-    |> Map.update(:value, "", fn value ->
+    |> Keyword.update(:value, "", fn value ->
       otp_app = Application.get_env(:phoenix_test, :otp_app)
       endpoint = Application.get_env(:phoenix_test, :endpoint)
       secret_key_base = Application.get_env(otp_app, endpoint)[:secret_key_base]
@@ -81,7 +111,24 @@ defmodule PhoenixTest.Playwright.Cookies do
       |> Map.get(:cookies)
       |> Map.get(session_options[:key])
     end)
-    |> Map.put_new(:name, session_options[:key])
+    |> Keyword.put_new(:name, session_options[:key])
+    |> plug_cookie_fields_to_playwright_cookie_fields()
+  end
+
+  defp plug_cookie_fields_to_playwright_cookie_fields(cookie) do
+    cookie
+    |> put_expires_if_max_age()
+    |> Keyword.take(@playwright_cookie_fields)
+    |> Map.new()
+  end
+
+  defp put_expires_if_max_age(cookie) do
+    if max_age = Keyword.get(cookie, :max_age) do
+      expires = DateTime.utc_now() |> DateTime.add(max_age) |> DateTime.to_unix()
+      Keyword.put(cookie, :expires, expires)
+    else
+      cookie
+    end
   end
 end
 

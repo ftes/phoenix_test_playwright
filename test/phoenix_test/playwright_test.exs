@@ -777,12 +777,11 @@ defmodule PhoenixTest.PlaywrightTest do
         cookie =
           cookie_flavor
           |> RequireCookiePlug.cookie_options()
-          |> Map.new()
-          |> Map.merge(%{
+          |> Keyword.merge(
             url: Application.fetch_env!(:phoenix_test, :base_url),
             name: RequireCookiePlug.cookie_name(cookie_flavor),
             value: RequireCookiePlug.valid_cookie_value(cookie_flavor)
-          })
+          )
 
         conn
         |> Playwright.add_cookies([cookie])
@@ -800,10 +799,10 @@ defmodule PhoenixTest.PlaywrightTest do
 
       session_options = SessionOptions.session_options()
 
-      cookie = %{
+      cookie = [
         url: Application.fetch_env!(:phoenix_test, :base_url),
-        value: %{secret: "mighty_boosh"}
-      }
+        value: %{secret: "monty_python"}
+      ]
 
       conn
       |> Playwright.add_session_cookie(cookie, session_options)
