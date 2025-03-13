@@ -3,7 +3,7 @@ defmodule PhoenixTest.PlaywrightTest do
 
   alias ExUnit.AssertionError
   alias PhoenixTest.Playwright
-  alias PhoenixTest.Plugs.RequireCookiePlug
+  alias PhoenixTest.Playwright.CookieTestUtils
   alias PhoenixTest.SessionOptions
 
   describe "visit/2" do
@@ -773,14 +773,7 @@ defmodule PhoenixTest.PlaywrightTest do
         |> visit("/live/cookie_protected")
         |> refute_has("[data-role='title']")
 
-        cookie =
-          cookie_flavor
-          |> RequireCookiePlug.cookie_options()
-          |> Keyword.merge(
-            url: Application.fetch_env!(:phoenix_test, :base_url),
-            name: RequireCookiePlug.cookie_name(cookie_flavor),
-            value: RequireCookiePlug.valid_cookie_value(cookie_flavor)
-          )
+        cookie = CookieTestUtils.example_cookie(cookie_flavor)
 
         conn
         |> Playwright.add_cookies([cookie])
@@ -796,15 +789,11 @@ defmodule PhoenixTest.PlaywrightTest do
       |> visit("/live/session_protected")
       |> refute_has("[data-role='title']")
 
+      cookie = CookieTestUtils.example_session_cookie()
       session_options = SessionOptions.session_options()
 
-      session_cookie = [
-        url: Application.fetch_env!(:phoenix_test, :base_url),
-        value: %{secret: "monty_python"}
-      ]
-
       conn
-      |> Playwright.add_session_cookie(session_cookie, session_options)
+      |> Playwright.add_session_cookie(cookie, session_options)
       |> visit("/live/session_protected")
       |> assert_has("[data-role='title']")
     end
@@ -812,23 +801,9 @@ defmodule PhoenixTest.PlaywrightTest do
 
   describe "clear_cookies/2" do
     test "removes all cookies", %{conn: conn} do
-      cookies =
-        Enum.map([:encrypted, :signed, :plain], fn cookie_flavor ->
-          cookie_flavor
-          |> RequireCookiePlug.cookie_options()
-          |> Keyword.merge(
-            url: Application.fetch_env!(:phoenix_test, :base_url),
-            name: RequireCookiePlug.cookie_name(cookie_flavor),
-            value: RequireCookiePlug.valid_cookie_value(cookie_flavor)
-          )
-        end)
-
+      cookies = Enum.map([:encrypted, :signed, :plain], &CookieTestUtils.example_cookie/1)
+      session_cookie = CookieTestUtils.example_session_cookie()
       session_options = SessionOptions.session_options()
-
-      session_cookie = [
-        url: Application.fetch_env!(:phoenix_test, :base_url),
-        value: %{secret: "monty_python"}
-      ]
 
       conn
       |> Playwright.add_cookies(cookies)
