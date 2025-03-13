@@ -441,6 +441,12 @@ defmodule PhoenixTest.PageView do
     """
   end
 
+  def render("cookie_count.html", assigns) do
+    ~H"""
+    <h1>Cookie count: {@count}</h1>
+    """
+  end
+
   def render("unauthorized.html", assigns) do
     ~H"""
     <h1>Unauthorized</h1>

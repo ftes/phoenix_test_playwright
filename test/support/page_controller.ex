@@ -46,4 +46,10 @@ defmodule PhoenixTest.PageController do
     |> put_status(:unauthorized)
     |> render("unauthorized.html")
   end
+
+  def cookie_count(conn, _) do
+    conn
+    |> assign(:count, Enum.count(conn.cookies))
+    |> render("cookie_count.html")
+  end
 end

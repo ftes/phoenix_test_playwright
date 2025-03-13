@@ -3,6 +3,7 @@ defmodule PhoenixTest.PlaywrightTest do
 
   alias ExUnit.AssertionError
   alias PhoenixTest.Playwright
+  alias PhoenixTest.Plugs.RequireCookiePlug
   alias PhoenixTest.SessionOptions
 
   describe "visit/2" do
@@ -764,8 +765,6 @@ defmodule PhoenixTest.PlaywrightTest do
   end
 
   describe "add_cookies/2" do
-    alias PhoenixTest.Plugs.RequireCookiePlug
-
     for cookie_flavor <- [:encrypted, :signed, :plain] do
       test "puts a #{cookie_flavor} cookie on the Conn", %{conn: conn} do
         cookie_flavor = unquote(cookie_flavor)
@@ -799,15 +798,46 @@ defmodule PhoenixTest.PlaywrightTest do
 
       session_options = SessionOptions.session_options()
 
-      cookie = [
+      session_cookie = [
         url: Application.fetch_env!(:phoenix_test, :base_url),
         value: %{secret: "monty_python"}
       ]
 
       conn
-      |> Playwright.add_session_cookie(cookie, session_options)
+      |> Playwright.add_session_cookie(session_cookie, session_options)
       |> visit("/live/session_protected")
       |> assert_has("[data-role='title']")
+    end
+  end
+
+  describe "clear_cookies/2" do
+    test "removes all cookies", %{conn: conn} do
+      cookies =
+        Enum.map([:encrypted, :signed, :plain], fn cookie_flavor ->
+          cookie_flavor
+          |> RequireCookiePlug.cookie_options()
+          |> Keyword.merge(
+            url: Application.fetch_env!(:phoenix_test, :base_url),
+            name: RequireCookiePlug.cookie_name(cookie_flavor),
+            value: RequireCookiePlug.valid_cookie_value(cookie_flavor)
+          )
+        end)
+
+      session_options = SessionOptions.session_options()
+
+      session_cookie = [
+        url: Application.fetch_env!(:phoenix_test, :base_url),
+        value: %{secret: "monty_python"}
+      ]
+
+      conn
+      |> Playwright.add_cookies(cookies)
+      |> Playwright.add_session_cookie(session_cookie, session_options)
+      |> visit("/page/cookie_count")
+      |> assert_has("h1", text: "Cookie count: 4")
+      |> Playwright.clear_cookies(cookie, session_options)
+      |> visit("/page/cookie_count")
+      |> assert_has("h1", text: "Cookie count: 0")
     end
   end
 end
