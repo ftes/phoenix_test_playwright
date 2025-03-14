@@ -33,8 +33,9 @@ defmodule PhoenixTest.Playwright.BrowserContext do
   @doc """
   Removes all cookies from the context
   """
-  def clear_cookies(context_id) do
-    post(guid: context_id, method: :clear_cookies, params: %{})
+  def clear_cookies(context_id, opts \\ []) do
+    opts = Keyword.validate!(opts, ~w(domain name path)a)
+    post(guid: context_id, method: :clear_cookies, params: Map.new(opts))
   end
 
   @doc """
