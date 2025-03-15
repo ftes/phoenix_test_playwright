@@ -783,7 +783,7 @@ defmodule PhoenixTest.PlaywrightTest do
       |> assert_has("#form-data", text: "name: 42")
     end
 
-    test "sets an signed cookie", %{conn: conn} do
+    test "sets a signed cookie", %{conn: conn} do
       conn
       |> add_cookies([[name: "name", value: "42", sign: true]])
       |> visit("/page/cookies?signed[]=")
