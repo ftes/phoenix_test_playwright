@@ -47,9 +47,16 @@ defmodule PhoenixTest.PageController do
     |> render("unauthorized.html")
   end
 
-  def cookie_count(conn, _) do
+  def cookies(conn, params) do
     conn
-    |> assign(:count, Enum.count(conn.cookies))
-    |> render("cookie_count.html")
+    |> fetch_cookies(encrypted: params["encrypted"] || [], signed: params["signed"] || [])
+    |> then(&assign(&1, :params, &1.cookies))
+    |> render("record_created.html")
+  end
+
+  def session(conn, _) do
+    conn
+    |> assign(:params, get_session(conn))
+    |> render("record_created.html")
   end
 end

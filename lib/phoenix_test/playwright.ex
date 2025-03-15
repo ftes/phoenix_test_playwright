@@ -377,8 +377,8 @@ defmodule PhoenixTest.Playwright do
   @doc """
   Removes all cookies from the context
   """
-  def clear_cookies(session) do
-    tap(session, &BrowserContext.clear_cookies(&1.context_id))
+  def clear_cookies(session, opts \\ []) do
+    tap(session, &BrowserContext.clear_cookies(&1.context_id, opts))
   end
 
   @doc """

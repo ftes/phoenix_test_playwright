@@ -2,19 +2,30 @@ defmodule PhoenixTest.Playwright.CookieArgsTest do
   use ExUnit.Case
 
   alias PhoenixTest.Playwright.CookieArgs
-  alias PhoenixTest.Playwright.CookieTestUtils
-  alias PhoenixTest.SessionOptions
 
-  describe "from_cookie/1" do
-    test "returns a map of valid args for Playwright's addCookies method" do
-      cookie = CookieTestUtils.example_cookie(:plain)
+  describe("from_cookie/1") do
+    test "adds default url" do
+      cookie = [name: "name", value: "42"]
+
+      assert CookieArgs.from_cookie(cookie) == %{name: "name", value: "42", url: "http://localhost:4002"}
+    end
+
+    test "allows overriding values" do
+      cookie = [
+        name: "name",
+        value: "42",
+        url: "http://localhost:4002/path",
+        same_site: "Lax",
+        http_only: true,
+        secure: true
+      ]
 
       assert CookieArgs.from_cookie(cookie) == %{
-               name: "plain_cookie",
-               value: "the secret is mighty_boosh",
-               url: "http://localhost:4002",
-               secure: false,
-               http_only: false,
+               name: "name",
+               value: "42",
+               url: "http://localhost:4002/path",
+               secure: true,
+               http_only: true,
                same_site: "Lax"
              }
     end
@@ -22,8 +33,8 @@ defmodule PhoenixTest.Playwright.CookieArgsTest do
 
   describe "from_session_options/1" do
     test "returns a map of valid args for Playwright's addCookies method" do
-      cookie = CookieTestUtils.example_session_cookie()
-      session_options = SessionOptions.session_options()
+      cookie = [value: %{secret: "monty_python"}]
+      session_options = PhoenixTest.Endpoint.session_options()
 
       assert CookieArgs.from_session_options(cookie, session_options) == %{
                name: "_phoenix_test_key",

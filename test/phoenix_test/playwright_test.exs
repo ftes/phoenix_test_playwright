@@ -3,8 +3,6 @@ defmodule PhoenixTest.PlaywrightTest do
 
   alias ExUnit.AssertionError
   alias PhoenixTest.Playwright
-  alias PhoenixTest.Playwright.CookieTestUtils
-  alias PhoenixTest.SessionOptions
 
   describe "visit/2" do
     test "navigates to given LiveView page", %{conn: conn} do
@@ -765,54 +763,60 @@ defmodule PhoenixTest.PlaywrightTest do
   end
 
   describe "add_cookies/2" do
-    for cookie_flavor <- [:encrypted, :signed, :plain] do
-      test "puts a #{cookie_flavor} cookie on the Conn", %{conn: conn} do
-        cookie_flavor = unquote(cookie_flavor)
+    test "sets a plain cookie", %{conn: conn} do
+      conn
+      |> add_cookies([[name: "name", value: "42"]])
+      |> visit("/page/cookies")
+      |> assert_has("#form-data", text: "name: 42")
+    end
 
-        conn
-        |> visit("/live/cookie_protected")
-        |> refute_has("[data-role='title']")
+    test "sets an encrypted cookie", %{conn: conn} do
+      conn
+      |> add_cookies([[name: "name", value: "42", encrypt: true]])
+      |> visit("/page/cookies?encrypted[]=")
+      |> assert_has("#form-data", text: "name:")
+      |> refute_has("#form-data", text: "name: 42")
 
-        cookie = CookieTestUtils.example_cookie(cookie_flavor)
+      conn
+      |> add_cookies([[name: "name", value: "42", encrypt: true]])
+      |> visit("/page/cookies?encrypted[]=name")
+      |> assert_has("#form-data", text: "name: 42")
+    end
 
-        conn
-        |> Playwright.add_cookies([cookie])
-        |> visit("/live/cookie_protected")
-        |> assert_has("[data-role='title']")
-      end
+    test "sets an signed cookie", %{conn: conn} do
+      conn
+      |> add_cookies([[name: "name", value: "42", sign: true]])
+      |> visit("/page/cookies?signed[]=")
+      |> assert_has("#form-data", text: "name:")
+      |> refute_has("#form-data", text: "name: 42")
+
+      conn
+      |> add_cookies([[name: "name", value: "42", sign: true]])
+      |> visit("/page/cookies?signed[]=name")
+      |> assert_has("#form-data", text: "name: 42")
     end
   end
 
   describe "add_session_cookie/3" do
     test "puts a signed, encrypted cookie on the Conn", %{conn: conn} do
-      conn
-      |> visit("/live/session_protected")
-      |> refute_has("[data-role='title']")
-
-      cookie = CookieTestUtils.example_session_cookie()
-      session_options = SessionOptions.session_options()
+      cookie = [value: %{secret: "monty_python"}]
 
       conn
-      |> Playwright.add_session_cookie(cookie, session_options)
-      |> visit("/live/session_protected")
-      |> assert_has("[data-role='title']")
+      |> add_session_cookie(cookie, PhoenixTest.Endpoint.session_options())
+      |> visit("/page/session")
+      |> assert_has("#form-data", text: "secret: monty_python")
     end
   end
 
   describe "clear_cookies/2" do
     test "removes all cookies", %{conn: conn} do
-      cookies = Enum.map([:encrypted, :signed, :plain], &CookieTestUtils.example_cookie/1)
-      session_cookie = CookieTestUtils.example_session_cookie()
-      session_options = SessionOptions.session_options()
-
       conn
-      |> Playwright.add_cookies(cookies)
-      |> Playwright.add_session_cookie(session_cookie, session_options)
-      |> visit("/page/cookie_count")
-      |> assert_has("h1", text: "Cookie count: 4")
-      |> Playwright.clear_cookies()
-      |> visit("/page/cookie_count")
-      |> assert_has("h1", text: "Cookie count: 0")
+      |> add_cookies([[name: "name", value: "42"]])
+      |> visit("/page/cookies")
+      |> assert_has("#form-data", text: "name: 42")
+      |> clear_cookies()
+      |> visit("/page/cookies")
+      |> refute_has("#form-data", text: "name: 42")
     end
   end
 end

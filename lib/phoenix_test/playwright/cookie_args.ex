@@ -69,6 +69,7 @@ defmodule PhoenixTest.Playwright.CookieArgs do
   def from_cookie(cookie) do
     cookie
     |> ensure_value_is_valid_plug_conn_cookie()
+    |> ensure_url_or_domain_path()
     |> plug_cookie_fields_to_playwright_cookie_fields()
   end
 
@@ -80,6 +81,7 @@ defmodule PhoenixTest.Playwright.CookieArgs do
     cookie
     |> ensure_value_is_valid_session_cookie(session_options)
     |> ensure_session_cookie_name(session_options)
+    |> ensure_url_or_domain_path()
     |> plug_cookie_fields_to_playwright_cookie_fields()
   end
 
@@ -105,6 +107,14 @@ defmodule PhoenixTest.Playwright.CookieArgs do
       %Conn{cookies: %{^name => cookie_value}} = build_pseudo_conn_with_session(value, session_options)
       cookie_value
     end)
+  end
+
+  defp ensure_url_or_domain_path(cookie) do
+    cond do
+      cookie[:url] -> cookie
+      cookie[:domain] && cookie[:path] -> cookie
+      true -> Keyword.put(cookie, :url, Application.fetch_env!(:phoenix_test, :base_url))
+    end
   end
 
   defp build_pseudo_conn_with_session(value, session_options) do
