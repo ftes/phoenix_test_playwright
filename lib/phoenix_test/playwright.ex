@@ -306,7 +306,6 @@ defmodule PhoenixTest.Playwright do
   """
 
   import ExUnit.Assertions
-  import PhoenixTest.Playwright.Connection, only: [post: 1]
 
   alias PhoenixTest.OpenBrowser
   alias PhoenixTest.Playwright.BrowserContext
@@ -394,10 +393,8 @@ defmodule PhoenixTest.Playwright do
   writing `plug Plug.Session` in your router/endpoint module.
   """
   def add_session_cookie(session, cookie, session_options) do
-    tap(session, fn session ->
-      cookie = CookieArgs.from_session_options(cookie, session_options)
-      post(guid: session.context_id, method: :add_cookies, params: %{cookies: [cookie]})
-    end)
+    cookie = CookieArgs.from_session_options(cookie, session_options)
+    add_cookies(session, [cookie])
   end
 
   @screenshot_opts_schema [
