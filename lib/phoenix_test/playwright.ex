@@ -394,7 +394,7 @@ defmodule PhoenixTest.Playwright do
   """
   def add_session_cookie(session, cookie, session_options) do
     cookie = CookieArgs.from_session_options(cookie, session_options)
-    add_cookies(session, [cookie])
+    BrowserContext.post_cookies(session, [cookie])
   end
 
   @screenshot_opts_schema [

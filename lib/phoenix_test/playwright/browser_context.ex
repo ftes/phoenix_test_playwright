@@ -27,6 +27,11 @@ defmodule PhoenixTest.Playwright.BrowserContext do
   """
   def add_cookies(context_id, cookies) do
     cookies = Enum.map(cookies, &CookieArgs.from_cookie/1)
+    post_cookies(context_id, cookies)
+  end
+
+  @doc false
+  def post_cookies(context_id, cookies) do
     post(guid: context_id, method: :add_cookies, params: %{cookies: cookies})
   end
 
