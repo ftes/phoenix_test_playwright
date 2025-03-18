@@ -370,6 +370,7 @@ defmodule PhoenixTest.Playwright do
   See `PhoenixTest.Playwright.CookieArgs` for the type of the cookie.
   """
   def add_cookies(session, cookies) do
+    cookies = Enum.map(cookies, &CookieArgs.from_cookie/1)
     tap(session, &BrowserContext.add_cookies(&1.context_id, cookies))
   end
 
@@ -394,7 +395,7 @@ defmodule PhoenixTest.Playwright do
   """
   def add_session_cookie(session, cookie, session_options) do
     cookie = CookieArgs.from_session_options(cookie, session_options)
-    BrowserContext.post_cookies(session.context_id, [cookie])
+    tap(session, &BrowserContext.add_cookies(&1.context_id, [cookie]))
   end
 
   @screenshot_opts_schema [

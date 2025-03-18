@@ -10,8 +10,6 @@ defmodule PhoenixTest.Playwright.BrowserContext do
 
   import PhoenixTest.Playwright.Connection, only: [post: 1, initializer: 1]
 
-  alias PhoenixTest.Playwright.CookieArgs
-
   @doc """
   Open a new browser page and return its `guid`.
   """
@@ -20,18 +18,8 @@ defmodule PhoenixTest.Playwright.BrowserContext do
     resp.result.page.guid
   end
 
-  @doc """
-  Add cookies to the browser context.
-
-  See `PhoenixTest.Playwright.CookieArgs` for the "shape" of the cookie map.
-  """
-  def add_cookies(context_id, cookies) do
-    cookies = Enum.map(cookies, &CookieArgs.from_cookie/1)
-    post_cookies(context_id, cookies)
-  end
-
   @doc false
-  def post_cookies(context_id, cookies) do
+  def add_cookies(context_id, cookies) do
     post(guid: context_id, method: :add_cookies, params: %{cookies: cookies})
   end
 
