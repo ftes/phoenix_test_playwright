@@ -15,8 +15,10 @@ defmodule PhoenixTest.Playwright.Frame do
 
   def goto(frame_id, url) do
     params = %{url: url}
-    post(guid: frame_id, method: :goto, params: params)
-    :ok
+
+    [guid: frame_id, method: :goto, params: params]
+    |> post()
+    |> unwrap_response(& &1.result.response.guid)
   end
 
   def url(frame_id) do

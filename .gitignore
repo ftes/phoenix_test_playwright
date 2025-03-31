@@ -38,3 +38,4 @@ phoenix_test-*.tar
 .DS_STORE
 
 .envrc
+.elixir_ls

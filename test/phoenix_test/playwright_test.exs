@@ -10,6 +10,19 @@ defmodule PhoenixTest.PlaywrightTest do
       |> visit("/live/index")
       |> assert_has("h1", text: "LiveView main page")
     end
+
+    test "raises error if route doesn't exist", %{conn: conn} do
+      assert_raise ArgumentError, ~r/path doesn't exist/, fn ->
+        visit(conn, "/non_route")
+      end
+    end
+
+    # test "user can visit different pages sequentially", %{conn: conn} do
+    #   conn
+    #   |> visit("/live/page_2")
+    #   |> visit("/live/index")
+    #   |> assert_has("h1", text: "LiveView main page")
+    # end
   end
 
   describe "render_html/2" do

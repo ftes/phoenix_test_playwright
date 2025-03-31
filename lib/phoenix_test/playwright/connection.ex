@@ -59,7 +59,9 @@ defmodule PhoenixTest.Playwright.Connection do
   def launch_browser(type, opts) do
     types = initializer("Playwright")
     type_id = Map.fetch!(types, type).guid
-    timeout = opts[:browser_launch_timeout] || opts[:timeout] || Config.global(:browser_launch_timeout)
+
+    timeout =
+      opts[:browser_launch_timeout] || opts[:timeout] || Config.global(:browser_launch_timeout)
 
     params =
       opts
@@ -103,7 +105,12 @@ defmodule PhoenixTest.Playwright.Connection do
   """
   def post(msg, timeout \\ nil) do
     default = %{params: %{}, metadata: %{}}
-    msg = msg |> Enum.into(default) |> update_in(~w(params timeout)a, &(&1 || timeout || Config.global(:timeout)))
+
+    msg =
+      msg
+      |> Enum.into(default)
+      |> update_in(~w(params timeout)a, &(&1 || timeout || Config.global(:timeout)))
+
     call_timeout = max(@min_genserver_timeout, round(msg.params.timeout * @timeout_grace_factor))
     GenServer.call(@name, {:post, msg}, call_timeout)
   end

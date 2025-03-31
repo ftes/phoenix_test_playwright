@@ -357,7 +357,19 @@ defmodule PhoenixTest.Playwright do
         _ -> Application.fetch_env!(:phoenix_test, :base_url) <> path
       end
 
-    Frame.goto(session.frame_id, url)
+    {:ok, response_guid} = Frame.goto(session.frame_id, url)
+
+    case Connection.initializer(response_guid) do
+      nil ->
+        raise ArgumentError, "No response for #{path}"
+
+      %{status: code, status_text: text, url: url} when code >= 400 ->
+        raise ArgumentError, "Unexpected response #{code} #{text} for #{url}"
+
+      _ ->
+        :ok
+    end
+
     session
   end
 
@@ -424,7 +436,9 @@ defmodule PhoenixTest.Playwright do
       |> screenshot("my-screenshot.png")
       |> screenshot("my-test/my-screenshot.jpg")
   """
-  @spec screenshot(t(), String.t(), [unquote(NimbleOptions.option_typespec(@screenshot_opts_schema))]) :: t()
+  @spec screenshot(t(), String.t(), [
+          unquote(NimbleOptions.option_typespec(@screenshot_opts_schema))
+        ]) :: t()
   def screenshot(session, file_path, opts \\ []) do
     opts = NimbleOptions.validate!(opts, @screenshot_opts_schema)
 
@@ -439,7 +453,11 @@ defmodule PhoenixTest.Playwright do
   end
 
   @type_opts_schema [
-    delay: [type: :non_neg_integer, default: 0, doc: "Time to wait between key presses in milliseconds."]
+    delay: [
+      type: :non_neg_integer,
+      default: 0,
+      doc: "Time to wait between key presses in milliseconds."
+    ]
   ]
   @doc """
   Focuses the matching element and simulates user typing.
@@ -453,7 +471,9 @@ defmodule PhoenixTest.Playwright do
       |> type("#id", "some text")
       |> type(Selector.role("heading", "Untitled", exact: true), "New title")
   """
-  @spec type(t(), selector(), String.t(), [unquote(NimbleOptions.option_typespec(@type_opts_schema))]) :: t()
+  @spec type(t(), selector(), String.t(), [
+          unquote(NimbleOptions.option_typespec(@type_opts_schema))
+        ]) :: t()
   def type(session, selector, text, opts \\ []) when is_binary(text) do
     opts = NimbleOptions.validate!(opts, @type_opts_schema)
 
@@ -465,7 +485,11 @@ defmodule PhoenixTest.Playwright do
   end
 
   @press_opts_schema [
-    delay: [type: :non_neg_integer, default: 0, doc: "Time to wait between keydown and keyup in milliseconds."]
+    delay: [
+      type: :non_neg_integer,
+      default: 0,
+      doc: "Time to wait between keydown and keyup in milliseconds."
+    ]
   ]
   @doc """
   Focuses the matching element and presses a combination of the keyboard keys.
@@ -488,7 +512,9 @@ defmodule PhoenixTest.Playwright do
       |> press("#id", "Control+Shift+T")
       |> press(Selector.button("Submit", exact: true), "Enter")
   """
-  @spec press(t(), selector(), String.t(), [unquote(NimbleOptions.option_typespec(@press_opts_schema))]) :: t()
+  @spec press(t(), selector(), String.t(), [
+          unquote(NimbleOptions.option_typespec(@press_opts_schema))
+        ]) :: t()
   def press(session, selector, key, opts \\ []) when is_binary(key) do
     opts = NimbleOptions.validate!(opts, @press_opts_schema)
 
@@ -634,7 +660,9 @@ defmodule PhoenixTest.Playwright do
       |> click(Selector.menuitem("Edit", exact: true))
       |> click("summary", "(expand)", exact: false)
   """
-  @spec click(t(), selector(), String.t(), [unquote(NimbleOptions.option_typespec(@exact_opts_schema))]) :: t()
+  @spec click(t(), selector(), String.t(), [
+          unquote(NimbleOptions.option_typespec(@exact_opts_schema))
+        ]) :: t()
   def click(session, selector, text, opts \\ []) do
     opts = NimbleOptions.validate!(opts, @exact_opts_schema)
 
@@ -921,7 +949,10 @@ defimpl PhoenixTest.Driver, for: PhoenixTest.Playwright do
   defdelegate refute_has(session, selector, opts), to: Playwright
 
   def assert_path(session, path), do: retry(fn -> Assertions.assert_path(session, path) end)
+
   def assert_path(session, path, opts), do: retry(fn -> Assertions.assert_path(session, path, opts) end)
+
   def refute_path(session, path), do: retry(fn -> Assertions.refute_path(session, path) end)
+
   def refute_path(session, path, opts), do: retry(fn -> Assertions.refute_path(session, path, opts) end)
 end
