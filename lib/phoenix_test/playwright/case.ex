@@ -76,7 +76,10 @@ defmodule PhoenixTest.Playwright.Case do
     end
 
     def new_session(config, context) do
-      browser_context_opts = if ua = checkout_ecto_repos(context.async), do: %{user_agent: ua, locale: "en"}, else: %{}
+      browser_context_opts = %{
+        locale: "en",
+        user_agent: checkout_ecto_repos(context.async) || "No user agent"
+      }
       browser_context_id = Browser.new_context(context.browser_id, browser_context_opts)
       subscribe(browser_context_id)
 
