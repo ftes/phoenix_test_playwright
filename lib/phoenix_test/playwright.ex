@@ -380,6 +380,16 @@ defmodule PhoenixTest.Playwright do
   end
 
   @doc """
+  Simply lists all cookies. Note that this function does **not** return the session.
+
+  See https://playwright.dev/docs/api/class-browsercontext#browser-context-cookies
+  """
+  def list_cookies(session, urls \\ []) do
+    %{result: %{cookies: cookies}} = BrowserContext.cookies(session.context_id, urls)
+    cookies
+  end
+
+  @doc """
   Removes all cookies from the context
   """
   def clear_cookies(session, opts \\ []) do

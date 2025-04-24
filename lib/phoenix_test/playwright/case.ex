@@ -30,6 +30,8 @@ defmodule PhoenixTest.Playwright.Case do
           click: 4,
           click_button: 4,
           click_link: 4,
+          list_cookies: 1,
+          list_cookies: 2,
           press: 3,
           press: 4,
           screenshot: 2,

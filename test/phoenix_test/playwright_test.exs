@@ -815,6 +815,31 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
+  describe "list_cookies/1" do
+    test "returns an empty list when no cookies set", %{conn: conn} do
+      assert list_cookies(conn) == []
+    end
+
+    test "returns all set cookies, optionally filtering by url", %{conn: conn} do
+      subdomain_url = "http://custom.localhost"
+      other_domain_url = "http://not-localhost"
+
+      conn =
+        conn
+        |> add_cookies([[name: "name", value: "42"]])
+        |> add_cookies([[name: "sub", value: "7", url: subdomain_url]])
+        |> add_cookies([[name: "other", value: "6", url: other_domain_url]])
+
+      assert [
+               %{name: "name", value: "42"},
+               %{name: "sub", value: "7", domain: "custom.localhost"},
+               %{name: "other", value: "6", domain: "not-localhost"}
+             ] = list_cookies(conn)
+
+      assert [%{name: "other", value: "6", domain: "not-localhost"}] = list_cookies(conn, [other_domain_url])
+    end
+  end
+
   describe "add_session_cookie/3" do
     test "puts a signed, encrypted cookie on the Conn", %{conn: conn} do
       cookie = [value: %{secret: "monty_python"}]

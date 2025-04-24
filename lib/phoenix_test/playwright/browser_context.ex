@@ -23,6 +23,11 @@ defmodule PhoenixTest.Playwright.BrowserContext do
     post(guid: context_id, method: :add_cookies, params: %{cookies: cookies})
   end
 
+  @doc false
+  def cookies(context_id, urls) when is_list(urls) do
+    post(guid: context_id, method: :cookies, params: %{urls: urls})
+  end
+
   @doc """
   Removes all cookies from the context
   """
