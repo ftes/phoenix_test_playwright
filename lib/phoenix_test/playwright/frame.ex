@@ -139,7 +139,7 @@ defmodule PhoenixTest.Playwright.Frame do
   end
 
   def click(frame_id, selector, opts \\ []) do
-    params = %{selector: selector, wait_until: :load, strict: true}
+    params = %{selector: selector, strict: true}
     params = Enum.into(opts, params)
 
     [guid: frame_id, method: :click, params: params]

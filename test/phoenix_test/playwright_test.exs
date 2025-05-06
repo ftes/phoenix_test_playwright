@@ -3,6 +3,7 @@ defmodule PhoenixTest.PlaywrightTest do
 
   alias ExUnit.AssertionError
   alias PhoenixTest.Playwright
+  alias PhoenixTest.Playwright.Frame
 
   describe "visit/2" do
     test "navigates to given LiveView page", %{conn: conn} do
@@ -157,12 +158,40 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
-  describe "browser dialog" do
-    test "accepts dialog by default", %{conn: conn} do
+  describe "with_dialog/3" do
+    test "accepts dialog", %{conn: conn} do
       conn
       |> visit("/live/index")
-      |> click_link("Confirm to navigate")
-      |> assert_path("/live/page_2")
+      |> with_dialog(
+        fn %{message: "Are you sure?"} -> :accept end,
+        fn conn ->
+          conn
+          |> click_link("Confirm to navigate")
+          |> assert_path("/live/page_2")
+        end
+      )
+    end
+  end
+
+  describe "with_event_listener/3" do
+    test "forwards console log within inner function, but not before or after", %{conn: conn} do
+      test_process = self()
+
+      conn
+      |> visit("/live/index")
+      |> tap(&Frame.evaluate(&1.frame_id, "console.log('before')"))
+      |> with_event_listener(
+        &match?(%{method: :console}, &1),
+        &send(test_process, {:test_console, &1.params.text}),
+        fn conn ->
+          tap(conn, &Frame.evaluate(&1.frame_id, "console.log('within')"))
+        end
+      )
+      |> tap(&Frame.evaluate(&1.frame_id, "console.log('after')"))
+
+      refute_received({:test_console, "before"})
+      assert_received({:test_console, "within"})
+      refute_received({:test_console, "after"})
     end
   end
 

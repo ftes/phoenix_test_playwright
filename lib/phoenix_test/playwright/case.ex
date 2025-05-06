@@ -35,7 +35,9 @@ defmodule PhoenixTest.Playwright.Case do
           screenshot: 2,
           screenshot: 3,
           type: 3,
-          type: 4
+          type: 4,
+          with_dialog: 3,
+          with_event_listener: 4
         ]
 
       import PhoenixTest.Playwright.Case
@@ -82,7 +84,6 @@ defmodule PhoenixTest.Playwright.Case do
       }
 
       browser_context_id = Browser.new_context(context.browser_id, browser_context_opts)
-      subscribe(browser_context_id)
 
       page_id = BrowserContext.new_page(browser_context_id)
       Page.update_subscription(page_id, event: :console, enabled: true)

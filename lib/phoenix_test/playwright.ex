@@ -236,6 +236,7 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
+  # In your test, first call `|> tap(&Connection.subscribe(&1.context_id))`
   def assert_download(conn, name, contains: content) do
     assert_receive({:playwright, %{method: :download} = download_msg}, 2000)
     artifact_guid = download_msg.params.artifact.guid
@@ -336,6 +337,7 @@ defmodule PhoenixTest.Playwright do
   alias PhoenixTest.Playwright.Config
   alias PhoenixTest.Playwright.Connection
   alias PhoenixTest.Playwright.CookieArgs
+  alias PhoenixTest.Playwright.Dialog
   alias PhoenixTest.Playwright.Frame
   alias PhoenixTest.Playwright.Page
   alias PhoenixTest.Playwright.Selector
@@ -622,6 +624,66 @@ defmodule PhoenixTest.Playwright do
         _ -> false
       end
     end
+  end
+
+  @doc ~S"""
+  Listen for internal playwright events while executing the inner function.
+
+  ## Examples
+      |> with_event_listener(
+        &match?(%{method: :console}, &1),
+        &dbg/1,
+        fn conn ->
+          tap(conn, &Frame.evaluate(&1.frame_id, "console.log('here')"))
+        end
+      )
+  """
+  def with_event_listener(session, filter \\ fn _ -> true end, callback, fun)
+      when is_function(callback, 1) and is_function(fun, 1) do
+    args = %{guid: session.context_id, filter: filter, callback: callback}
+    child = {PhoenixTest.Playwright.EventListener, args}
+    id = make_ref()
+
+    session
+    |> tap(fn _ -> ExUnit.Callbacks.start_supervised!(child, id: id) end)
+    |> fun.()
+    |> tap(fn _ -> ExUnit.Callbacks.stop_supervised!(id) end)
+  end
+
+  @doc """
+  Handle browser dialogs while executing the inner function.
+
+  ## Callback return values
+  The callback may (but does not have to) return one of these values:
+  - `:accept` -> accepts confirmation dialog
+  - `{:accepted, prompt_text}` -> accepts prompt dialog with text
+  - `:dismiss` -> dismisses dialog
+  - Any other value will ignore the dialog
+
+  ## Examples
+      |> with_dialog(
+        fn %{message: "Are you sure?"} -> :accept end
+        fn conn ->
+          conn
+          |> click_button("Delete")
+          |> assert_has(".flash", text: "Deleted")
+        end
+      end)
+  """
+  def with_dialog(session, callback, fun) when is_function(callback, 1) and is_function(fun, 1) do
+    filter = &match?(%{method: :__create__, params: %{type: "Dialog"}}, &1)
+
+    event_callback = fn %{params: %{guid: guid, initializer: %{message: message}}} ->
+      {:ok, _} =
+        case callback.(%{guid: guid, message: message}) do
+          :accept -> Dialog.accept(guid)
+          {:accept, prompt_text} -> Dialog.accept(guid, prompt_text: prompt_text)
+          :dismiss -> Dialog.dismiss(guid)
+          _ -> {:ok, :ignore}
+        end
+    end
+
+    with_event_listener(session, filter, event_callback, fun)
   end
 
   @doc false
