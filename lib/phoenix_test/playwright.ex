@@ -236,16 +236,14 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
-  # In your test, first call `|> tap(&Connection.subscribe(&1.context_id))`
+  # In your test, first call `|> tap(&Connection.subscribe(&1.page_id))`
   def assert_download(conn, name, contains: content) do
     assert_receive({:playwright, %{method: :download} = download_msg}, 2000)
-    artifact_guid = download_msg.params.artifact.guid
-    assert_receive({:playwright, %{method: :__create__, params: %{guid: ^artifact_guid}} = artifact_msg}, 2000)
-    download_path = artifact_msg.params.initializer.absolute_path
-    wait_for_file(download_path)
+    path = Connection.initializer(download_msg.params.artifact.guid).absolute_path
+    wait_for_file(path)
 
     assert download_msg.params.suggested_filename =~ name
-    assert File.read!(download_path) =~ content
+    assert File.read!(path) =~ content
 
     conn
   end
@@ -335,16 +333,16 @@ defmodule PhoenixTest.Playwright do
   alias PhoenixTest.OpenBrowser
   alias PhoenixTest.Playwright.BrowserContext
   alias PhoenixTest.Playwright.Config
-  alias PhoenixTest.Playwright.Connection
   alias PhoenixTest.Playwright.CookieArgs
   alias PhoenixTest.Playwright.Dialog
+  alias PhoenixTest.Playwright.EventRecorder
   alias PhoenixTest.Playwright.Frame
   alias PhoenixTest.Playwright.Page
   alias PhoenixTest.Playwright.Selector
 
   require Logger
 
-  defstruct [:context_id, :page_id, :frame_id, :last_input_selector, within: :none]
+  defstruct [:context_id, :page_id, :frame_id, :navigate_recorder_pid, :last_input_selector, within: :none]
 
   @opaque t :: %__MODULE__{}
   @type css_selector :: String.t()
@@ -358,7 +356,15 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def build(context_id, page_id, frame_id) do
-    %__MODULE__{context_id: context_id, page_id: page_id, frame_id: frame_id}
+    child = {EventRecorder, %{guid: frame_id, filter: &match?(%{method: :navigated}, &1)}}
+    navigate_recorder_pid = ExUnit.Callbacks.start_supervised!(child, id: "#{frame_id}-navigate-recorder")
+
+    %__MODULE__{
+      context_id: context_id,
+      page_id: page_id,
+      frame_id: frame_id,
+      navigate_recorder_pid: navigate_recorder_pid
+    }
   end
 
   @doc false
@@ -626,21 +632,8 @@ defmodule PhoenixTest.Playwright do
     end
   end
 
-  @doc ~S"""
-  Listen for internal playwright events while executing the inner function.
-
-  ## Examples
-      |> with_event_listener(
-        &match?(%{method: :console}, &1),
-        &dbg/1,
-        fn conn ->
-          tap(conn, &Frame.evaluate(&1.frame_id, "console.log('here')"))
-        end
-      )
-  """
-  def with_event_listener(session, filter \\ fn _ -> true end, callback, fun)
-      when is_function(callback, 1) and is_function(fun, 1) do
-    args = %{guid: session.context_id, filter: filter, callback: callback}
+  defp with_event_listener(session, guid, filter, callback, fun) when is_function(callback, 1) and is_function(fun, 1) do
+    args = %{guid: guid, filter: filter, callback: callback}
     child = {PhoenixTest.Playwright.EventListener, args}
     id = make_ref()
 
@@ -683,7 +676,7 @@ defmodule PhoenixTest.Playwright do
         end
     end
 
-    with_event_listener(session, filter, event_callback, fun)
+    with_event_listener(session, session.page_id, filter, event_callback, fun)
   end
 
   @doc false
@@ -951,14 +944,8 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def current_path(conn) do
-    resp =
-      conn.frame_id
-      |> Connection.received()
-      |> Enum.find(&match?(%{method: :navigated, params: %{url: _}}, &1))
-
-    if resp == nil, do: raise(ArgumentError, "Could not find current path.")
-
-    uri = URI.parse(resp.params.url)
+    [event | _] = EventRecorder.events(conn.navigate_recorder_pid)
+    uri = URI.parse(event.params.url)
     [uri.path, uri.query] |> Enum.reject(&is_nil/1) |> Enum.join("?")
   end
 

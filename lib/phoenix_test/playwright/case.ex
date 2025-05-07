@@ -36,8 +36,7 @@ defmodule PhoenixTest.Playwright.Case do
           screenshot: 3,
           type: 3,
           type: 4,
-          with_dialog: 3,
-          with_event_listener: 4
+          with_dialog: 3
         ]
 
       import PhoenixTest.Playwright.Case

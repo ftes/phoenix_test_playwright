@@ -1,6 +1,6 @@
 defmodule PhoenixTest.Playwright.EventListener do
   @moduledoc """
-  Sets up a background event listener for the session.
+  Background playwright event listener.
 
   This function starts a background process that will automatically handle events
   according to the provided callback function.

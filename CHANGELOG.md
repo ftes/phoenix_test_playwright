@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 ### Added
-- `PhoenixTest.Playwright.with_dialog/3` to accept or dismiss browser dialogs, based on `with_event_listener`
-- `PhoenixTest.Playwright.with_event_listener/4` to handle arbitrary playwright events via background process
+- `PhoenixTest.Playwright.with_dialog/3` to accept or dismiss browser dialogs
+
+### Removed
+- `PhoenixTest.Playwright.Connection.received/` internal function - consider using `PhoenixTest.Playwright.EventRecorder` instead
 
 ## [0.6.3] 2025-05-05
 ### Added
