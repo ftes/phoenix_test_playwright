@@ -55,11 +55,16 @@ schema =
     trace_dir: [
       default: "traces",
       type: :string
+    ],
+    accept_dialogs: [
+      default: true,
+      type: :boolean,
+      doc: "Accept browser dialogs (`alert()`, `confirm()`, `prompt()`"
     ]
   )
 
 setup_all_keys = ~w(browser browser_launch_timeout headless slow_mo)a
-setup_keys = ~w(screenshot trace)a
+setup_keys = ~w(accept_dialogs screenshot trace)a
 
 defmodule PhoenixTest.Playwright.Config do
   @moduledoc """

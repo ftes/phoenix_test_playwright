@@ -194,14 +194,6 @@ defmodule PhoenixTest.Playwright.Connection do
 
   defp log_console(state, _), do: state
 
-  defp accept_dialog(state, %{method: :__create__, params: %{type: "Dialog", guid: guid}}) do
-    msg = %{guid: guid, method: :accept, params: %{}, metadata: %{}}
-    PlaywrightPort.post(state.port, msg)
-    state
-  end
-
-  defp accept_dialog(state, _), do: state
-
   defp handle_started(state, %{method: :__create__, params: %{type: "Playwright"}}) do
     for from <- state.awaiting_started, do: GenServer.reply(from, :ok)
     %{state | status: :started, awaiting_started: :none}

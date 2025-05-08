@@ -335,6 +335,7 @@ defmodule PhoenixTest.Playwright do
   alias PhoenixTest.Playwright.Config
   alias PhoenixTest.Playwright.CookieArgs
   alias PhoenixTest.Playwright.Dialog
+  alias PhoenixTest.Playwright.EventListener
   alias PhoenixTest.Playwright.EventRecorder
   alias PhoenixTest.Playwright.Frame
   alias PhoenixTest.Playwright.Page
@@ -342,7 +343,15 @@ defmodule PhoenixTest.Playwright do
 
   require Logger
 
-  defstruct [:context_id, :page_id, :frame_id, :navigate_recorder_pid, :last_input_selector, within: :none]
+  defstruct [
+    :context_id,
+    :page_id,
+    :frame_id,
+    :navigate_recorder_pid,
+    :dialog_listener_pid,
+    :last_input_selector,
+    within: :none
+  ]
 
   @opaque t :: %__MODULE__{}
   @type css_selector :: String.t()
@@ -355,16 +364,26 @@ defmodule PhoenixTest.Playwright do
   @endpoint Application.compile_env(:phoenix_test, :endpoint)
 
   @doc false
-  def build(context_id, page_id, frame_id) do
-    child = {EventRecorder, %{guid: frame_id, filter: &match?(%{method: :navigated}, &1)}}
-    navigate_recorder_pid = ExUnit.Callbacks.start_supervised!(child, id: "#{frame_id}-navigate-recorder")
-
+  def build(%{context_id: context_id, page_id: page_id, frame_id: frame_id, config: config}) do
     %__MODULE__{
       context_id: context_id,
       page_id: page_id,
       frame_id: frame_id,
-      navigate_recorder_pid: navigate_recorder_pid
+      navigate_recorder_pid: start_navigate_recorder(frame_id),
+      dialog_listener_pid: start_dialog_listener(page_id, config[:accept_dialogs])
     }
+  end
+
+  defp start_navigate_recorder(frame_id) do
+    args = %{guid: frame_id, filter: &match?(%{method: :navigated}, &1)}
+    ExUnit.Callbacks.start_supervised!({EventRecorder, args}, id: "#{frame_id}-navigate-recorder")
+  end
+
+  defp start_dialog_listener(page_id, auto_accept?) do
+    filter = &match?(%{method: :__create__, params: %{type: "Dialog"}}, &1)
+    callback = &if(auto_accept?, do: {:ok, _} = Dialog.accept(&1.params.guid))
+    args = %{guid: page_id, filter: filter, callback: callback}
+    ExUnit.Callbacks.start_supervised!({EventListener, args}, id: "#{page_id}-dialog-listener")
   end
 
   @doc false
@@ -632,40 +651,39 @@ defmodule PhoenixTest.Playwright do
     end
   end
 
-  defp with_event_listener(session, guid, filter, callback, fun) when is_function(callback, 1) and is_function(fun, 1) do
-    args = %{guid: guid, filter: filter, callback: callback}
-    child = {PhoenixTest.Playwright.EventListener, args}
-    id = make_ref()
-
-    session
-    |> tap(fn _ -> ExUnit.Callbacks.start_supervised!(child, id: id) end)
-    |> fun.()
-    |> tap(fn _ -> ExUnit.Callbacks.stop_supervised!(id) end)
-  end
-
   @doc """
-  Handle browser dialogs while executing the inner function.
+  Handle browser dialogs (`alert()`, `confirm()`, `prompt()`) while executing the inner function.
+
+  *Note:* Add `@tag accept_dialogs: false` before tests that call this function.
+  Otherwise, all dialogs are accepted by default.
 
   ## Callback return values
-  The callback may (but does not have to) return one of these values:
+  The callback may return one of these values:
   - `:accept` -> accepts confirmation dialog
-  - `{:accepted, prompt_text}` -> accepts prompt dialog with text
+  - `{:accept, prompt_text}` -> accepts prompt dialog with text
   - `:dismiss` -> dismisses dialog
   - Any other value will ignore the dialog
 
   ## Examples
-      |> with_dialog(
-        fn %{message: "Are you sure?"} -> :accept end
-        fn conn ->
-          conn
-          |> click_button("Delete")
-          |> assert_has(".flash", text: "Deleted")
-        end
-      end)
+      @tag accept_dialogs: false
+      test "conditionally handle dialog", %{conn: conn} do
+      conn
+        |> visit("/")
+        |> with_dialog(
+          fn
+            %{message: "Are you sure?"} -> :accept
+            %{message: "Enter the magic number"} -> {:accept, "42"}
+            %{message: "Self destruct?"} -> :dismiss
+          end,
+          fn conn ->
+            conn
+            |> click_button("Delete")
+            |> assert_has(".flash", text: "Deleted")
+          end
+        end)
+      end
   """
   def with_dialog(session, callback, fun) when is_function(callback, 1) and is_function(fun, 1) do
-    filter = &match?(%{method: :__create__, params: %{type: "Dialog"}}, &1)
-
     event_callback = fn %{params: %{guid: guid, initializer: %{message: message}}} ->
       {:ok, _} =
         case callback.(%{guid: guid, message: message}) do
@@ -676,7 +694,10 @@ defmodule PhoenixTest.Playwright do
         end
     end
 
-    with_event_listener(session, session.page_id, filter, event_callback, fun)
+    session
+    |> tap(&EventListener.push_callback(&1.dialog_listener_pid, event_callback))
+    |> fun.()
+    |> tap(&EventListener.pop_callback(&1.dialog_listener_pid))
   end
 
   @doc false

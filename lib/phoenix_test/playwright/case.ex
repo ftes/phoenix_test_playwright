@@ -94,7 +94,12 @@ defmodule PhoenixTest.Playwright.Case do
       if config[:trace], do: trace(browser_context_id, config, context)
       if config[:screenshot], do: screenshot(page_id, config, context)
 
-      PhoenixTest.Playwright.build(browser_context_id, page_id, frame_id)
+      PhoenixTest.Playwright.build(%{
+        context_id: browser_context_id,
+        page_id: page_id,
+        frame_id: frame_id,
+        config: config
+      })
     end
 
     defp trace(browser_context_id, config, context) do

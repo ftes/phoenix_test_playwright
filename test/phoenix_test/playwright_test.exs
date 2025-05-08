@@ -157,8 +157,25 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
-  describe "with_dialog/3" do
-    test "accepts dialog", %{conn: conn} do
+  describe "browser dialog handling: accept_dialogs config and with_dialog/3" do
+    test "accepts dialog by default", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> click_link("Confirm to navigate")
+      |> assert_path("/live/page_2")
+    end
+
+    @tag accept_dialogs: false
+    test "override config via tag: dismisses dialog and fails click_link", %{conn: conn} do
+      assert_raise AssertionError, fn ->
+        conn
+        |> visit("/live/index")
+        |> click_link("Confirm to navigate")
+      end
+    end
+
+    @tag accept_dialogs: false
+    test "with_dialog/3 accepts dialog conditionally", %{conn: conn} do
       conn
       |> visit("/live/index")
       |> with_dialog(
