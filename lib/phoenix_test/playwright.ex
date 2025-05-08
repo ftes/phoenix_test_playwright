@@ -236,15 +236,14 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
+  # In your test, first call `|> tap(&Connection.subscribe(&1.page_id))`
   def assert_download(conn, name, contains: content) do
     assert_receive({:playwright, %{method: :download} = download_msg}, 2000)
-    artifact_guid = download_msg.params.artifact.guid
-    assert_receive({:playwright, %{method: :__create__, params: %{guid: ^artifact_guid}} = artifact_msg}, 2000)
-    download_path = artifact_msg.params.initializer.absolute_path
-    wait_for_file(download_path)
+    path = Connection.initializer(download_msg.params.artifact.guid).absolute_path
+    wait_for_file(path)
 
     assert download_msg.params.suggested_filename =~ name
-    assert File.read!(download_path) =~ content
+    assert File.read!(path) =~ content
 
     conn
   end
@@ -334,15 +333,25 @@ defmodule PhoenixTest.Playwright do
   alias PhoenixTest.OpenBrowser
   alias PhoenixTest.Playwright.BrowserContext
   alias PhoenixTest.Playwright.Config
-  alias PhoenixTest.Playwright.Connection
   alias PhoenixTest.Playwright.CookieArgs
+  alias PhoenixTest.Playwright.Dialog
+  alias PhoenixTest.Playwright.EventListener
+  alias PhoenixTest.Playwright.EventRecorder
   alias PhoenixTest.Playwright.Frame
   alias PhoenixTest.Playwright.Page
   alias PhoenixTest.Playwright.Selector
 
   require Logger
 
-  defstruct [:context_id, :page_id, :frame_id, :last_input_selector, within: :none]
+  defstruct [
+    :context_id,
+    :page_id,
+    :frame_id,
+    :navigate_recorder_pid,
+    :dialog_listener_pid,
+    :last_input_selector,
+    within: :none
+  ]
 
   @opaque t :: %__MODULE__{}
   @type css_selector :: String.t()
@@ -355,8 +364,26 @@ defmodule PhoenixTest.Playwright do
   @endpoint Application.compile_env(:phoenix_test, :endpoint)
 
   @doc false
-  def build(context_id, page_id, frame_id) do
-    %__MODULE__{context_id: context_id, page_id: page_id, frame_id: frame_id}
+  def build(%{context_id: context_id, page_id: page_id, frame_id: frame_id, config: config}) do
+    %__MODULE__{
+      context_id: context_id,
+      page_id: page_id,
+      frame_id: frame_id,
+      navigate_recorder_pid: start_navigate_recorder(frame_id),
+      dialog_listener_pid: start_dialog_listener(page_id, config[:accept_dialogs])
+    }
+  end
+
+  defp start_navigate_recorder(frame_id) do
+    args = %{guid: frame_id, filter: &match?(%{method: :navigated}, &1)}
+    ExUnit.Callbacks.start_supervised!({EventRecorder, args}, id: "#{frame_id}-navigate-recorder")
+  end
+
+  defp start_dialog_listener(page_id, auto_accept?) do
+    filter = &match?(%{method: :__create__, params: %{type: "Dialog"}}, &1)
+    callback = &if(auto_accept?, do: {:ok, _} = Dialog.accept(&1.params.guid))
+    args = %{guid: page_id, filter: filter, callback: callback}
+    ExUnit.Callbacks.start_supervised!({EventListener, args}, id: "#{page_id}-dialog-listener")
   end
 
   @doc false
@@ -624,6 +651,55 @@ defmodule PhoenixTest.Playwright do
     end
   end
 
+  @doc """
+  Handle browser dialogs (`alert()`, `confirm()`, `prompt()`) while executing the inner function.
+
+  *Note:* Add `@tag accept_dialogs: false` before tests that call this function.
+  Otherwise, all dialogs are accepted by default.
+
+  ## Callback return values
+  The callback may return one of these values:
+  - `:accept` -> accepts confirmation dialog
+  - `{:accept, prompt_text}` -> accepts prompt dialog with text
+  - `:dismiss` -> dismisses dialog
+  - Any other value will ignore the dialog
+
+  ## Examples
+      @tag accept_dialogs: false
+      test "conditionally handle dialog", %{conn: conn} do
+      conn
+        |> visit("/")
+        |> with_dialog(
+          fn
+            %{message: "Are you sure?"} -> :accept
+            %{message: "Enter the magic number"} -> {:accept, "42"}
+            %{message: "Self destruct?"} -> :dismiss
+          end,
+          fn conn ->
+            conn
+            |> click_button("Delete")
+            |> assert_has(".flash", text: "Deleted")
+          end
+        end)
+      end
+  """
+  def with_dialog(session, callback, fun) when is_function(callback, 1) and is_function(fun, 1) do
+    event_callback = fn %{params: %{guid: guid, initializer: %{message: message}}} ->
+      {:ok, _} =
+        case callback.(%{guid: guid, message: message}) do
+          :accept -> Dialog.accept(guid)
+          {:accept, prompt_text} -> Dialog.accept(guid, prompt_text: prompt_text)
+          :dismiss -> Dialog.dismiss(guid)
+          _ -> {:ok, :ignore}
+        end
+    end
+
+    session
+    |> tap(&EventListener.push_callback(&1.dialog_listener_pid, event_callback))
+    |> fun.()
+    |> tap(&EventListener.pop_callback(&1.dialog_listener_pid))
+  end
+
   @doc false
   def render_page_title(conn) do
     case Frame.title(conn.frame_id) do
@@ -889,14 +965,8 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def current_path(conn) do
-    resp =
-      conn.frame_id
-      |> Connection.received()
-      |> Enum.find(&match?(%{method: :navigated, params: %{url: _}}, &1))
-
-    if resp == nil, do: raise(ArgumentError, "Could not find current path.")
-
-    uri = URI.parse(resp.params.url)
+    [event | _] = EventRecorder.events(conn.navigate_recorder_pid)
+    uri = URI.parse(event.params.url)
     [uri.path, uri.query] |> Enum.reject(&is_nil/1) |> Enum.join("?")
   end
 

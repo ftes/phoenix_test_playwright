@@ -35,7 +35,8 @@ defmodule PhoenixTest.Playwright.Case do
           screenshot: 2,
           screenshot: 3,
           type: 3,
-          type: 4
+          type: 4,
+          with_dialog: 3
         ]
 
       import PhoenixTest.Playwright.Case
@@ -82,7 +83,6 @@ defmodule PhoenixTest.Playwright.Case do
       }
 
       browser_context_id = Browser.new_context(context.browser_id, browser_context_opts)
-      subscribe(browser_context_id)
 
       page_id = BrowserContext.new_page(browser_context_id)
       Page.update_subscription(page_id, event: :console, enabled: true)
@@ -94,7 +94,12 @@ defmodule PhoenixTest.Playwright.Case do
       if config[:trace], do: trace(browser_context_id, config, context)
       if config[:screenshot], do: screenshot(page_id, config, context)
 
-      PhoenixTest.Playwright.build(browser_context_id, page_id, frame_id)
+      PhoenixTest.Playwright.build(%{
+        context_id: browser_context_id,
+        page_id: page_id,
+        frame_id: frame_id,
+        config: config
+      })
     end
 
     defp trace(browser_context_id, config, context) do

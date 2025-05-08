@@ -3,14 +3,6 @@ defmodule PhoenixTest.Playwright.Connection do
   Stateful, `GenServer` based connection to a Playwright node.js server.
   The connection is established via `PhoenixTest.Playwright.Port`.
 
-  The state is ever-growing and  never pruned.
-  Since we're dealing with (short-lived) tets, that is considered good enough for now.
-
-  The state includes
-  - a tree of Playwright artifact guids,
-  - all received messages,
-  - sent message for which we're expecting a response.
-
   You won't usually have to use this module directly.
   `PhoenixTest.Playwright` uses this under the hood.
   """
@@ -29,9 +21,7 @@ defmodule PhoenixTest.Playwright.Connection do
     status: :pending,
     awaiting_started: [],
     initializers: %{},
-    guid_ancestors: %{},
     guid_subscribers: %{},
-    guid_received: %{},
     posts_in_flight: %{}
   ]
 
@@ -109,13 +99,6 @@ defmodule PhoenixTest.Playwright.Connection do
   end
 
   @doc """
-  Get all past received messages for a playwright `guid` (e.g. a `PhoenixTest.Playwright.Frame`).
-  """
-  def received(guid) do
-    GenServer.call(@name, {:received, guid})
-  end
-
-  @doc """
   Get the initializer data for a channel.
   """
   def initializer(guid) do
@@ -146,10 +129,6 @@ defmodule PhoenixTest.Playwright.Connection do
     {:noreply, Map.update!(state, :posts_in_flight, &Map.put(&1, msg.id, from))}
   end
 
-  def handle_call({:received, guid}, _from, state) do
-    {:reply, Map.get(state.guid_received, guid, []), state}
-  end
-
   def handle_call({:initializer, guid}, _from, state) do
     {:reply, Map.get(state.initializers, guid), state}
   end
@@ -175,13 +154,10 @@ defmodule PhoenixTest.Playwright.Connection do
     state
     |> log_js_error(msg)
     |> log_console(msg)
-    |> accept_dialog(msg)
-    |> add_guid_ancestors(msg)
     |> add_initializer(msg)
-    |> add_received(msg)
     |> handle_started(msg)
     |> reply_in_flight(msg)
-    |> notify_subscribers(msg)
+    |> send_to_subscribers(msg)
   end
 
   defp log_js_error(state, %{method: :page_error} = msg) do
@@ -218,30 +194,12 @@ defmodule PhoenixTest.Playwright.Connection do
 
   defp log_console(state, _), do: state
 
-  defp accept_dialog(state, %{method: :__create__, params: %{type: "Dialog", guid: guid}}) do
-    msg = %{guid: guid, method: :accept, params: %{}, metadata: %{}}
-    PlaywrightPort.post(state.port, msg)
-    state
-  end
-
-  defp accept_dialog(state, _), do: state
-
   defp handle_started(state, %{method: :__create__, params: %{type: "Playwright"}}) do
     for from <- state.awaiting_started, do: GenServer.reply(from, :ok)
     %{state | status: :started, awaiting_started: :none}
   end
 
   defp handle_started(state, _), do: state
-
-  defp add_guid_ancestors(state, %{method: :__create__} = msg) do
-    child = msg.params.guid
-    parent = msg.guid
-    parent_ancestors = Map.get(state.guid_ancestors, parent, [])
-
-    Map.update!(state, :guid_ancestors, &Map.put(&1, child, [parent | parent_ancestors]))
-  end
-
-  defp add_guid_ancestors(state, _), do: state
 
   defp add_initializer(state, %{method: :__create__} = msg) do
     Map.update!(state, :initializers, &Map.put(&1, msg.params.guid, msg.params.initializer))
@@ -258,20 +216,13 @@ defmodule PhoenixTest.Playwright.Connection do
 
   defp reply_in_flight(state, _), do: state
 
-  defp add_received(state, %{guid: guid} = msg) do
-    update_in(state.guid_received[guid], &[msg | &1 || []])
-  end
-
-  defp add_received(state, _), do: state
-
-  defp notify_subscribers(state, %{guid: guid} = msg) do
-    for guid <- [guid | Map.get(state.guid_ancestors, guid, [])],
-        pid <- Map.get(state.guid_subscribers, guid, []) do
+  defp send_to_subscribers(state, %{guid: guid} = msg) do
+    for pid <- Map.get(state.guid_subscribers, guid, []) do
       send(pid, {:playwright, msg})
     end
 
     state
   end
 
-  defp notify_subscribers(state, _), do: state
+  defp send_to_subscribers(state, _), do: state
 end

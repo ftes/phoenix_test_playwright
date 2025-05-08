@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 ### Added
-- Accept browser dialogs automatically (`alert()`, `confirm()`, `prompt()`)
+- Dialog handling
+  - Config option `accept_dialogs` (default: `true`)
+  - `PhoenixTest.Playwright.with_dialog/3` for conditional handling
 
 ## [0.6.3] 2025-05-05
 ### Added
