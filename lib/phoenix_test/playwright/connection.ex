@@ -49,7 +49,9 @@ defmodule PhoenixTest.Playwright.Connection do
   def launch_browser(type, opts) do
     types = initializer("Playwright")
     type_id = Map.fetch!(types, type).guid
-    timeout = opts[:browser_launch_timeout] || opts[:timeout] || Config.global(:browser_launch_timeout)
+
+    timeout =
+      opts[:browser_launch_timeout] || opts[:timeout] || Config.global(:browser_launch_timeout)
 
     params =
       opts
@@ -93,7 +95,12 @@ defmodule PhoenixTest.Playwright.Connection do
   """
   def post(msg, timeout \\ nil) do
     default = %{params: %{}, metadata: %{}}
-    msg = msg |> Enum.into(default) |> update_in(~w(params timeout)a, &(&1 || timeout || Config.global(:timeout)))
+
+    msg =
+      msg
+      |> Enum.into(default)
+      |> update_in(~w(params timeout)a, &(&1 || timeout || Config.global(:timeout)))
+
     call_timeout = max(@min_genserver_timeout, round(msg.params.timeout * @timeout_grace_factor))
     GenServer.call(@name, {:post, msg}, call_timeout)
   end
@@ -161,7 +168,8 @@ defmodule PhoenixTest.Playwright.Connection do
   end
 
   defp log_js_error(state, %{method: :page_error} = msg) do
-    Logger.error("Javascript error: #{inspect(msg.params.error)}")
+    location = get_in(msg, [:params, :location, Access.key(:url, "unknown location")])
+    Logger.error("Javascript error: #{inspect(msg.params.error)} (#{location})")
     state
   end
 
@@ -177,7 +185,8 @@ defmodule PhoenixTest.Playwright.Connection do
             _ -> :info
           end
 
-        Logger.log(level, "Javascript console: #{msg.params.text}")
+        location = get_in(msg, [:params, :location, Access.key(:url, "unknown location")])
+        Logger.log(level, "Javascript console: #{msg.params.text} (#{location})")
 
       fun when is_function(fun, 1) ->
         fun.(msg)
@@ -207,7 +216,8 @@ defmodule PhoenixTest.Playwright.Connection do
 
   defp add_initializer(state, _), do: state
 
-  defp reply_in_flight(%{posts_in_flight: in_flight} = state, msg) when is_map_key(in_flight, msg.id) do
+  defp reply_in_flight(%{posts_in_flight: in_flight} = state, msg)
+       when is_map_key(in_flight, msg.id) do
     {from, in_flight} = Map.pop(in_flight, msg.id)
     GenServer.reply(from, msg)
 
