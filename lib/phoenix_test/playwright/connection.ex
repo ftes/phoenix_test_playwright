@@ -206,19 +206,19 @@ defmodule PhoenixTest.Playwright.Connection do
 
   defp log_console(state, _), do: state
 
-  defp add_location(text, %{params: %{location: %{url: url, line_number: 0}}} = _message) do
+  def add_location(text, %{params: %{location: %{url: url, line_number: 0}}} = _message) do
     "#{text} (#{url})"
   end
 
-  defp add_location(text, %{params: %{location: %{url: url, line_number: line_number}}} = _message) do
+  def add_location(text, %{params: %{location: %{url: url, line_number: line_number}}} = _message) do
     "#{text} (#{url}:#{line_number})"
   end
 
-  defp add_location(text, %{params: %{location: %{url: url}}} = _message) do
+  def add_location(text, %{params: %{location: %{url: url}}} = _message) do
     "#{text} (#{url})"
   end
 
-  defp add_location(text, _message), do: text
+  def add_location(text, _message), do: text
 
   defp handle_started(state, %{method: :__create__, params: %{type: "Playwright"}}) do
     for from <- state.awaiting_started, do: GenServer.reply(from, :ok)
