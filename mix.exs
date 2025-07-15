@@ -49,6 +49,7 @@ defmodule PhoenixTestPlaywright.MixProject do
       {:plug_cowboy, "~> 2.7", only: :test, runtime: false},
       {:phoenix_ecto, "~> 4.5", optional: true},
       {:ecto_sql, "~> 3.10", optional: true},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:styler, "~> 1.3", only: [:dev, :test], runtime: false},
       {:makeup_diff, "~> 0.1", only: :dev},
       {:nimble_options, "~> 1.1"}
@@ -87,6 +88,7 @@ defmodule PhoenixTestPlaywright.MixProject do
       "assets.build": ["esbuild default"],
       check: [
         "format --check-formatted",
+        "credo",
         "compile --warnings-as-errors",
         "assets.build",
         "test --warnings-as-errors --max-cases 1"

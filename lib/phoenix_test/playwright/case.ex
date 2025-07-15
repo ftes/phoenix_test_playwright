@@ -121,7 +121,10 @@ defmodule PhoenixTest.Playwright.Case do
 
     defp screenshot(page_id, config, context) do
       file = file_name(".png", context)
-      on_exit(fn -> PhoenixTest.Playwright.screenshot(%{page_id: page_id}, file, config[:screenshot]) end)
+
+      on_exit(fn ->
+        PhoenixTest.Playwright.screenshot(%{page_id: page_id}, file, config[:screenshot])
+      end)
     end
 
     defp file_name(suffix, %{module: module, test: test}) do

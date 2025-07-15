@@ -13,6 +13,7 @@ defmodule PhoenixTest.Playwright.Serialization do
     %{value: %{v: "undefined"}, handles: []}
   end
 
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   def deserialize_arg(value) do
     case value do
       {:ok, value} ->

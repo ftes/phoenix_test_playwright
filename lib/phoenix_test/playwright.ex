@@ -900,42 +900,39 @@ defmodule PhoenixTest.Playwright do
   end
 
   defp handle_response(result, debug_selector) do
+    checkbox_msg = "Clicking the checkbox did not change its state"
+
     case result do
-      {:error, %{error: %{error: %{name: "TimeoutError"} = pw_error}} = error} ->
-        base_error_header = "Could not find element with selector #{debug_selector}"
-
-        playwright_message = pw_error[:message]
-
-        error_header =
-          case is_binary(playwright_message) &&
-                 Regex.scan(~r/Timeout (\d+)ms exceeded./, playwright_message) do
-            [[_, timeout]] -> base_error_header <> " within #{String.to_integer(timeout)}ms"
-            _ -> base_error_header
-          end
-
-        more_info =
-          case error[:log] do
-            log when is_list(log) -> "Playwright log:\n" <> Enum.join(log, "\n")
-            _ -> inspect(error, pretty: true)
-          end
-
-        flunk("#{error_header}\n#{more_info}")
+      {:error, %{error: %{error: %{name: "TimeoutError"}}} = error} ->
+        flunk(
+          "Could not find element with selector #{debug_selector}#{timeout_suffix(error)}\n" <>
+            more_info(error)
+        )
 
       {:error, %{error: %{error: %{message: "Error: strict mode violation: " <> _ = message}}}} ->
         short_message = String.replace(message, "Error: strict mode violation: ", "")
 
         flunk("Found more than one element matching selector #{debug_selector}:\n#{short_message}")
 
-      {:error,
-       %{
-         error: %{
-           error: %{name: "Error", message: "Clicking the checkbox did not change its state"}
-         }
-       }} ->
+      {:error, %{error: %{error: %{name: "Error", message: ^checkbox_msg}}}} ->
         :ok
 
       {:ok, result} ->
         result
+    end
+  end
+
+  defp timeout_suffix(error) do
+    case Regex.scan(~r/Timeout (\d+)ms exceeded./, error.error[:message] || "") do
+      [[_, timeout]] -> " within #{String.to_integer(timeout)}ms"
+      _ -> ""
+    end
+  end
+
+  defp more_info(error) do
+    case error[:log] do
+      log when is_list(log) -> "Playwright log:\n" <> Enum.join(log, "\n")
+      _ -> inspect(error, pretty: true)
     end
   end
 

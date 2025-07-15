@@ -33,7 +33,9 @@ schema =
       default: false,
       type: {:or, [:boolean, non_empty_keyword_list: screenshot_opts_schema]},
       type_doc: "`boolean/0 | Keyword.t/0`",
-      doc: "Either a boolean or a keyword list:\n\n" <> NimbleOptions.docs(screenshot_opts_schema, nest_level: 1)
+      doc:
+        "Either a boolean or a keyword list:\n\n" <>
+          NimbleOptions.docs(screenshot_opts_schema, nest_level: 1)
     ],
     screenshot_dir: [
       default: "screenshots",
@@ -114,6 +116,7 @@ defmodule PhoenixTest.Playwright.Config do
   def setup_keys, do: @setup_keys
 
   defp normalize(config), do: Keyword.new(config, fn {key, value} -> {key, normalize(key, value)} end)
+
   defp normalize(:screenshot, true), do: NimbleOptions.validate!([], @screenshot_opts_schema)
   defp normalize(_key, value), do: value
 end
