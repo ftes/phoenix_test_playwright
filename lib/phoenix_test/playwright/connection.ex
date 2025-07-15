@@ -168,8 +168,10 @@ defmodule PhoenixTest.Playwright.Connection do
   end
 
   defp log_js_error(state, %{method: :page_error} = msg) do
-    location = get_in(msg, [:params, :location, Access.key(:url, "unknown location")])
-    Logger.error("Javascript error: #{inspect(msg.params.error)} (#{location})")
+    "Javascript error: #{inspect(msg.params.error)}"
+    |> add_location(msg)
+    |> Logger.error()
+
     state
   end
 
@@ -185,8 +187,9 @@ defmodule PhoenixTest.Playwright.Connection do
             _ -> :info
           end
 
-        location = get_in(msg, [:params, :location, Access.key(:url, "unknown location")])
-        Logger.log(level, "Javascript console: #{msg.params.text} (#{location})")
+        "Javascript console: #{msg.params.text}"
+        |> add_location(msg)
+        |> tap(&Logger.log(level, &1))
 
       fun when is_function(fun, 1) ->
         fun.(msg)
@@ -203,6 +206,20 @@ defmodule PhoenixTest.Playwright.Connection do
 
   defp log_console(state, _), do: state
 
+  defp add_location(text, %{params: %{location: %{url: url, line_number: 0}}} = _message) do
+    "#{text} (#{url})"
+  end
+
+  defp add_location(text, %{params: %{location: %{url: url, line_number: line_number}}} = _message) do
+    "#{text} (#{url}:#{line_number})"
+  end
+
+  defp add_location(text, %{params: %{location: %{url: url}}} = _message) do
+    "#{text} (#{url})"
+  end
+
+  defp add_location(text, _message), do: text
+
   defp handle_started(state, %{method: :__create__, params: %{type: "Playwright"}}) do
     for from <- state.awaiting_started, do: GenServer.reply(from, :ok)
     %{state | status: :started, awaiting_started: :none}
@@ -216,8 +233,7 @@ defmodule PhoenixTest.Playwright.Connection do
 
   defp add_initializer(state, _), do: state
 
-  defp reply_in_flight(%{posts_in_flight: in_flight} = state, msg)
-       when is_map_key(in_flight, msg.id) do
+  defp reply_in_flight(%{posts_in_flight: in_flight} = state, msg) when is_map_key(in_flight, msg.id) do
     {from, in_flight} = Map.pop(in_flight, msg.id)
     GenServer.reply(from, msg)
 
