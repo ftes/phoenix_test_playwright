@@ -112,5 +112,19 @@ defmodule PhoenixTest.Playwright.ConnectionTest do
     }
 
     assert "Hi (http://localhost:4002/assets/app.js)" == Connection.add_location("Hi", message)
+
+    # shortend, line number 0
+    message = %{
+      params: %{
+        type: "log",
+        location: %{
+          url: ""
+        },
+        text: "hello world"
+      },
+      method: :console
+    }
+
+    assert "Hi" == Connection.add_location("Hi", message)
   end
 end
