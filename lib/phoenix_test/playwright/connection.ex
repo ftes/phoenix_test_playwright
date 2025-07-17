@@ -206,6 +206,10 @@ defmodule PhoenixTest.Playwright.Connection do
 
   defp log_console(state, _), do: state
 
+  def add_location(text, %{params: %{location: %{url: ""}}} = _message) do
+    "#{text}"
+  end
+
   def add_location(text, %{params: %{location: %{url: url, line_number: 0}}} = _message) do
     "#{text} (#{url})"
   end

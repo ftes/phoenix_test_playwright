@@ -906,7 +906,7 @@ defmodule PhoenixTest.PlaywrightTest do
           |> tap(&PhoenixTest.Playwright.Frame.evaluate(&1.frame_id, "console.error('TESTME 42')"))
         end)
 
-      assert log =~ "TESTME 42 ()"
+      assert log =~ "TESTME 42\n"
     end
   end
 end
