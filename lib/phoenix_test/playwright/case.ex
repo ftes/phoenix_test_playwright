@@ -63,7 +63,6 @@ defmodule PhoenixTest.Playwright.Case do
     alias PhoenixTest.Playwright.Browser
     alias PhoenixTest.Playwright.BrowserContext
     alias PhoenixTest.Playwright.Page
-    alias PhoenixTest.Playwright.Port
 
     @includes_ecto Code.ensure_loaded?(Sandbox) &&
                      Code.ensure_loaded?(Phoenix.Ecto.SQL.Sandbox)
@@ -113,8 +112,7 @@ defmodule PhoenixTest.Playwright.Case do
         BrowserContext.stop_tracing(browser_context_id, path)
 
         if config[:trace] == :open do
-          cli_path = Path.join(File.cwd!(), Port.cli_path())
-          System.cmd(cli_path, ["show-trace", path])
+          System.cmd(Config.global(:runner), ["playwright", "show-trace", path], cd: Config.global(:assets_dir))
         end
       end)
     end
