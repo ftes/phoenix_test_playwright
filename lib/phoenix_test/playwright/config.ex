@@ -12,9 +12,17 @@ schema =
       type: {:in, browsers},
       type_doc: "`#{Enum.map_join(browsers, " | ", &":#{&1}")}`"
     ],
-    cli: [
-      default: "assets/node_modules/playwright/cli.js",
-      type: :string
+    runner: [
+      default: "npx",
+      type_spec: quote(do: binary()),
+      type: {:custom, PhoenixTest.Playwright.Config, :__validate_runner__, []},
+      doc:
+        "The JS package runner to use to run the playwright CLI. Accepts either a binary executable exposed in PATH or the absolute path to it."
+    ],
+    assets_dir: [
+      default: "assets",
+      type: :string,
+      doc: "The directory where the JS assets are located."
     ],
     executable_path: [
       type: :string,
@@ -65,7 +73,7 @@ schema =
     accept_dialogs: [
       default: true,
       type: :boolean,
-      doc: "Accept browser dialogs (`alert()`, `confirm()`, `prompt()`"
+      doc: "Accept browser dialogs (`alert()`, `confirm()`, `prompt()`)"
     ]
   )
 
@@ -119,4 +127,21 @@ defmodule PhoenixTest.Playwright.Config do
 
   defp normalize(:screenshot, true), do: NimbleOptions.validate!([], @screenshot_opts_schema)
   defp normalize(_key, value), do: value
+
+  def __validate_runner__(runner) do
+    if executable = System.find_executable(runner) do
+      {:ok, executable}
+    else
+      message = """
+      could not find runner executable at `#{runner}`.
+
+      To resolve this please
+      1. Install a JS package runner like `npx` or `bunx`
+      2. Configure the preferred runner in `config/test.exs`, e.g.: `config :phoenix_test, playwright: [runner: "npx"]`
+      3. Ensure either the runner is in your PATH or the `runner` value is a absolute path to the executable (e.g. `Path.absname("_build/bun")`)
+      """
+
+      {:error, message}
+    end
+  end
 end

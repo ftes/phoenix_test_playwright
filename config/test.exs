@@ -14,7 +14,7 @@ config :phoenix_test,
   endpoint: PhoenixTest.Endpoint,
   otp_app: :phoenix_test_playwright,
   playwright: [
-    cli: "priv/static/assets/node_modules/playwright/cli.js",
+    assets_dir: "priv/static/assets",
     headless: System.get_env("PW_HEADLESS", "true") in ~w(t true),
     screenshot: System.get_env("PW_SCREENSHOT", "false") in ~w(t true),
     trace: System.get_env("PW_TRACE", "false") in ~w(t true),

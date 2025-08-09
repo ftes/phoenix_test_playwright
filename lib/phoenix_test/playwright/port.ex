@@ -15,26 +15,14 @@ defmodule PhoenixTest.Playwright.Port do
     :buffer
   ]
 
-  def cli_path do
-    path = Config.global(:cli)
-
-    if !File.exists?(path) do
-      msg = """
-      Could not find playwright CLI at #{path}.
-
-      To resolve this please
-      1. Install playwright, e.g. `npm i playwright`
-      2. Configure the path correctly, e.g. in `config/test.exs`: `config :phoenix_test, playwright: [cli: "assets/node_modules/playwright/cli.js"]`
-      """
-
-      raise ArgumentError, msg
-    end
-
-    path
-  end
-
   def open do
-    port = Port.open({:spawn, "#{cli_path()} run-driver"}, [:binary])
+    port =
+      Port.open({:spawn_executable, Config.global(:runner)}, [
+        :binary,
+        args: ["playwright", "run-driver"],
+        cd: Config.global(:assets_dir)
+      ])
+
     %__MODULE__{port: port, remaining: 0, buffer: ""}
   end
 

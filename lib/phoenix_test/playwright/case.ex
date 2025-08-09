@@ -101,8 +101,11 @@ defmodule PhoenixTest.Playwright.Case do
       Playwright.BrowserContext.stop_tracing(browser_context_id, path)
 
       if config[:trace] == :open do
-        cli_path = Path.join(File.cwd!(), Playwright.Port.cli_path())
-        System.cmd(cli_path, ["show-trace", path])
+        System.cmd(
+          Playwright.Config.global(:runner),
+          ["playwright", "show-trace", path],
+          cd: Playwright.Config.global(:assets_dir)
+        )
       end
     end)
   end
