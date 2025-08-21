@@ -569,7 +569,7 @@ defmodule PhoenixTest.Playwright do
   end
 
   def assert_has(conn, "title") do
-    retry(fn -> assert render_page_title(conn) != nil end)
+    retry(fn -> assert render_page_title(conn) end)
   end
 
   @doc false
