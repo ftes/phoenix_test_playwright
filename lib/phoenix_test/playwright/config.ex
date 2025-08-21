@@ -17,12 +17,16 @@ schema =
       type_spec: quote(do: binary()),
       type: {:custom, PhoenixTest.Playwright.Config, :__validate_runner__, []},
       doc:
-        "The JS package runner to use to run the playwright CLI. Accepts either a binary executable exposed in PATH or the absolute path to it."
+        "The JS package runner to use to run the Playwright CLI. Accepts either a binary executable exposed in PATH or the absolute path to it."
     ],
     assets_dir: [
-      default: "assets",
+      default: "./assets",
       type: :string,
-      doc: "The directory where the JS assets are located."
+      doc: "The directory where the JS assets are located and the Playwright CLI is installed."
+    ],
+    cli: [
+      type: {:custom, PhoenixTest.Playwright.Config, :__validate_cli__, []},
+      deprecated: "Use `assets_dir` instead."
     ],
     executable_path: [
       type: :string,
@@ -143,5 +147,10 @@ defmodule PhoenixTest.Playwright.Config do
 
       {:error, message}
     end
+  end
+
+  def __validate_cli__(_cli) do
+    {:error,
+     "it is deprecated. Use `assets_dir` instead if you want to customize the Playwright installation directory path and remove the `cli` option."}
   end
 end
