@@ -1,5 +1,5 @@
 defmodule PhoenixTest.PageController do
-  use Phoenix.Controller
+  use Phoenix.Controller, formats: [html: "View"]
 
   plug(:put_layout, {PhoenixTest.PageView, :layout})
 
