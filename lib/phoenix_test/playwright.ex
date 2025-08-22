@@ -391,15 +391,17 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def retry(fun, current_sleep \\ 0, max_sleep \\ timeout())
+
   def retry(fun, current_sleep, max_sleep) when current_sleep >= max_sleep do
     fun.()
   end
+
   def retry(fun, current_sleep, max_sleep) do
     fun.()
   rescue
     ExUnit.AssertionError ->
       Process.sleep(10)
-      retry(fun, current_sleep+10, max_sleep)
+      retry(fun, current_sleep + 10, max_sleep)
   end
 
   @doc false
@@ -629,11 +631,16 @@ defmodule PhoenixTest.Playwright do
     # We might want refute timeout to be much lower, to prevent constantly
     # checking for something that shouldn't exist.
     opts = Keyword.put_new(opts, :timeout, refute_timeout())
-    retry(fn ->
-      if found?(conn, selector, opts) do
-        flunk("Found element #{selector} #{inspect(opts)}")
-      end
-    end, 0, refute_timeout())
+
+    retry(
+      fn ->
+        if found?(conn, selector, opts) do
+          flunk("Found element #{selector} #{inspect(opts)}")
+        end
+      end,
+      0,
+      refute_timeout()
+    )
 
     conn
   end
