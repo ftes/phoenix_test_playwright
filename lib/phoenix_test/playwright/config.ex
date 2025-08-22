@@ -15,6 +15,7 @@ schema =
     runner: [
       default: "npx",
       type_spec: quote(do: binary()),
+      type_doc: "`t:binary/0`",
       type: {:custom, PhoenixTest.Playwright.Config, :__validate_runner__, []},
       doc:
         "The JS package runner to use to run the Playwright CLI. Accepts either a binary executable exposed in PATH or the absolute path to it."
