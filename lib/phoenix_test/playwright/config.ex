@@ -62,6 +62,10 @@ schema =
       default: to_timeout(second: 2),
       type: :non_neg_integer
     ],
+    refute_timeout: [
+      default: to_timeout(second: 2),
+      type: :non_neg_integer
+    ],
     slow_mo: [
       default: to_timeout(second: 0),
       type: :non_neg_integer

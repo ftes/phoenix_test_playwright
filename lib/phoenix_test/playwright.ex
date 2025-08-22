@@ -176,6 +176,9 @@ defmodule PhoenixTest.Playwright do
   - Increase timemout: `config :phoenix_test, playwright: [timeout: :timer.seconds(4)]`
   - More compute power: e.g. `x64 8-core` [GitHub runner](https://docs.github.com/en/enterprise-cloud@latest/actions/using-github-hosted-runners/using-larger-runners/about-larger-runners#machine-sizes-for-larger-runners)
 
+  ### Tests with many `refutes` is slow
+  - Reduce the time to wait for selectors when doing a refute: `config :phoenix_test, playwright: [refute_timeout: 1]`
+
   ### LiveView not connected
   ```elixir
   |> visit(~p"/")
@@ -387,15 +390,16 @@ defmodule PhoenixTest.Playwright do
   end
 
   @doc false
-  def retry(fun, backoff_ms \\ [100, 250, 500, timeout()])
-  def retry(fun, []), do: fun.()
-
-  def retry(fun, [sleep_ms | backoff_ms]) do
+  def retry(fun, current_sleep \\ 0, max_sleep \\ timeout())
+  def retry(fun, current_sleep, max_sleep) when current_sleep >= max_sleep do
+    fun.()
+  end
+  def retry(fun, current_sleep, max_sleep) do
     fun.()
   rescue
     ExUnit.AssertionError ->
-      Process.sleep(sleep_ms)
-      retry(fun, backoff_ms)
+      Process.sleep(10)
+      retry(fun, current_sleep+10, max_sleep)
   end
 
   @doc false
@@ -612,9 +616,9 @@ defmodule PhoenixTest.Playwright do
     exact = Keyword.get(opts, :exact, false)
 
     if exact do
-      retry(fn -> refute render_page_title(conn) == text end)
+      retry(fn -> refute render_page_title(conn) == text end, 0, refute_timeout())
     else
-      retry(fn -> refute render_page_title(conn) =~ text end)
+      retry(fn -> refute render_page_title(conn) =~ text end, 0, refute_timeout())
     end
 
     conn
@@ -622,11 +626,14 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def refute_has(conn, selector, opts) do
+    # We might want refute timeout to be much lower, to prevent constantly
+    # checking for something that shouldn't exist.
+    opts = Keyword.put_new(opts, :timeout, refute_timeout())
     retry(fn ->
       if found?(conn, selector, opts) do
         flunk("Found element #{selector} #{inspect(opts)}")
       end
-    end)
+    end, 0, refute_timeout())
 
     conn
   end
@@ -987,6 +994,10 @@ defmodule PhoenixTest.Playwright do
 
   defp timeout(opts \\ []) do
     Keyword.get_lazy(opts, :timeout, fn -> Config.global(:timeout) end)
+  end
+
+  defp refute_timeout(opts \\ []) do
+    Keyword.get_lazy(opts, :timeout, fn -> Config.global(:refute_timeout) end)
   end
 end
 
