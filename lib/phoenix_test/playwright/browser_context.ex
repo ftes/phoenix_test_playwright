@@ -13,8 +13,9 @@ defmodule PhoenixTest.Playwright.BrowserContext do
   @doc """
   Open a new browser page and return its `guid`.
   """
-  def new_page(context_id) do
-    resp = post(guid: context_id, method: :new_page)
+  def new_page(context_id, opts \\ []) do
+    params = Map.new(opts)
+    resp = post(guid: context_id, method: :new_page, params: params)
     resp.result.page.guid
   end
 

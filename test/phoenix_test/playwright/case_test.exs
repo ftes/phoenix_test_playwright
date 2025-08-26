@@ -18,4 +18,17 @@ defmodule PhoenixTest.Playwright.CaseTest do
       |> assert_has("h1")
     end
   end
+
+  # Missing: Allow override via `setup` (problem: test-module `setup` runs after `Playwright.Case` setup)
+  setup_all do
+    [browser_context_opts: [locale: "de"]]
+  end
+
+  describe "browser_context_opts" do
+    test "overide locale via setup", %{conn: conn} do
+      conn
+      |> visit("/page/headers")
+      |> assert_has("li", text: "accept-language: de")
+    end
+  end
 end
