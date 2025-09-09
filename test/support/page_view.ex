@@ -451,6 +451,16 @@ defmodule PhoenixTest.PageView do
     """
   end
 
+  def render("headers.html", assigns) do
+    ~H"""
+    <ul>
+      <li :for={{key, value} <- @conn.req_headers}>
+        {key}: {value}
+      </li>
+    </ul>
+    """
+  end
+
   defp render_input_data(key, value) when value == "" or is_nil(value) do
     "#{key}'s value is empty"
   end

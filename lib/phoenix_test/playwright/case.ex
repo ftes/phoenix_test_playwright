@@ -64,14 +64,15 @@ defmodule PhoenixTest.Playwright.Case do
   end
 
   defp new_session(config, context) do
-    browser_context_opts = %{
-      locale: "en",
-      user_agent: checkout_ecto_repos(context.async) || "No user agent"
-    }
+    browser_context_opts =
+      Enum.into(config[:browser_context_opts], %{
+        locale: "en",
+        user_agent: checkout_ecto_repos(context.async) || "No user agent"
+      })
 
     browser_context_id = Playwright.Browser.new_context(context.browser_id, browser_context_opts)
 
-    page_id = Playwright.BrowserContext.new_page(browser_context_id)
+    page_id = Playwright.BrowserContext.new_page(browser_context_id, config[:browser_page_opts])
     Playwright.Page.update_subscription(page_id, event: :console, enabled: true)
     Playwright.Page.update_subscription(page_id, event: :dialog, enabled: true)
 

@@ -85,11 +85,25 @@ schema =
       default: true,
       type: :boolean,
       doc: "Accept browser dialogs (`alert()`, `confirm()`, `prompt()`)"
+    ],
+    browser_context_opts: [
+      default: [],
+      type: {:or, [:map, :keyword_list]},
+      doc:
+        "Additional arguments passed to Playwright [Browser.newContext](https://playwright.dev/docs/api/class-browser#browser-new-context).\n" <>
+          ~s(E.g. `[http_credentials: %{username: "a", password: "b"}]`)
+    ],
+    browser_page_opts: [
+      default: [],
+      type: {:or, [:map, :keyword_list]},
+      doc:
+        "Additional arguments passed to Playwright [Browser.newPage](https://playwright.dev/docs/api/class-browser#browser-new-page).\n" <>
+          ~s(E.g. `[accept_downloads: false]`)
     ]
   )
 
 setup_all_keys = ~w(browser browser_launch_timeout executable_path headless slow_mo)a
-setup_keys = ~w(accept_dialogs screenshot trace)a
+setup_keys = ~w(accept_dialogs screenshot trace browser_context_opts browser_page_opts)a
 
 defmodule PhoenixTest.Playwright.Config do
   @moduledoc """
