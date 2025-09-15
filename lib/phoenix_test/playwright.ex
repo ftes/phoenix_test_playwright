@@ -938,18 +938,20 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def open_browser(conn, open_fun \\ &OpenBrowser.open_with_system_cmd/1) do
+    path = Path.join([System.tmp_dir!(), "phx-test#{System.unique_integer([:monotonic])}.html"])
+
     # Await any pending navigation
     Process.sleep(100)
-    {:ok, html} = Frame.content(conn.frame_id)
+    {:ok, raw_html} = Frame.content(conn.frame_id)
 
     fixed_html =
-      html
-      |> Floki.parse_document!()
-      |> Floki.traverse_and_update(&OpenBrowser.prefix_static_paths(&1, @endpoint))
-      |> Floki.raw_html()
+      raw_html
+      |> PhoenixTest.Html.parse_document()
+      |> PhoenixTest.Html.postwalk(&OpenBrowser.prefix_static_paths(&1, @endpoint))
+      |> PhoenixTest.Html.raw()
 
-    path = Path.join([System.tmp_dir!(), "phx-test#{System.unique_integer([:monotonic])}.html"])
     File.write!(path, fixed_html)
+
     open_fun.(path)
 
     conn
