@@ -560,13 +560,12 @@ defmodule PhoenixTest.IndexLive do
   end
 
   def handle_event("select-country", %{"country" => country}, socket) do
-    case country do
-      "Bolivia" ->
-        socket
-        |> assign(:country, country)
-        |> assign(:cities, ["Santa Cruz", "La Paz", "Cochabamba", "Other"])
-        |> then(&{:noreply, &1})
-    end
+    "Bolivia" = country
+
+    socket
+    |> assign(:country, country)
+    |> assign(:cities, ["Santa Cruz", "La Paz", "Cochabamba", "Other"])
+    |> then(&{:noreply, &1})
   end
 
   def handle_event("select-city", %{"city" => city}, socket) do
