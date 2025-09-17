@@ -19,7 +19,6 @@ defmodule PhoenixTest.Playwright.CaseTest do
     end
   end
 
-  # Missing: Allow override via `setup` (problem: test-module `setup` runs after `Playwright.Case` setup)
   setup_all do
     [browser_context_opts: [locale: "de"]]
   end
