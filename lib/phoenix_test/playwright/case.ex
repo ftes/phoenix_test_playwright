@@ -4,9 +4,13 @@ setup_config_keys = ~w(screenshot trace)a
 defmodule PhoenixTest.Playwright.Case do
   @moduledoc """
   ExUnit case module to assist with browser based tests.
+  `PhoenixTest.Playwright` and `PhoenixTest.Playwright.Config` explain
+  how to use and configure this module.
 
-  See `PhoenixTest.Playwright` and `PhoenixTest.Playwright.Config`
-  for more information.
+  If the default setup behaviour and order does not suit you, consider
+  - using config opt `browser_context_opts`, which are passed to `PhoenixTest.Playwright.Browser.new_context/2`
+  - using config opt `browser_page_opts`, which are passed to `PhoenixTest.Playwright.BrowserContext.new_page/2`
+  - implementing your own `Case` (the setup functions in this module are public for your convenience)
   """
 
   use ExUnit.CaseTemplate
@@ -38,24 +42,35 @@ defmodule PhoenixTest.Playwright.Case do
           with_dialog: 3
         ]
 
-      import PhoenixTest.Playwright.Case
-
       @moduletag Keyword.delete(unquote(opts), :async)
     end
   end
 
-  setup_all context do
+  setup_all :do_setup_all
+  setup :do_setup
+
+  @doc """
+  Merges the ExUnit context with `PhoenixTest.Playwright.Config` opts.
+  Uses the result to launch the browser.
+  Adds `:browser_id` to the context.
+  """
+  def do_setup_all(context) do
     keys = Playwright.Config.setup_all_keys()
     config = context |> Map.take(keys) |> Playwright.Config.validate!() |> Keyword.take(keys)
     [browser_id: launch_browser(config)]
   end
 
-  setup context do
+  @doc """
+  Merges the ExUnit context with `PhoenixTest.Playwright.Config` opts.
+  Uses the result to create a new browser context and page.
+  Adds `:conn` to the context.
+  """
+  def do_setup(context) do
     config = context |> Map.take(Playwright.Config.setup_keys()) |> Playwright.Config.validate!()
     [conn: new_session(config, context)]
   end
 
-  defp launch_browser(opts) do
+  def launch_browser(opts) do
     Connection.ensure_started()
     {browser, opts} = Keyword.pop!(opts, :browser)
     browser_id = Connection.launch_browser(browser, opts)
@@ -63,7 +78,7 @@ defmodule PhoenixTest.Playwright.Case do
     browser_id
   end
 
-  defp new_session(config, context) do
+  def new_session(config, context) do
     browser_context_opts =
       Enum.into(config[:browser_context_opts], %{
         locale: "en",
