@@ -872,12 +872,8 @@ defmodule PhoenixTest.Playwright do
     selector =
       conn
       |> maybe_within()
-      |> Selector.concat(
-        case css_selector do
-          nil -> Selector.label(label, opts)
-          css -> css |> Selector.css() |> Selector.and(Selector.label(label, opts))
-        end
-      )
+      |> add_css_selector(css_selector)
+      |> add_label_selector(label, opts)
       |> Selector.concat("visible=true")
       |> Selector.build()
 
@@ -890,6 +886,12 @@ defmodule PhoenixTest.Playwright do
 
     %{conn | last_input_selector: selector}
   end
+
+  defp add_label_selector(selector, nil, _opts), do: selector
+  defp add_label_selector(selector, label, opts), do: Selector.label(label, opts) |> Selector.and(selector)
+
+  defp add_css_selector(selector, nil), do: selector
+  defp add_css_selector(selector, css), do: css |> Selector.css() |> Selector.and(selector)
 
   defp maybe_within(conn) do
     case conn.within do
