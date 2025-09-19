@@ -872,8 +872,11 @@ defmodule PhoenixTest.Playwright do
     selector =
       conn
       |> maybe_within()
-      |> add_css_selector(css_selector)
-      |> add_label_selector(label, opts)
+      |> Selector.concat(
+        Selector.none()
+        |> add_css_selector(css_selector)
+        |> add_label_selector(label, opts)
+      )
       |> Selector.concat("visible=true")
       |> Selector.build()
 
