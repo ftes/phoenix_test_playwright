@@ -6,9 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## tbd
+### Fixed
+- `assert_has/refute_has`: don't raise if multiple nodes found when using `value` option (playwright strict mode)
 ### Changed
 - Return result tuples from all playwright channel functions for consistency and to surface errors early.
   - Most notably may affect callers of `Frame.evaluate/3`
+- `assert_has/refute_has`: forbid using options `value` and `at` together
 
 ## [0.8.0] 2025-09-17
 ### Removed

@@ -624,7 +624,6 @@ defmodule PhoenixTest.PlaywrightTest do
       |> assert_has("#pre-rendered-data-form input[name=comments]")
     end
 
-    @tag skip: "FIXME #71"
     test "succed with value option if CSS selector matches multiple nodes", %{conn: conn} do
       conn
       |> visit("/live/index")
@@ -632,7 +631,6 @@ defmodule PhoenixTest.PlaywrightTest do
       |> assert_has("input[name=name]", value: "Gandalf")
     end
 
-    @tag skip: "FIXME #71"
     test "succeed with value option if label selector matches multiple nodes", %{conn: conn} do
       conn
       |> visit("/live/index")

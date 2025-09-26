@@ -628,7 +628,7 @@ defmodule PhoenixTest.Playwright do
     matches?
   end
 
-  defp found?(conn, selector, opts, other_params \\ []) do
+  defp found?(conn, selector, opts, params \\ []) do
     selector =
       conn
       |> maybe_within()
@@ -637,9 +637,9 @@ defmodule PhoenixTest.Playwright do
       |> Selector.concat("visible=true")
       |> Selector.concat(Selector.text(opts[:text], opts))
 
-    at = &(selector |> Selector.concat(Selector.at(&1)) |> Selector.build())
+    params = Enum.into(params, %{timeout: timeout(opts)})
 
-    params =
+    {:ok, found?} =
       case Map.new(opts) do
         %{value: _, count: _} ->
           raise(ArgumentError, message: "Options `value` and `count` can not be used together")
@@ -647,18 +647,29 @@ defmodule PhoenixTest.Playwright do
         %{count: _, at: _} ->
           raise(ArgumentError, message: "Options `count` and `at` can not be used together")
 
+        %{value: _, at: _} ->
+          raise(ArgumentError, message: "Options `value` and `at` can not be used together")
+
+        # alternative: custom selector
         %{value: value} ->
-          %{expression: "to.have.value", expected_text: [%{string: value}], selector: at.(opts[:at])}
+          expression = "nodes => nodes.some(node => node.value == \"#{value}\")"
+          Frame.eval_on_selector_all(conn.frame_id, selector, expression)
 
         %{count: count} ->
-          %{expression: "to.have.count", expected_number: count, selector: Selector.build(selector)}
+          params =
+            Enum.into(
+              %{expression: "to.have.count", expected_number: count, selector: Selector.build(selector)},
+              params
+            )
+
+          Frame.expect(conn.frame_id, params)
 
         _ ->
-          %{expression: "to.be.visible", selector: at.(opts[:at] || 0)}
+          selector = Selector.concat(selector, Selector.at(opts[:at] || 0))
+          params = Enum.into(%{expression: "to.be.visible", selector: selector}, params)
+          Frame.expect(conn.frame_id, params)
       end
 
-    params = Enum.into(params, Enum.into(other_params, %{timeout: timeout(opts)}))
-    {:ok, found?} = Frame.expect(conn.frame_id, params)
     found?
   end
 

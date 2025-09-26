@@ -158,4 +158,14 @@ defmodule PhoenixTest.Playwright.Frame do
     |> post()
     |> Result.from_response(& &1)
   end
+
+  def eval_on_selector_all(frame_id, selector, expression, opts \\ []) do
+    params = %{selector: selector, expression: expression, is_function: true, arg: nil}
+    params = opts |> Enum.into(params) |> Map.update!(:arg, &Serialization.serialize_arg/1)
+
+    [guid: frame_id, method: :eval_on_selector_all, params: params]
+    |> post()
+    |> Result.from_response(& &1.result.value)
+    |> Result.map(&Serialization.deserialize_arg/1)
+  end
 end
