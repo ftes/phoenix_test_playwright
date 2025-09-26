@@ -72,4 +72,12 @@ defmodule PhoenixTest.Playwright.BrowserContext do
     |> post()
     |> Result.from_response(& &1)
   end
+
+  def register_selector_engine(context_id, name, source, opts \\ []) do
+    params = %{selector_engine: Enum.into(opts, %{name: name, source: source})}
+
+    [guid: context_id, method: :register_selector_engine, params: params]
+    |> post()
+    |> Result.from_response(& &1)
+  end
 end

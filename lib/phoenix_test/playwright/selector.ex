@@ -52,6 +52,10 @@ defmodule PhoenixTest.Playwright.Selector do
   def css(selector) when is_binary(selector), do: css([selector])
   def css(selectors) when is_list(selectors), do: "css=#{Enum.join(selectors, ",")}"
 
+  # Custom
+  def value(nil), do: :none
+  def value(value), do: "phoenix_test_value='#{value}'"
+
   defp exact_suffix(opts) when is_list(opts), do: opts |> Keyword.get(:exact, false) |> exact_suffix()
 
   defp exact_suffix(true), do: "s"

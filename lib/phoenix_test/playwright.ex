@@ -636,25 +636,19 @@ defmodule PhoenixTest.Playwright do
       |> Selector.and(Selector.label(opts[:label], exact: true))
       |> Selector.concat("visible=true")
       |> Selector.concat(Selector.text(opts[:text], opts))
-
-    at = &(selector |> Selector.concat(Selector.at(&1)) |> Selector.build())
+      |> Selector.concat(Selector.value(opts[:value]))
 
     params =
       case Map.new(opts) do
-        %{value: _, count: _} ->
-          raise(ArgumentError, message: "Options `value` and `count` can not be used together")
-
         %{count: _, at: _} ->
           raise(ArgumentError, message: "Options `count` and `at` can not be used together")
-
-        %{value: value} ->
-          %{expression: "to.have.value", expected_text: [%{string: value}], selector: at.(opts[:at])}
 
         %{count: count} ->
           %{expression: "to.have.count", expected_number: count, selector: Selector.build(selector)}
 
         _ ->
-          %{expression: "to.be.visible", selector: at.(opts[:at] || 0)}
+          selector = Selector.concat(selector, Selector.at(opts[:at] || 0))
+          %{expression: "to.be.visible", selector: selector}
       end
 
     params = Enum.into(params, Enum.into(other_params, %{timeout: timeout(opts)}))

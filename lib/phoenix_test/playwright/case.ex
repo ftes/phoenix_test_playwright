@@ -86,6 +86,7 @@ defmodule PhoenixTest.Playwright.Case do
       })
 
     {:ok, browser_context_id} = Playwright.Browser.new_context(context.browser_id, browser_context_opts)
+    register_selector_engines!(browser_context_id)
 
     {:ok, page_id} = Playwright.BrowserContext.new_page(browser_context_id, config[:browser_page_opts])
     {:ok, _} = Playwright.Page.update_subscription(page_id, event: :console, enabled: true)
@@ -103,6 +104,12 @@ defmodule PhoenixTest.Playwright.Case do
       frame_id: frame_id,
       config: config
     })
+  end
+
+  defp register_selector_engines!(browser_context_id) do
+    for {name, source} <- Playwright.Selector.Engines.custom() do
+      {:ok, _} = Playwright.BrowserContext.register_selector_engine(browser_context_id, to_string(name), source)
+    end
   end
 
   defp trace(browser_context_id, config, context) do

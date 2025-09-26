@@ -99,6 +99,12 @@ schema =
       doc:
         "Additional arguments passed to Playwright [Browser.newPage](https://playwright.dev/docs/api/class-browser#browser-new-page).\n" <>
           ~s(E.g. `[accept_downloads: false]`)
+    ],
+    selector_engines: [
+      default: [],
+      type: {:or, [:map, :keyword_list]},
+      doc:
+        "Define custom Playwright [selector engines](https://playwright.dev/docs/extensibility#custom-selector-engines)."
     ]
   )
 
