@@ -29,7 +29,7 @@ defmodule PhoenixTest.Playwright.Case do
           add_session_cookie: 3,
           clear_cookies: 1,
           clear_cookies: 2,
-          click: 3,
+          click: 2,
           click: 4,
           click_button: 4,
           click_link: 4,
