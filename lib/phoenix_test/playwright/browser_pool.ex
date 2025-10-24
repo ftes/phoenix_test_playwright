@@ -30,10 +30,10 @@ defmodule PhoenixTest.Playwright.BrowserPool do
     @moduledoc false
     defstruct [
       :config,
+      :max_size,
       available: [],
       in_use: %{},
-      waiting: :queue.new(),
-      max_size: 4
+      waiting: :queue.new()
     ]
   end
 
@@ -82,8 +82,9 @@ defmodule PhoenixTest.Playwright.BrowserPool do
   def init(config) do
     # Trap exits so we can clean up browsers on shutdown
     Process.flag(:trap_exit, true)
+    max_size = PhoenixTest.Playwright.Config.global(:browser_pool_size) || System.schedulers_online()
 
-    {:ok, %State{config: config}}
+    {:ok, %State{config: config, max_size: max_size}}
   end
 
   @impl GenServer
@@ -238,8 +239,6 @@ defmodule PhoenixTest.Playwright.BrowserPool do
         catch
           :exit, _ -> nil
         end
-      else
-        nil
       end
     end)
   end

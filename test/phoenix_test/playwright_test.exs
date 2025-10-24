@@ -1,5 +1,5 @@
 defmodule PhoenixTest.PlaywrightTest do
-  use PhoenixTest.Playwright.Case, async: true, parameterize: Enum.map(1..28, &%{index: &1})
+  use PhoenixTest.Playwright.Case, async: true, parameterize: Enum.map(1..(28 * 4), &%{index: &1})
 
   import ExUnit.CaptureLog, only: [capture_log: 1]
 

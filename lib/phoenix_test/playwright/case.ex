@@ -74,8 +74,6 @@ defmodule PhoenixTest.Playwright.Case do
     [conn: new_session(config, context)]
   end
 
-
-
   def new_session(config, context) do
     browser_context_opts =
       Enum.into(config[:browser_context_opts], %{
