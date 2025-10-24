@@ -158,4 +158,13 @@ defmodule PhoenixTest.Playwright.Frame do
     |> post()
     |> Result.from_response(& &1)
   end
+
+  def drag_and_drop(frame_id, source_selector, target_selector, opts \\ []) do
+    params = %{source: source_selector, target: target_selector, strict: true}
+    params = Enum.into(opts, params)
+
+    [guid: frame_id, method: :drag_and_drop, params: params]
+    |> post()
+    |> Result.from_response(& &1)
+  end
 end

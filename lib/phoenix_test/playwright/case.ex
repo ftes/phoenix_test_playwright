@@ -24,6 +24,7 @@ defmodule PhoenixTest.Playwright.Case do
       import PhoenixTest
 
       import PhoenixTest.Playwright,
+        # styler:sort
         only: [
           add_cookies: 2,
           add_session_cookie: 3,
@@ -34,6 +35,7 @@ defmodule PhoenixTest.Playwright.Case do
           click: 4,
           click_button: 4,
           click_link: 4,
+          drag: 3,
           press: 3,
           press: 4,
           screenshot: 2,

@@ -873,6 +873,16 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
+  describe "drag/3" do
+    test "triggers a javascript event handler", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> refute_has("#drag-status", text: "dropped")
+      |> drag(Selector.text("Drag this"), to: Selector.text("Drop here"))
+      |> assert_has("#drag-status", text: "dropped")
+    end
+  end
+
   describe "add_cookies/2" do
     test "sets a plain cookie", %{conn: conn} do
       conn
