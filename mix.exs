@@ -96,7 +96,7 @@ defmodule PhoenixTestPlaywright.MixProject do
         "credo",
         "compile --warnings-as-errors",
         "assets.build",
-        "test --warnings-as-errors --max-cases 1"
+        "test --warnings-as-errors"
       ]
     ]
   end
