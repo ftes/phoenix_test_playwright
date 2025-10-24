@@ -91,31 +91,29 @@ defmodule PhoenixTest.Playwright.BrowserPool do
   def handle_call(:checkout, from, state) do
     {from_pid, _tag} = from
 
-    case state.available do
-      # Case 1: Browser available, return immediately
-      [browser_id | rest] ->
+    case {state.available, map_size(state.in_use), state.max_size} do
+      # Browser available, return immediately
+      {[browser_id | rest], _, _} ->
         ref = Process.monitor(from_pid)
         state = %{state | available: rest, in_use: Map.put(state.in_use, browser_id, {from_pid, ref})}
         {:reply, {:ok, browser_id}, state}
 
-      # Case 2: No available browsers
-      [] ->
-        if map_size(state.in_use) < state.max_size do
-          # Can launch new browser (under max size)
-          case launch_browser(state.config) do
-            {:ok, browser_id} ->
-              ref = Process.monitor(from_pid)
-              state = %{state | in_use: Map.put(state.in_use, browser_id, {from_pid, ref})}
-              {:reply, {:ok, browser_id}, state}
+      # Can launch new browser
+      {_, in_use, max} when in_use < max ->
+        case launch_browser(state.config) do
+          {:ok, browser_id} ->
+            ref = Process.monitor(from_pid)
+            state = %{state | in_use: Map.put(state.in_use, browser_id, {from_pid, ref})}
+            {:reply, {:ok, browser_id}, state}
 
-            {:error, reason} ->
-              {:reply, {:error, reason}, state}
-          end
-        else
-          # All browsers in use, queue the request
-          state = %{state | waiting: :queue.in(from, state.waiting)}
-          {:noreply, state}
+          {:error, reason} ->
+            {:reply, {:error, reason}, state}
         end
+
+      # Queue the request
+      _ ->
+        state = %{state | waiting: :queue.in(from, state.waiting)}
+        {:noreply, state}
     end
   end
 
