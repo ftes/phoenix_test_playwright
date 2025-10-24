@@ -31,6 +31,12 @@ schema =
         "The directory where the JS assets are located and the Playwright CLI is installed.\n" <>
           "Playwright version `#{playwright_recommended_version}` or newer is recommended."
     ],
+    browser_pool_size: [
+      type: {:or, [nil, :pos_integer]},
+      default: nil,
+      doc:
+        "The number of browsers to launch in parallel (per browser type/config). It defaults to `System.schedulers_online`."
+    ],
     cli: [
       type: {:custom, PhoenixTest.Playwright.Config, :__validate_cli__, []},
       deprecated: "Use `assets_dir` instead."
