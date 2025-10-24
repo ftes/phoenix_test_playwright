@@ -873,12 +873,12 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
-  describe "drag_and_drop/3" do
+  describe "drag/3" do
     test "triggers a javascript event handler", %{conn: conn} do
       conn
       |> visit("/live/index")
       |> refute_has("#drag-status", text: "dropped")
-      |> drag_and_drop(Selector.text("Drag this"), target: Selector.text("Drop here"))
+      |> drag(Selector.text("Drag this"), to: Selector.text("Drop here"))
       |> assert_has("#drag-status", text: "dropped")
     end
   end

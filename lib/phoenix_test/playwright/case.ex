@@ -35,7 +35,7 @@ defmodule PhoenixTest.Playwright.Case do
           click: 4,
           click_button: 4,
           click_link: 4,
-          drag_and_drop: 3,
+          drag: 3,
           press: 3,
           press: 4,
           screenshot: 2,

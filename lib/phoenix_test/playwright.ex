@@ -560,8 +560,8 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
-  @drag_and_drop_opts_schema [
-    target: [
+  @drag_opts_schema [
+    to: [
       type_spec: quote(do: selector()),
       type_doc: "`t:selector/0`",
       required: true,
@@ -570,26 +570,25 @@ defmodule PhoenixTest.Playwright do
   ]
 
   @doc """
-  Drag and drop an element to a target element.
+  Drag and drop a source element to a target element.
 
   ## Options
-  #{NimbleOptions.docs(@drag_and_drop_opts_schema)}
+  #{NimbleOptions.docs(@drag_opts_schema)}
 
   ## Examples
-      |> drag_and_drop("#source", target: "#target")
-      |> drag_and_drop(Selector.text("Draggable"), target: Selector.text("Target"))
+      |> drag("#source", to: "#target")
+      |> drag(Selector.text("Draggable"), to: Selector.text("Target"))
   """
-  @spec drag_and_drop(t(), selector(), [
-          unquote(NimbleOptions.option_typespec(@drag_and_drop_opts_schema))
+  @spec drag(t(), selector(), [
+          unquote(NimbleOptions.option_typespec(@drag_opts_schema))
         ]) :: t()
-  def drag_and_drop(conn, selector, opts) do
-    opts = NimbleOptions.validate!(opts, @drag_and_drop_opts_schema)
-    selector = conn |> maybe_within() |> Selector.concat(selector)
-    opts = Keyword.update!(opts, :target, &(conn |> maybe_within() |> Selector.concat(&1)))
+  def drag(conn, source_selector, to: target_selector) do
+    source_selector = conn |> maybe_within() |> Selector.concat(source_selector)
+    target_selector = conn |> maybe_within() |> Selector.concat(target_selector)
 
     conn.frame_id
-    |> Frame.drag_and_drop(selector, opts)
-    |> handle_response(selector)
+    |> Frame.drag_and_drop(source_selector, target_selector)
+    |> handle_response(source_selector)
 
     conn
   end
