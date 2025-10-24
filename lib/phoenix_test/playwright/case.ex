@@ -17,6 +17,7 @@ defmodule PhoenixTest.Playwright.Case do
 
   alias Ecto.Adapters.SQL.Sandbox
   alias PhoenixTest.Playwright
+  alias PhoenixTest.Playwright.BrowserPool
   alias PhoenixTest.Playwright.Connection
 
   using opts do
@@ -52,13 +53,15 @@ defmodule PhoenixTest.Playwright.Case do
 
   @doc """
   Merges the ExUnit context with `PhoenixTest.Playwright.Config` opts.
-  Uses the result to launch the browser.
+  Uses the result to checkout a browser from the pool.
   Adds `:browser_id` to the context.
   """
   def do_setup_all(context) do
     keys = Playwright.Config.setup_all_keys()
     config = context |> Map.take(keys) |> Playwright.Config.validate!() |> Keyword.take(keys)
-    [browser_id: launch_browser(config)]
+    {:ok, browser_id} = BrowserPool.checkout(config)
+    on_exit(fn -> BrowserPool.checkin(browser_id) end)
+    [browser_id: browser_id]
   end
 
   @doc """
@@ -71,13 +74,7 @@ defmodule PhoenixTest.Playwright.Case do
     [conn: new_session(config, context)]
   end
 
-  def launch_browser(opts) do
-    Connection.ensure_started()
-    {browser, opts} = Keyword.pop!(opts, :browser)
-    browser_id = Connection.launch_browser(browser, opts)
-    on_exit(fn -> Connection.post(guid: browser_id, method: :close) end)
-    browser_id
-  end
+
 
   def new_session(config, context) do
     browser_context_opts =
