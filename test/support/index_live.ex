@@ -441,6 +441,12 @@ defmodule PhoenixTest.IndexLive do
     <div id="hook-with-redirect" phx-hook="SomeOtherHook"></div>
 
     <.link data-confirm="Are you sure?" navigate="/live/page_2">Confirm to navigate</.link>
+
+    <div id="drag-and-drop">
+      <div id="drag-status">pending</div>
+      <div id="drag-source" style="background: yellow;" draggable="true">Drag this</div>
+      <div id="drag-target" style="border: 1px dashed black;" ondrop="document.getElementById('drag-status').innerHTML = 'dropped'">Drop here</div>
+    </div>
     """
   end
 

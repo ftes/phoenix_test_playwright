@@ -560,6 +560,40 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
+  @drag_and_drop_opts_schema [
+    target: [
+      type_spec: quote(do: selector()),
+      type_doc: "`t:selector/0`",
+      required: true,
+      doc: "The target selector."
+    ]
+  ]
+
+  @doc """
+  Drag and drop an element to a target element.
+
+  ## Options
+  #{NimbleOptions.docs(@drag_and_drop_opts_schema)}
+
+  ## Examples
+      |> drag_and_drop("#source", target: "#target")
+      |> drag_and_drop(Selector.text("Draggable"), target: Selector.text("Target"))
+  """
+  @spec drag_and_drop(t(), selector(), [
+          unquote(NimbleOptions.option_typespec(@drag_and_drop_opts_schema))
+        ]) :: t()
+  def drag_and_drop(conn, selector, opts) do
+    opts = NimbleOptions.validate!(opts, @drag_and_drop_opts_schema)
+    selector = conn |> maybe_within() |> Selector.concat(selector)
+    opts = Keyword.update!(opts, :target, &(conn |> maybe_within() |> Selector.concat(&1)))
+
+    conn.frame_id
+    |> Frame.drag_and_drop(selector, opts)
+    |> handle_response(selector)
+
+    conn
+  end
+
   def assert_path(conn, path, opts \\ []) do
     if opts[:query_params] do
       retry(fn -> Assertions.assert_path(conn, path, opts) end, timeout(opts))
