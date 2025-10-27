@@ -44,6 +44,45 @@ defmodule PhoenixTest.Playwright.Connection do
   end
 
   @doc """
+  Conntect to a browser via CDP and return its `guid`.
+  """
+  def connect_over_cdp(type, url, opts \\ []) do
+    types = initializer("Playwright")
+    type_id = Map.fetch!(types, type).guid
+
+    timeout =
+      opts[:browser_launch_timeout] || opts[:timeout] || Config.global(:browser_launch_timeout)
+
+    params =
+      opts
+      |> Enum.into(%{endpoint_uRL: url})
+      |> Map.put(:timeout, timeout)
+
+    case post(guid: type_id, method: :connect_over_cDP, params: params) do
+      %{result: %{browser: %{guid: guid}}} ->
+        guid
+
+      %{error: %{error: %{name: "TimeoutError", stack: stack, message: message}}} ->
+        raise """
+        Timed out while launching the Playwright browser, #{String.capitalize("#{type}")}. #{message}
+
+        You may need to increase the :browser_launch_timeout option in config/test.exs:
+
+            config :phoenix_test,
+              playwright: [
+                browser_launch_timeout: 10_000,
+                # other Playwright options...
+              ],
+              # other phoenix_test options...
+
+        Playwright backtrace:
+
+        #{stack}
+        """
+    end
+  end
+
+  @doc """
   Launch a browser and return its `guid`.
   """
   def launch_browser(type, opts) do

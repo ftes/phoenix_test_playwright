@@ -60,7 +60,7 @@ defmodule PhoenixTest.Playwright.Case do
   def do_setup_all(context) do
     keys = Playwright.Config.setup_all_keys()
     config = context |> Map.take(keys) |> Playwright.Config.validate!() |> Keyword.take(keys)
-    [browser_id: launch_browser(config)]
+    [browser_id: connect_over_cdp(config)]
   end
 
   @doc """
@@ -81,12 +81,20 @@ defmodule PhoenixTest.Playwright.Case do
     browser_id
   end
 
+  def connect_over_cdp(opts) do
+    Connection.ensure_started()
+    {browser, opts} = Keyword.pop!(opts, :browser)
+    browser_id = Connection.connect_over_cdp(browser, "ws://localhost:9222", opts)
+    browser_id
+  end
+
   def new_session(config, context) do
     browser_context_opts =
-      Enum.into(config[:browser_context_opts], %{
-        locale: "en",
-        user_agent: checkout_ecto_repos(context.async) || "No user agent"
-      })
+      Map.new(
+        config[:browser_context_opts]
+        # locale: "en"
+        # user_agent: checkout_ecto_repos(context.async) || "No user agent"
+      )
 
     {:ok, browser_context_id} = Playwright.Browser.new_context(context.browser_id, browser_context_opts)
     register_selector_engines!(browser_context_id)
