@@ -21,7 +21,7 @@ config :phoenix_test,
     screenshot: System.get_env("PW_SCREENSHOT", "false") in ~w(t true),
     trace: System.get_env("PW_TRACE", "false") in ~w(t true),
     timeout: String.to_integer(System.get_env("PW_TIMEOUT", "500")),
-    browser_pool: :chromium_pool,
+    browser_pool: nil,
     browser_pools: [
       [id: :chromium_pool, browser: :chromium],
       [id: :firefox_pool, browser: :firefox]

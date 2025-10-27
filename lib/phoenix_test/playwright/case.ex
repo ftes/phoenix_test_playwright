@@ -22,6 +22,7 @@ defmodule PhoenixTest.Playwright.Case do
   alias PlaywrightEx.Browser
   alias PlaywrightEx.BrowserContext
   alias PlaywrightEx.Page
+  alias PlaywrightEx.Supervisor.Connection
   alias PlaywrightEx.Tracing
 
   using opts do
@@ -72,7 +73,7 @@ defmodule PhoenixTest.Playwright.Case do
     if pool = config[:browser_pool] do
       [browser_id: BrowserPool.checkout(pool)]
     else
-      [browser_id: config |> Keyword.delete(:browser_pool) |> launch_browser()]
+      [browser_id: connect_over_cdp(config)]
     end
   end
 
@@ -86,19 +87,53 @@ defmodule PhoenixTest.Playwright.Case do
     [conn: new_session(config, context)]
   end
 
-  defp launch_browser(config) do
-    {timeout, opts} = Keyword.pop!(config, :browser_launch_timeout)
+  def connect_over_cdp(opts) do
     {browser, opts} = Keyword.pop!(opts, :browser)
+    browser_id = do_connect_over_cdp(browser, "ws://localhost:9222", opts)
+    browser_id
+  end
 
-    {:ok, browser} = PlaywrightEx.launch_browser(browser, Keyword.put(opts, :timeout, timeout))
-    on_exit(fn -> spawn(fn -> Browser.close(browser.guid, timeout: timeout) end) end)
-    browser.guid
+  defp do_connect_over_cdp(type, url, opts) do
+    types = PlaywrightEx.Connection.initializer!(Connection, "Playwright")
+    type_id = Map.fetch!(types, type).guid
+
+    timeout =
+      opts[:browser_launch_timeout] || opts[:timeout] || PhoenixTest.Playwright.Config.global(:browser_launch_timeout)
+
+    params = Enum.into(opts, %{endpoint_uRL: url})
+
+    case PlaywrightEx.Connection.send(
+           Connection,
+           %{guid: type_id, method: :connect_over_cDP, params: params},
+           timeout
+         ) do
+      %{result: %{browser: %{guid: guid}}} ->
+        guid
+
+      %{error: %{error: %{name: "TimeoutError", stack: stack, message: message}}} ->
+        raise """
+        Timed out while launching the Playwright browser, #{String.capitalize("#{type}")}. #{message}
+
+        You may need to increase the :browser_launch_timeout option in config/test.exs:
+
+            config :phoenix_test,
+              playwright: [
+                browser_launch_timeout: 10_000,
+                # other Playwright options...
+              ],
+              # other phoenix_test options...
+
+        Playwright backtrace:
+
+        #{stack}
+        """
+    end
   end
 
   def new_session(config, context) do
-    user_agent = checkout_ecto_repos(config, context)
+    _user_agent = checkout_ecto_repos(config, context)
     base_url = Application.fetch_env!(:phoenix_test, :base_url)
-    context_opts_defaults = [base_url: base_url, locale: "en", user_agent: user_agent, timeout: config[:timeout]]
+    context_opts_defaults = [base_url: base_url, timeout: config[:timeout]]
     context_opts = Keyword.merge(context_opts_defaults, config[:browser_context_opts])
     {:ok, browser_context} = Browser.new_context(context.browser_id, context_opts)
     register_selector_engines!(browser_context.guid, config)

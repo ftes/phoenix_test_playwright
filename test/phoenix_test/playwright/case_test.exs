@@ -20,7 +20,8 @@ defmodule PhoenixTest.Playwright.CaseTest do
   end
 
   setup_all do
-    [browser_context_opts: [locale: "de"]]
+    # [browser_context_opts: [locale: "de"]]
+    :ok
   end
 
   describe "browser_context_opts" do
