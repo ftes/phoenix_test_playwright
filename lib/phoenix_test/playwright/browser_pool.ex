@@ -68,9 +68,8 @@ defmodule PhoenixTest.Playwright.BrowserPool do
   def start_link(opts) do
     {name, opts} = Keyword.pop!(opts, :name)
     {size, opts} = Keyword.pop!(opts, :size)
-    config = opts |> Playwright.Config.validate!() |> Keyword.take(Playwright.Config.setup_all_keys())
 
-    GenServer.start_link(__MODULE__, %State{size: size, config: config}, name: name)
+    GenServer.start_link(__MODULE__, %State{size: size, config: opts}, name: name)
   end
 
   @impl GenServer
@@ -108,6 +107,8 @@ defmodule PhoenixTest.Playwright.BrowserPool do
   end
 
   defp launch(config) do
+    config = config |> Playwright.Config.validate!() |> Keyword.take(Playwright.Config.setup_all_keys())
+
     {type, config} = Keyword.pop!(config, :browser)
     Playwright.Connection.ensure_started()
     Playwright.Connection.launch_browser(type, config)
