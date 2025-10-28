@@ -60,7 +60,12 @@ defmodule PhoenixTest.Playwright.Case do
   def do_setup_all(context) do
     keys = Playwright.Config.setup_all_keys()
     config = context |> Map.take(keys) |> Playwright.Config.validate!() |> Keyword.take(keys)
-    [browser_id: launch_browser(config)]
+
+    if pool = config[:browser_pool] do
+      [browser_id: Playwright.BrowserPool.checkout(pool)]
+    else
+      [browser_id: launch_browser(config)]
+    end
   end
 
   @doc """

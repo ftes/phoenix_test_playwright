@@ -68,6 +68,16 @@ schema =
       default: to_timeout(second: 2),
       type: :non_neg_integer
     ],
+    browser_pool_checkout_timeout: [
+      default: to_timeout(minute: 1),
+      type: :non_neg_integer
+    ],
+    browser_pool: [
+      default: nil,
+      type: :any,
+      doc:
+        "Reuse a browser from this pool instead of launching a new browser per test suite. See `PhoenixTest.Playwright.BrowserPool`."
+    ],
     slow_mo: [
       default: to_timeout(second: 0),
       type: :non_neg_integer
@@ -108,7 +118,7 @@ schema =
     ]
   )
 
-setup_all_keys = ~w(browser browser_launch_timeout executable_path headless slow_mo)a
+setup_all_keys = ~w(browser_pool browser browser_launch_timeout executable_path headless slow_mo)a
 setup_keys = ~w(accept_dialogs screenshot trace browser_context_opts browser_page_opts)a
 
 defmodule PhoenixTest.Playwright.Config do
