@@ -110,7 +110,6 @@ defmodule PhoenixTest.Playwright.BrowserPool do
     config = config |> Playwright.Config.validate!() |> Keyword.take(Playwright.Config.setup_all_keys())
 
     {type, config} = Keyword.pop!(config, :browser)
-    Playwright.Connection.ensure_started()
     Playwright.Connection.launch_browser(type, config)
   end
 
