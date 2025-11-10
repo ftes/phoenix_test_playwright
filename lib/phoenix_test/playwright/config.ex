@@ -96,11 +96,11 @@ schema_opts = [
     default: 0,
     type: :non_neg_integer,
     doc: """
-      Delay in milliseconds before shutting down the Ecto sandbox owner after a
-      test ends. Use this to allow LiveViews and other processes in your app
-      time to stop using database connections before the sandbox owner is
-      terminated. Default is 0 (immediate shutdown).
-      """
+    Delay in milliseconds before shutting down the Ecto sandbox owner after a
+    test ends. Use this to allow LiveViews and other processes in your app
+    time to stop using database connections before the sandbox owner is
+    terminated. Default is 0 (immediate shutdown).
+    """
   ],
   screenshot: [
     default: false,
