@@ -89,7 +89,7 @@ defmodule PhoenixTest.Playwright.Case do
     browser_context_opts =
       Enum.into(config[:browser_context_opts], %{
         locale: "en",
-        user_agent: checkout_ecto_repos(context.async) || "No user agent"
+        user_agent: checkout_ecto_repos(config, context) || "No user agent"
       })
 
     {:ok, browser_context_id} = Playwright.Browser.new_context(context.browser_id, browser_context_opts)
@@ -157,29 +157,49 @@ defmodule PhoenixTest.Playwright.Case do
                    Code.ensure_loaded?(Phoenix.Ecto.SQL.Sandbox)
 
   if @includes_ecto do
-    defp checkout_ecto_repos(async?) do
+    defp checkout_ecto_repos(config, context) do
       otp_app = Application.fetch_env!(:phoenix_test, :otp_app)
       repos = Application.get_env(otp_app, :ecto_repos, [])
 
       repos
-      |> Enum.map(&checkout_ecto_repo(&1, async?))
+      |> Enum.map(&maybe_start_sandbox_owner(&1, context, config))
       |> Phoenix.Ecto.SQL.Sandbox.metadata_for(self())
       |> Phoenix.Ecto.SQL.Sandbox.encode_metadata()
     end
 
-    defp checkout_ecto_repo(repo, async?) do
-      case Sandbox.checkout(repo) do
-        :ok -> :ok
-        {:already, :allowed} -> :ok
-        {:already, :owner} -> :ok
-      end
+    defp maybe_start_sandbox_owner(repo, context, config) do
+      case start_sandbox_owner(repo, context) do
+        {:ok, pid} ->
+          on_exit(fn -> stop_sandbox_owner(pid, config[:sandbox_shutdown_delay], context.async) end)
 
-      if not async?, do: Sandbox.mode(repo, {:shared, self()})
+        _ ->
+          :ok
+      end
 
       repo
     end
+
+    defp start_sandbox_owner(repo, context) do
+      pid = Sandbox.start_owner!(repo, shared: !context.async)
+      {:ok, pid}
+    rescue
+      _ -> {:error, :probably_already_started}
+    end
+
+    defp stop_sandbox_owner(checkout_pid, delay, async?) do
+      if async? do
+        spawn(fn -> do_stop_sandbox_owner(checkout_pid, delay) end)
+      else
+        do_stop_sandbox_owner(checkout_pid, delay)
+      end
+    end
+
+    defp do_stop_sandbox_owner(checkout_pid, delay) do
+      if delay > 0, do: Process.sleep(delay)
+      Sandbox.stop_owner(checkout_pid)
+    end
   else
-    defp checkout_ecto_repos(_) do
+    defp checkout_ecto_repos(_, _) do
       nil
     end
   end

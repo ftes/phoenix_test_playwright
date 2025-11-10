@@ -201,11 +201,55 @@ defmodule PhoenixTest.Playwright do
     use PhoenixTest.Playwright.Case, async: true
   ```
 
-  `PhoenixTest.Playwright.Case` automatically takes care of this.
-  It passes a user agent referencing your Ecto repos.
-  This allows for [concurrent browser tests](https://hexdocs.pm/phoenix_ecto/main.html#concurrent-browser-tests).
+  `PhoenixTest.Playwright.Case` automatically takes care of this. It starts the
+  sandbox under a separate process than your test and uses
+  `ExUnit.Callbacks.on_exit/1` to ensure the sandbox is shut down afterward. It
+  also sends a `User-Agent` header with the
+  `Phoenix.Ecto.SQL.Sandbox.html.metadata_for/3` your Ecto repos. This allows
+  the sandbox to be shared with the LiveView and other processes which need to
+  use the database inside the same transaction as the test. It also allows for
+  [concurrent browser
+  tests](https://hexdocs.pm/phoenix_ecto/main.html#concurrent-browser-tests).
 
-  Make sure to follow the advanced set up instructions if necessary:
+  ### Ownership errors with LiveViews
+
+  Unlike `Phoenix.LiveViewTest`, which controls the lifecycle of LiveView
+  processes being tested, Playwright tests may end while such processes are
+  still using the sandbox.
+
+  In that case, you may encounter ownership errors like:
+  ```
+  ** (DBConnection.OwnershipError) cannot find owner for ...
+  ```
+
+  To prevent this, the `sandbox_shutdown_delay` option allows you to delay the
+  sandbox owner's shutdown, giving LiveViews and other processes time to close
+  their database connections. The delay happens during
+  `ExUnit.Callbacks.on_exit/1`, which blocks the running of the next test, so
+  it affects test runtime as if it were a `Process.sleep/1` at the end of your
+  test.
+
+  So you probably want to use **as small a delay as you can**, and only for the
+  tests that need it, using `@tag` (or `@describetag` or `@moduletag`) like:
+
+  ```
+  @tag sandbox_shutdown_delay: 100 # 100ms
+  test "does something" do
+    # ...
+  end
+  ```
+
+  If you want to set a global default, you can:
+
+
+  ```elixir
+  # config/test.exs
+  config :phoenix_test, playwright: [
+    sandbox_shutdown_delay: 50  # 50ms
+  ]
+  ```
+
+  For more details on LiveView and Ecto integration, see the advanced set up instructions:
   - [with LiveViews](https://hexdocs.pm/phoenix_ecto/Phoenix.Ecto.SQL.Sandbox.html#module-acceptance-tests-with-liveviews)
   - [with Channels](https://hexdocs.pm/phoenix_ecto/Phoenix.Ecto.SQL.Sandbox.html#module-acceptance-tests-with-channels)
 
