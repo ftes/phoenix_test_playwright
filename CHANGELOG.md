@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
+## [Unreleased]
+### Changed
+- Ecto sandbox ownership: Use a separate sandbox owner process instead of the test process. This reduces ownership errors when LiveViews continue to use database connections after the test terminates. Commit [7577d5e]
+### Added
+- Config option `sandbox_shutdown_delay`: Delay in milliseconds before shutting down the Ecto sandbox owner. Use when LiveViews or other processes need time to stop using the connections. Commit [7577d5e]
+
 ## [0.9.1] 2025-10-29
 ### Added
 - Browser pooling (opt-in): Reduced memory, higher speed. See `PhoenixTest.Playwright.BrowserPool`. Commit [00e75c6]
@@ -126,6 +132,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - `@tag trace: :open` to auto open recorded Playwright trace in viewer
 
+[7577d5e]: https://github.com/ftes/phoenix_test_playwright/commit/7577d5e
 [5ff530]: https://github.com/ftes/phoenix_test_playwright/commit/5ff530
 [becf5e]: https://github.com/ftes/phoenix_test_playwright/commit/becf5e
 [72edd9]: https://github.com/ftes/phoenix_test_playwright/commit/72edd9
