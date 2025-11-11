@@ -12,7 +12,7 @@ defmodule PhoenixTestPlaywright.MixProject do
       app: :phoenix_test_playwright,
       version: @version,
       description: @description,
-      elixir: "~> 1.15",
+      elixir: "~> 1.18",
       deps: deps(),
       elixirc_paths: elixirc_paths(Mix.env()),
       package: package(),
