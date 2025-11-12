@@ -129,15 +129,24 @@ defmodule PhoenixTest.Playwright.Case do
     on_exit(fn ->
       _ignore_error = Playwright.BrowserContext.stop_tracing(browser_context_id, path)
 
-      if config[:trace] == :open do
-        System.cmd(
-          Playwright.Config.global(:runner),
-          ["playwright", "show-trace", Path.join(File.cwd!(), path)],
-          cd: Playwright.Config.global(:assets_dir)
-        )
-      end
+      maybe_open_trace(config[:trace], path)
     end)
   end
+
+  defp maybe_open_trace(:open, path) do
+    # Spawn to avoid blocking the test exit
+    spawn(fn ->
+      System.cmd(
+        Playwright.Config.global(:runner),
+        ["playwright", "show-trace", Path.join(File.cwd!(), path)],
+        cd: Playwright.Config.global(:assets_dir)
+      )
+    end)
+
+    :ok
+  end
+
+  defp maybe_open_trace(_, _), do: :ok
 
   defp screenshot(page_id, config, context) do
     file = file_name(".png", context)
