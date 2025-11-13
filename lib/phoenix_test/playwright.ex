@@ -2,31 +2,25 @@ defmodule PhoenixTest.Playwright do
   @moduledoc ~S"""
   Run feature tests in an actual browser, using [PhoenixTest](https://hexdocs.pm/phoenix_test) and [Playwright](https://playwright.dev/).
 
-  ```elixir
-  defmodule Features.RegisterTest do
-    use PhoenixTest.Playwright.Case,
-      async: true,
-      parameterize: [                      # run in multiple browsers in parallel
-        %{browser: :chromium},
-        %{browser: :firefox}
-      ],
-      headless: false,                     # show browser window
-      slow_mo: :timer.seconds(1)           # add delay between interactions
+      defmodule Features.RegisterTest do
+        use PhoenixTest.Playwright.Case,
+          async: true,                         # async with Ecto sandbox
+          parameterize: [                      # run in multiple browsers in parallel
+            %{browser_pool: :chromium},
+            %{browser_pool: :firefox}
+          ]
 
-    @tag trace: :open                      # replay in interactive viewer
-    test "register", %{conn: conn} do
-      conn
-      |> visit(~p"/")
-      |> click_link("Register")
-
-      |> fill_in("Email", with: "f@ftes.de")
-      |> click_button("Create an account")
-
-      |> assert_has(".text-rose-600", text: "required")
-      |> screenshot("error.png", full_page: true)
-    end
-  end
-  ```
+        @tag trace: :open                      # replay in interactive viewer
+        test "register", %{conn: conn} do
+          conn
+          |> visit(~p"/")
+          |> click_link("Register")
+          |> fill_in("Email", with: "f@ftes.de")
+          |> click_button("Create an account")
+          |> assert_has(".error", text: "required")
+          |> screenshot("error.png", full_page: true)
+        end
+      end
 
   Please [get in touch](https://ftes.de) with feedback of any shape and size.
 
@@ -37,42 +31,33 @@ defmodule PhoenixTest.Playwright do
 
   ## Getting started
   1. Add dependency
-    ```elixir
-    # mix.exs
-    {:phoenix_test_playwright, "~> 0.4", only: :test, runtime: false}
-    ```
+          # mix.exs
+          {:phoenix_test_playwright, "~> 0.4", only: :test, runtime: false}
 
   2. Install playwright and browser
-    ```
-    npm --prefix assets i -D playwright
-    npm --prefix assets exec -- playwright install chromium --with-deps
-    ```
+          npm --prefix assets i -D playwright
+          npm --prefix assets exec -- playwright install chromium --with-deps
 
   3. Config
-    ```elixir
-    # config/test.exs
-    config :phoenix_test, otp_app: :your_app
-    config :your_app, YourAppWeb.Endpoint, server: true
-    ```
+          # config/test.exs
+          config :phoenix_test, otp_app: :your_app
+          config :your_app, YourAppWeb.Endpoint, server: true
 
   4. Runtime config
-    ```elixir
-    # test/test_helpers.exs
-    Application.put_env(:phoenix_test, :base_url, YourAppWeb.Endpoint.url()
-    ```
+          # test/test_helpers.exs
+          {:ok, _} = PhoenixTest.Playwright.Supervisor.start_link()
+          Application.put_env(:phoenix_test, :base_url, YourAppWeb.Endpoint.url()
 
   5. Use in test
-    ```elixir
-    defmodule MyTest do
-      use PhoenixTest.Playwright.Case, async: true
+          defmodule MyTest do
+            use PhoenixTest.Playwright.Case, async: true
 
-      # `conn` isn't a `Plug.Conn` but a Playwright session.
-      # We use the name `conn` anyway so you can easily switch `PhoenixTest` drivers.
-      test "in browser", %{conn: conn} do
-        conn
-        |> visit(~p"/")
-        |> unwrap(&Frame.evaluate(&1.frame_id, "console.log('Hey')"))
-    ```
+            # `conn` isn't a `Plug.Conn` but a Playwright session.
+            # We use the name `conn` anyway so you can easily switch `PhoenixTest` drivers.
+            test "in browser", %{conn: conn} do
+              conn
+              |> visit(~p"/")
+              |> unwrap(&Frame.evaluate(&1.frame_id, "console.log('Hey')"))
 
   > #### Reference project {: .neutral}
   >
@@ -83,33 +68,30 @@ defmodule PhoenixTest.Playwright do
 
 
   ## Configuration
-
-  ```elixir
-  # config/test.ex
-  config :phoenix_test,
-    otp_app: :your_app,
-    playwright: [
-      browser: :chromium,
-      headless: System.get_env("PW_HEADLESS", "true") in ~w(t true),
-      js_logger: false,
-      screenshot: System.get_env("PW_SCREENSHOT", "false") in ~w(t true),
-      trace: System.get_env("PW_TRACE", "false") in ~w(t true),
-      browser_launch_timeout: 10_000,
-    ]
-  ```
+      # config/test.ex
+      config :phoenix_test,
+        otp_app: :your_app,
+        playwright: [
+          browser_pool: :chromium_pool,
+          browser_pools: [
+            [id: :chromium_pool, browser: :chromium],
+            [id: :firefox_pool, browser: :firefox]
+          ],
+          js_logger: false,
+          browser_launch_timeout: 10_000
+        ]
 
   See `PhoenixTest.Playwright.Config` for more details.
 
   You can override some options in your test:
-
-  ```elixir
-  defmodule DebuggingFeatureTest do
-    use PhoenixTest.Playwright.Case,
-      async: true,
-      # Show browser and pause 1 second between every interaction
-      headless: false,
-      slow_mo: :timer.seconds(1)
-  ```
+      defmodule DebuggingFeatureTest do
+        use PhoenixTest.Playwright.Case,
+          async: true,
+          # Launch new browser for this test suite with custom options below
+          browser_pool: :nil,
+          # Show browser and pause 1 second between every interaction
+          headless: false,
+          slow_mo: :timer.seconds(1)
 
 
   ## Traces
@@ -117,16 +99,12 @@ defmodule PhoenixTest.Playwright do
   Traces can be explored in an interactive viewer for debugging purposes.
 
   ### Manually
-  ```elixir
-  @tag trace: :open
-  test "record a trace and open it automatically in the viewer" do
-  ```
+      @tag trace: :open
+      test "record a trace and open it automatically in the viewer" do
 
   ### Automatically for failed tests in CI
-  ```elixir
-  # config/test.exs
-  config :phoenix_test, playwright: [trace: System.get_env("PW_TRACE", "false") in ~w(t true)]
-  ```
+      # config/test.exs
+      config :phoenix_test, playwright: [trace: System.get_env("PW_TRACE", "false") in ~w(t true)]
 
   ```yaml
   # .github/workflows/elixir.yml
@@ -136,16 +114,12 @@ defmodule PhoenixTest.Playwright do
 
   ## Screenshots
   ### Manually
-  ```elixir
-  |> visit(~p"/")
-  |> screenshot("home.png")    # captures entire page by default, not just viewport
-  ```
+      |> visit(~p"/")
+      |> screenshot("home.png")    # captures entire page by default, not just viewport
 
   ### Automatically for failed tests in CI
-  ```elixir
-  # config/test.exs
-  config :phoenix_test, playwright: [screenshot: System.get_env("PW_SCREENSHOT", "false") in ~w(t true)]
-  ```
+      # config/test.exs
+      config :phoenix_test, playwright: [screenshot: System.get_env("PW_SCREENSHOT", "false") in ~w(t true)]
 
   ```yaml
   # .github/workflows/elixir.yml
@@ -158,50 +132,41 @@ defmodule PhoenixTest.Playwright do
   consider using `Plug.Swoosh.MailboxPreview`.
   The iframe used to render the email HTML body makes this slightly tricky:
 
-  ```elixir
-  |> visit(~p"/dev/mailbox")
-  |> click_link("Confirmation instructions")
-  |> within("iframe >> internal:control=enter-frame", fn conn ->
-    conn
-    |> click_link("Confirm account")
-    |> click_button("Confirm my account")
-    |> assert_has("#flash-info", text: "User confirmed")
-  end)
-  ```
+      |> visit(~p"/dev/mailbox")
+      |> click_link("Confirmation instructions")
+      |> within("iframe >> internal:control=enter-frame", fn conn ->
+        conn
+        |> click_link("Confirm account")
+        |> click_button("Confirm my account")
+        |> assert_has("#flash-info", text: "User confirmed")
 
   For a full example see [ftes/phoenix_test_playwright_example/tree/phoenix-1.8](https://github.com/ftes/phoenix_test_playwright_example/tree/phoenix-1.8).
 
 
   ## Common problems
   ### Test failure in CI (timeout)
-  - Limit concurrency: `mix test --max-cases 1` for GitHub CI shared runners
+  - Limit concurrency: `config :phoenix_test, playwright: [browser_pools: [[size: 1]]]` or `mix test --max-cases 1` for GitHub CI shared runners
   - Increase timemout: `config :phoenix_test, playwright: [timeout: :timer.seconds(4)]`
   - More compute power: e.g. `x64 8-core` [GitHub runner](https://docs.github.com/en/enterprise-cloud@latest/actions/using-github-hosted-runners/using-larger-runners/about-larger-runners#machine-sizes-for-larger-runners)
 
   ### LiveView not connected
-  ```elixir
-  |> visit(~p"/")
-  |> assert_has("body .phx-connected")
-  # now continue, playwright has waited for LiveView to connect
-  ```
+      |> visit(~p"/")
+      |> assert_has("body .phx-connected")
+      # now continue, playwright has waited for LiveView to connect
 
   ### LiveComponent not connected
   ```html
   <div id="my-component" data-connected={connected?(@socket)}`>
   ```
 
-  ```elixir
-  |> visit(~p"/")
-  |> assert_has("#my-component[data-connected]")
-  # now continue, playwright has waited for LiveComponent to connect
-  ```
+      |> visit(~p"/")
+      |> assert_has("#my-component[data-connected]")
+      # now continue, playwright has waited for LiveComponent to connect
 
 
   ## Ecto SQL.Sandbox
-  ```elixir
-  defmodule MyTest do
-    use PhoenixTest.Playwright.Case, async: true
-  ```
+      defmodule MyTest do
+        use PhoenixTest.Playwright.Case, async: true
 
   `PhoenixTest.Playwright.Case` automatically takes care of this.
   It passes a user agent referencing your Ecto repos.
@@ -223,102 +188,99 @@ defmodule PhoenixTest.Playwright do
   If you think others might benefit, please [open a PR](https://github.com/ftes/phoenix_test_playwright/pulls).
 
   Here is some inspiration:
+      def choose_styled_radio_with_hidden_input_button(session, label, opts \\ []) do
+        opts = Keyword.validate!(opts, exact: true)
+        click(Selector.text(label, opts))
+      end
 
-  ```elixir
-  def choose_styled_radio_with_hidden_input_button(session, label, opts \\ []) do
-    opts = Keyword.validate!(opts, exact: true)
-    click(Selector.text(label, opts))
-  end
+      defp assert_a11y(conn) do
+        Frame.evaluate(conn.frame_id, A11yAudit.JS.axe_core())
+        {:ok, json} = Frame.evaluate(conn.frame_id, "axe.run()")
+        results = A11yAudit.Results.from_json(json)
+        A11yAudit.Assertions.assert_no_violations(results)
 
-  defp assert_a11y(conn) do
-    Frame.evaluate(conn.frame_id, A11yAudit.JS.axe_core())
-    {:ok, json} = Frame.evaluate(conn.frame_id, "axe.run()")
-    results = A11yAudit.Results.from_json(json)
-    A11yAudit.Assertions.assert_no_violations(results)
+        conn
+      end
 
-    conn
-  end
+      # In your test, first call `|> tap(&Connection.subscribe(&1.page_id))`
+      def assert_download(conn, name, contains: content) do
+        assert_receive({:playwright, %{method: :download} = download_msg}, 2000)
+        path = Connection.initializer(download_msg.params.artifact.guid).absolute_path
+        wait_for_file(path)
 
-  # In your test, first call `|> tap(&Connection.subscribe(&1.page_id))`
-  def assert_download(conn, name, contains: content) do
-    assert_receive({:playwright, %{method: :download} = download_msg}, 2000)
-    path = Connection.initializer(download_msg.params.artifact.guid).absolute_path
-    wait_for_file(path)
+        assert download_msg.params.suggested_filename =~ name
+        assert File.read!(path) =~ content
 
-    assert download_msg.params.suggested_filename =~ name
-    assert File.read!(path) =~ content
+        conn
+      end
 
-    conn
-  end
+      def assert_has_selected(conn, label, value, opts \\ []) do
+        opts = Keyword.validate!(opts, exact: true)
 
-  def assert_has_selected(conn, label, value, opts \\ []) do
-    opts = Keyword.validate!(opts, exact: true)
+        assert_found(conn,
+          selector: label |> Selector.label(opts) |> Selector.concat("option[selected]"),
+          expression: "to.have.text",
+          expectedText: [%{string: value}]
+        )
+      end
 
-    assert_found(conn,
-      selector: label |> Selector.label(opts) |> Selector.concat("option[selected]"),
-      expression: "to.have.text",
-      expectedText: [%{string: value}]
-    )
-  end
+      def assert_is_chosen(conn, label, opts \\ []) do
+        opts = Keyword.validate!(opts, exact: true)
 
-  def assert_is_chosen(conn, label, opts \\ []) do
-    opts = Keyword.validate!(opts, exact: true)
+        assert_found(conn,
+          selector: Selector.label(label, opts),
+          expression: "to.have.attribute",
+          expressionArg: "checked"
+        )
+      end
 
-    assert_found(conn,
-      selector: Selector.label(label, opts),
-      expression: "to.have.attribute",
-      expressionArg: "checked"
-    )
-  end
+      def assert_is_editable(conn, label, opts \\ []) do
+        opts = Keyword.validate!(opts, exact: true)
 
-  def assert_is_editable(conn, label, opts \\ []) do
-    opts = Keyword.validate!(opts, exact: true)
+        assert_found(conn,
+          selector: Selector.label(label, opts),
+          expression: "to.be.editable"
+        )
+      end
 
-    assert_found(conn,
-      selector: Selector.label(label, opts),
-      expression: "to.be.editable"
-    )
-  end
+      def refute_is_editable(conn, label, opts \\ []) do
+        opts = Keyword.validate!(opts, exact: true)
 
-  def refute_is_editable(conn, label, opts \\ []) do
-    opts = Keyword.validate!(opts, exact: true)
+        assert_found(
+          conn,
+          [
+            selector: Selector.label(label, opts),
+            expression: "to.be.editable"
+          ],
+          is_not: true
+        )
+      end
 
-    assert_found(
-      conn,
-      [
-        selector: Selector.label(label, opts),
-        expression: "to.be.editable"
-      ],
-      is_not: true
-    )
-  end
+      def assert_found(conn, params, opts \\ []) do
+        is_not = Keyword.get(opts, :is_not, false)
+        params = Enum.into(params, %{is_not: is_not})
 
-  def assert_found(conn, params, opts \\ []) do
-    is_not = Keyword.get(opts, :is_not, false)
-    params = Enum.into(params, %{is_not: is_not})
+        unwrap(conn, fn frame_id ->
+          {:ok, found} = Frame.expect(frame_id, params)
+          if is_not, do: refute(found), else: assert(found)
+        end)
+      end
 
-    unwrap(conn, fn frame_id ->
-      {:ok, found} = Frame.expect(frame_id, params)
-      if is_not, do: refute(found), else: assert(found)
-    end)
-  end
+      defp wait_for_file(path, remaining_ms \\ 2000, wait_for_ms \\ 100)
+      defp wait_for_file(path, remaining_ms, _) when remaining_ms <= 0, do: flunk("File #{path} does not exist")
 
-  defp wait_for_file(path, remaining_ms \\ 2000, wait_for_ms \\ 100)
-  defp wait_for_file(path, remaining_ms, _) when remaining_ms <= 0, do: flunk("File #{path} does not exist")
+      defp wait_for_file(path, remaining_ms, wait_for_ms) do
+        if File.exists?(path) do
+          :ok
+        else
+          Process.sleep(wait_for_ms)
+          wait_for_file(path, remaining_ms - wait_for_ms, wait_for_ms)
+        end
+      end
 
-  defp wait_for_file(path, remaining_ms, wait_for_ms) do
-    if File.exists?(path) do
-      :ok
-    else
-      Process.sleep(wait_for_ms)
-      wait_for_file(path, remaining_ms - wait_for_ms, wait_for_ms)
-    end
-  end
-
-  defp within_iframe(selector \\ "iframe", fun) when is_function(fun, 1) do
-    within("#{selector} >> internal:control=enter-frame", fun)
-  end
-  ```
+      defp within_iframe(selector \\ "iframe", fun) when is_function(fun, 1) do
+        within("#{selector} >> internal:control=enter-frame", fun)
+      end
   """
 
   import ExUnit.Assertions

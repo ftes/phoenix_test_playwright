@@ -1,47 +1,18 @@
 defmodule PhoenixTest.Playwright.BrowserPool do
   @moduledoc """
-  Experimental browser pooling. Reuses browsers across test suites.
+  Reuses browsers across test suites.
   This limits memory usage and is useful when running feature tests together with regular tests
   (high ExUnit `max_cases` concurrency such as the default: 2x number of CPU cores).
 
   Pools are defined up front.
   Browsers are launched lazily.
-
-  Usage:
-
-  ```ex
-  # test/test_helper.exs
-  {:ok, _} =
-    Supervisor.start_link(
-      [
-        {PhoenixTest.Playwright.BrowserPool, name: :normal_chromium, size: ceil(System.schedulers_online() / 2), browser: :chromium},
-        {PhoenixTest.Playwright.BrowserPool, name: :slow_chromium, size: 4, browser: :chromium, slow_mo: 100},
-      ],
-      strategy: :one_for_one
-    )
-
-  # configure pool per test module
-  # test/my_test.exs
-  defmodule PhoenixTest.PlaywrightBrowserPoolTest do
-    use PhoenixTest.Playwright.Case,
-      async: true,
-      browser_pool: :normal_chromium
-  end
-
-  # or configure globally
-  # test/test.exs
-  config :phoenix_test,
-    playwright: [
-      browser_pool: :normal_chromium,
-      browser_pool_checkout_timeout: to_timeout(minute: 10)
-    ]
-  ```
   """
 
   use GenServer
 
   alias __MODULE__, as: State
   alias PhoenixTest.Playwright
+  alias PhoenixTest.Playwright.Config
 
   defstruct [
     :size,
@@ -51,14 +22,14 @@ defmodule PhoenixTest.Playwright.BrowserPool do
     waiting: []
   ]
 
-  @type pool :: GenServer.server()
+  @type pool_id :: atom()
   @type browser_id :: binary()
 
   ## Public
 
-  @spec checkout(pool()) :: browser_id()
+  @spec checkout(pool_id()) :: browser_id()
   def checkout(pool) do
-    timeout = Playwright.Config.global(:browser_pool_checkout_timeout)
+    timeout = Config.global(:browser_pool_checkout_timeout)
     GenServer.call(pool, :checkout, timeout)
   end
 
@@ -66,10 +37,10 @@ defmodule PhoenixTest.Playwright.BrowserPool do
 
   @doc false
   def start_link(opts) do
-    {name, opts} = Keyword.pop!(opts, :name)
-    {size, opts} = Keyword.pop!(opts, :size)
+    {id, opts} = Keyword.pop!(opts, :id)
+    {size, opts} = Keyword.pop(opts, :size, ceil(System.schedulers_online() / 2))
 
-    GenServer.start_link(__MODULE__, %State{size: size, config: opts}, name: name)
+    GenServer.start_link(__MODULE__, %State{size: size, config: opts}, name: id)
   end
 
   @impl GenServer
@@ -107,7 +78,7 @@ defmodule PhoenixTest.Playwright.BrowserPool do
   end
 
   defp launch(config) do
-    config = config |> Playwright.Config.validate!() |> Keyword.take(Playwright.Config.setup_all_keys())
+    config = config |> Config.validate!() |> Keyword.take(Config.setup_all_keys())
 
     {type, config} = Keyword.pop!(config, :browser)
     Playwright.Connection.launch_browser(type, config)

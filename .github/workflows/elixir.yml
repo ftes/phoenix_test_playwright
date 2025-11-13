@@ -35,12 +35,8 @@ jobs:
         run: mix credo
       - name: Compiles without warnings
         run: mix compile --warnings-as-errors
-      - name: Build assets for browser tests
-        run: mix do assets.setup, assets.build
-      - name: Install JS dependencies
-        run: npm ci --prefix priv/static/assets
-      - name: Install chromium browser
-        run: npm exec --prefix priv/static/assets -- playwright install chromium --with-deps --only-shell
+      - name: Install JS dependencies, build assets and install browsers
+        run: mix setup
       - name: Run tests
         run: "mix test --warnings-as-errors || if [[ $? = 2 ]]; then PW_TRACE=true mix test --failed; else false; fi"
       - name: Fail if screenshot on exit failed

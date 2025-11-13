@@ -5,6 +5,40 @@ screenshot_opts_schema = [
 
 browsers = ~w(android chromium electron firefox webkit)a
 
+# styler:sort
+browser_opts = [
+  browser: [
+    default: :chromium,
+    type: {:in, browsers},
+    type_doc: "`#{Enum.map_join(browsers, " | ", &":#{&1}")}`"
+  ],
+  browser_launch_timeout: [
+    default: to_timeout(second: 4),
+    type: :non_neg_integer
+  ],
+  executable_path: [
+    type: :string,
+    doc: """
+    Path to a browser executable to run instead of the bundled one.
+    Use at your own risk.
+    """
+  ],
+  headless: [
+    default: true,
+    type: :boolean
+  ],
+  slow_mo: [
+    default: to_timeout(second: 0),
+    type: :non_neg_integer
+  ]
+]
+
+browser_pool_opts =
+  [
+    id: [required: true, type: :atom],
+    size: [required: false, type: :integer, doc: "The default value is `System.schedulers_online() / 2`."]
+  ] ++ browser_opts
+
 playwright_recommended_version = "1.55.0"
 
 # styler:sort
@@ -24,11 +58,7 @@ schema_opts = [
     Playwright version `#{playwright_recommended_version}` or newer is recommended.
     """
   ],
-  browser: [
-    default: :chromium,
-    type: {:in, browsers},
-    type_doc: "`#{Enum.map_join(browsers, " | ", &":#{&1}")}`"
-  ],
+  browser: browser_opts[:browser],
   browser_context_opts: [
     default: [],
     type: {:or, [:map, :keyword_list]},
@@ -37,10 +67,7 @@ schema_opts = [
     E.g. `[http_credentials: %{username: "a", password: "b"}]`.
     """
   ],
-  browser_launch_timeout: [
-    default: to_timeout(second: 4),
-    type: :non_neg_integer
-  ],
+  browser_launch_timeout: browser_opts[:browser_launch_timeout],
   browser_page_opts: [
     default: [],
     type: {:or, [:map, :keyword_list]},
@@ -50,8 +77,8 @@ schema_opts = [
     """
   ],
   browser_pool: [
-    default: nil,
-    type: :any,
+    default: :default_pool,
+    type: :atom,
     doc: """
     Reuse a browser from this pool instead of launching a new browser per test suite.
     See `PhoenixTest.Playwright.BrowserPool`.
@@ -61,21 +88,21 @@ schema_opts = [
     default: to_timeout(minute: 1),
     type: :non_neg_integer
   ],
+  browser_pools: [
+    required: false,
+    default: [[id: :default_pool]],
+    type: {:list, {:non_empty_keyword_list, browser_pool_opts}},
+    doc: """
+    Supported keys:
+    #{NimbleOptions.docs(browser_pool_opts, nest_level: 1)}
+    """
+  ],
   cli: [
     type: {:custom, PhoenixTest.Playwright.Config, :__validate_cli__, []},
     deprecated: "Use `assets_dir` instead."
   ],
-  executable_path: [
-    type: :string,
-    doc: """
-    Path to a browser executable to run instead of the bundled one.
-    Use at your own risk.
-    """
-  ],
-  headless: [
-    default: true,
-    type: :boolean
-  ],
+  executable_path: browser_opts[:executable_path],
+  headless: browser_opts[:headless],
   js_logger: [
     default: PhoenixTest.Playwright.JsLoggerDefault,
     type: :atom,
@@ -113,10 +140,7 @@ schema_opts = [
     Define custom Playwright [selector engines](https://playwright.dev/docs/extensibility#custom-selector-engines).
     """
   ],
-  slow_mo: [
-    default: to_timeout(second: 0),
-    type: :non_neg_integer
-  ],
+  slow_mo: browser_opts[:slow_mo],
   timeout: [
     default: to_timeout(second: 2),
     type: :non_neg_integer
@@ -155,10 +179,14 @@ defmodule PhoenixTest.Playwright.Config do
   """
 
   @schema schema
+  @schema_opts schema_opts
   @screenshot_opts_schema screenshot_opts_schema
   @setup_all_keys setup_all_keys
   @setup_keys setup_keys
   @playwright_recommended_version playwright_recommended_version
+
+  @doc false
+  def schema_opts, do: @schema_opts
 
   def validate!(config) when is_map(config), do: config |> Keyword.new() |> validate!()
 
