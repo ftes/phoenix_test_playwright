@@ -1,15 +1,20 @@
 defmodule PhoenixTest.Playwright.Supervisor do
   @moduledoc false
 
+  use Supervisor
+
   alias PhoenixTest.Playwright.BrowserPool
   alias PhoenixTest.Playwright.Config
+  alias PhoenixTest.Playwright.Connection
 
   def start_link do
-    pools = Config.global(:browser_pools)
-    Supervisor.start_link(Enum.map(pools, &child_spec/1), strategy: :one_for_one)
+    Supervisor.start_link(__MODULE__, :no_init_arg, name: __MODULE__)
   end
 
-  defp child_spec(opts) do
-    Supervisor.child_spec({BrowserPool, opts}, id: Keyword.fetch!(opts, :id))
+  @impl true
+  def init(:no_init_arg) do
+    pools = Config.global(:browser_pools)
+    children = [Connection | Enum.map(pools, &Supervisor.child_spec({BrowserPool, &1}, id: &1))]
+    Supervisor.init(children, strategy: :one_for_one)
   end
 end

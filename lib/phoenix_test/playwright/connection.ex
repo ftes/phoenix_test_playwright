@@ -25,6 +25,11 @@ defmodule PhoenixTest.Playwright.Connection do
   @name __MODULE__
 
   @doc false
+  def child_spec([]) do
+    %{id: __MODULE__, start: {__MODULE__, :start_link, []}}
+  end
+
+  @doc false
   def start_link do
     :gen_statem.start_link({:local, @name}, __MODULE__, :no_init_arg, timeout: Config.global(:timeout))
   end
@@ -38,7 +43,6 @@ defmodule PhoenixTest.Playwright.Connection do
   Launch a browser and return its `guid`.
   """
   def launch_browser(type, opts) do
-    ensure_started()
     types = initializer("Playwright")
     type_id = Map.fetch!(types, type).guid
     timeout = opts[:browser_launch_timeout] || opts[:timeout] || Config.global(:browser_launch_timeout)
@@ -47,13 +51,6 @@ defmodule PhoenixTest.Playwright.Connection do
     case post(guid: type_id, method: :launch, params: params) do
       %{result: %{browser: %{guid: guid}}} -> guid
       %{error: %{error: %{name: "TimeoutError"} = error}} -> raise launch_timeout_error_msg(type, error)
-    end
-  end
-
-  defp ensure_started do
-    case Process.whereis(@name) do
-      nil -> start_link()
-      pid -> {:ok, pid}
     end
   end
 
