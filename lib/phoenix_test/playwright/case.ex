@@ -81,7 +81,7 @@ defmodule PhoenixTest.Playwright.Case do
   def launch_browser(opts) do
     {browser, opts} = Keyword.pop!(opts, :browser)
     browser_id = Connection.launch_browser(browser, opts)
-    on_exit(fn -> Connection.post(guid: browser_id, method: :close) end)
+    on_exit(fn -> spawn(fn -> Playwright.Browser.close(browser_id) end) end)
     browser_id
   end
 
@@ -100,7 +100,7 @@ defmodule PhoenixTest.Playwright.Case do
     {:ok, _} = Playwright.Page.update_subscription(page_id, event: :dialog, enabled: true)
 
     frame_id = Connection.initializer(page_id).main_frame.guid
-    on_exit(fn -> Connection.post(guid: browser_context_id, method: :close) end)
+    on_exit(fn -> spawn(fn -> Playwright.BrowserContext.close(browser_context_id) end) end)
 
     if config[:trace], do: trace(browser_context_id, config, context)
     if config[:screenshot], do: screenshot(page_id, config, context)

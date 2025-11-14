@@ -80,4 +80,12 @@ defmodule PhoenixTest.Playwright.BrowserContext do
     |> post()
     |> Result.from_response(& &1)
   end
+
+  def close(context_id, opts \\ []) do
+    params = Map.new(opts)
+
+    [guid: context_id, method: :close, params: params]
+    |> post()
+    |> Result.from_response(& &1)
+  end
 end

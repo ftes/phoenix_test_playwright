@@ -10,6 +10,8 @@ defmodule PhoenixTest.Playwright.Browser do
 
   import PhoenixTest.Playwright.Connection, only: [post: 1]
 
+  alias PhoenixTest.Playwright.Result
+
   @doc """
   Start a new browser context and return its `guid`.
   """
@@ -18,6 +20,14 @@ defmodule PhoenixTest.Playwright.Browser do
 
     [guid: browser_id, method: :new_context, params: params]
     |> post()
-    |> PhoenixTest.Playwright.Result.from_response(& &1.result.context.guid)
+    |> Result.from_response(& &1.result.context.guid)
+  end
+
+  def close(browser_id, opts \\ []) do
+    params = Map.new(opts)
+
+    [guid: browser_id, method: :close, params: params]
+    |> post()
+    |> Result.from_response(& &1)
   end
 end
