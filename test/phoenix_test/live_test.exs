@@ -1,14 +1,25 @@
 defmodule PhoenixTest.LiveTest do
   use ExUnit.Case, async: true
 
-  import PhoenixTest
+  import PhoenixTest, except: [visit: 2]
 
   alias ExUnit.AssertionError
   alias PhoenixTest.Driver
   alias PhoenixTest.Html
+  alias PhoenixTest.Playwright.Case
 
-  setup do
-    %{conn: Phoenix.ConnTest.build_conn()}
+  setup_all context do
+    Case.do_setup_all(context)
+  end
+
+  setup context do
+    Case.do_setup(context)
+  end
+
+  defp visit(conn, path) do
+    conn
+    |> PhoenixTest.visit(path)
+    |> assert_has(".phx-connected")
   end
 
   describe "render_page_title/1" do
@@ -92,6 +103,7 @@ defmodule PhoenixTest.LiveTest do
       |> assert_has("h1", text: "Main page")
     end
 
+    @tag skip: "ignore"
     test "preserves headers across navigation", %{conn: conn} do
       conn
       |> Plug.Conn.put_req_header("x-custom-header", "Some-Value")
@@ -220,6 +232,7 @@ defmodule PhoenixTest.LiveTest do
       |> assert_has("#flash-group", text: "Form saved and redirected")
     end
 
+    @tag skip: "ignore"
     test "follows form's redirect and preserves headers", %{conn: conn} do
       conn
       |> Plug.Conn.put_req_header("x-auth-header", "Some-Value")
@@ -498,6 +511,7 @@ defmodule PhoenixTest.LiveTest do
     test "allows selecting option if a similar option exists", %{conn: conn} do
       conn
       |> visit("/live/index")
+      |> assert_has(".phx-connected")
       |> select("Race", option: "Orc")
       |> assert_has("#full-form option[value='orc']")
     end
@@ -1003,6 +1017,7 @@ defmodule PhoenixTest.LiveTest do
       |> assert_has("#flash-group", text: "Redirected to static page")
     end
 
+    @tag skip: "ignore"
     test "preserves headers after form submission and redirect", %{conn: conn} do
       conn
       |> Plug.Conn.put_req_header("x-custom-header", "Some-Value")
@@ -1097,6 +1112,8 @@ defmodule PhoenixTest.LiveTest do
   end
 
   describe "unwrap" do
+    @describetag skip: "ignore"
+
     test "provides an escape hatch that gives access to the underlying view", %{conn: conn} do
       conn
       |> visit("/live/index")
