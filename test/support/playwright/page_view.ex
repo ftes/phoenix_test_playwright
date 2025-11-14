@@ -7,26 +7,6 @@ defmodule PhoenixTest.Playwright.PageView do
     """
   end
 
-  def render("layout.html", assigns) do
-    ~H"""
-    <html lang="en">
-      <head>
-        <meta name="csrf-token" content={Phoenix.Controller.get_csrf_token()} />
-        <title><%= assigns[:page_title] || "PhoenixTest is the best!" %></title>
-        <link rel="stylesheet" href="/assets/app.css" />
-        <script defer phx-track-static type="text/javascript" src="/assets/app.js">
-        </script>
-        <style>
-          body { font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <%= @inner_content %>
-      </body>
-    </html>
-    """
-  end
-
   def render("index.html", assigns) do
     ~H"""
     <h1 id="title" class="title" data-role="title">Main page</h1>

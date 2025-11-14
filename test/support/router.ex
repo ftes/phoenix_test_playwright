@@ -9,6 +9,7 @@ defmodule PhoenixTest.Router do
     plug(:accepts, ["html"])
     plug(:fetch_session)
     plug(:fetch_live_flash)
+    plug(:put_root_layout, html: {LayoutView, :root})
   end
 
   scope "/pw", PhoenixTest.Playwright do
@@ -25,7 +26,7 @@ defmodule PhoenixTest.Router do
     get("/page/session", PageController, :session)
     get("/page/:page", PageController, :show)
 
-    live_session :playwright_live_pages, root_layout: {PhoenixTest.Playwright.PageView, :layout} do
+    live_session :playwright_live_pages do
       live("/live/index", IndexLive)
       live("/live/page_2", Page2Live)
     end

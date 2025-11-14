@@ -2,8 +2,8 @@ defmodule PhoenixTest.WebApp.LayoutView do
   use Phoenix.Component
 
   use Phoenix.VerifiedRoutes,
-    endpoint: PhoenixTest.WebApp.Endpoint,
-    router: PhoenixTest.WebApp.Router,
+    endpoint: PhoenixTest.Endpoint,
+    router: PhoenixTest.Router,
     statics: ~w(assets fonts images favicon.ico robots.txt)
 
   def render("root.html", assigns) do

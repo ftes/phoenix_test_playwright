@@ -3,8 +3,6 @@ defmodule PhoenixTest.Playwright.PageController do
 
   alias PhoenixTest.Playwright.PageView
 
-  plug(:put_layout, {PageView, :layout})
-
   def show(conn, %{"page" => "index_no_layout"}) do
     conn
     |> put_layout({PageView, :empty_layout})

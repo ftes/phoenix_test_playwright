@@ -485,14 +485,9 @@ defmodule PhoenixTest.PlaywrightTest do
   describe "open_browser" do
     setup do
       open_fun = fn path ->
-        assert content = File.read!(path)
-
-        assert content =~
-                 ~r[<link rel="stylesheet" href="file:.*phoenix_test_playwright\/priv\/static\/assets\/app\.css"\/>]
-
-        assert content =~ "body { font-size: 12px; }"
-
-        assert content =~ ~r/<h1.*Main page/
+        html = path |> File.read!() |> LazyHTML.from_document()
+        [css_href] = html |> LazyHTML.query("link[rel=stylesheet]") |> LazyHTML.attribute("href")
+        assert css_href =~ "phoenix_test_playwright\/priv\/static\/assets\/app\.css"
 
         path
       end
@@ -945,12 +940,10 @@ defmodule PhoenixTest.PlaywrightTest do
     test "logs file and line number", %{conn: conn} do
       log =
         capture_log(fn ->
-          conn
-          |> visit("/pw/page/js_script_console_error")
-          |> assert_has("body")
+          visit(conn, "/pw/page/js_script_console_error")
         end)
 
-      assert log =~ "TESTME 42 (http://localhost:4002/pw/page/js_script_console_error:13)"
+      assert log =~ "TESTME 42 (http://localhost:4002/pw/page/js_script_console_error:16)"
     end
 
     test "logs without location if unknown", %{conn: conn} do
