@@ -6,6 +6,7 @@ ExUnit.start(capture_log: true)
   Supervisor.start_link(
     [
       {Phoenix.PubSub, name: PhoenixTest.PubSub},
+      PhoenixTest.Playwright.Connection,
       {PhoenixTest.Playwright.BrowserPool, name: :chromium, size: System.schedulers_online(), browser: :chromium}
     ],
     strategy: :one_for_one

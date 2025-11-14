@@ -29,6 +29,11 @@ defmodule PhoenixTest.Playwright.Connection do
     :gen_statem.start_link({:local, @name}, __MODULE__, :no_init_arg, timeout: Config.global(:timeout))
   end
 
+  @doc false
+  def child_spec([]) do
+    %{id: __MODULE__, start: {__MODULE__, :start_link, []}}
+  end
+
   @doc """
   Launch a browser and return its `guid`.
   """
