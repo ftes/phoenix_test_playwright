@@ -62,6 +62,7 @@ defmodule PhoenixTestPlaywright.MixProject do
   def cli do
     [
       preferred_envs: [
+        format: :test,
         setup: :test,
         check: :test,
         "assets.setup": :test,

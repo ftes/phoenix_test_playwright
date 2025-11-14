@@ -1,3 +1,5 @@
+alias PhoenixTest.Endpoint
+
 ExUnit.start(capture_log: true)
 
 {:ok, _} =
@@ -9,6 +11,6 @@ ExUnit.start(capture_log: true)
     strategy: :one_for_one
   )
 
-{:ok, _} = PhoenixTest.Endpoint.start_link()
+{:ok, _} = Endpoint.start_link()
 
-Application.put_env(:phoenix_test, :base_url, PhoenixTest.Endpoint.url())
+Application.put_env(:phoenix_test, :base_url, Endpoint.url())
