@@ -46,7 +46,7 @@ defmodule PhoenixTest.Playwright do
   4. Runtime config
           # test/test_helpers.exs
           {:ok, _} = PhoenixTest.Playwright.Supervisor.start_link()
-          Application.put_env(:phoenix_test, :base_url, YourAppWeb.Endpoint.url()
+          Application.put_env(:phoenix_test, :base_url, YourAppWeb.Endpoint.url())
 
   5. Use in test
           defmodule MyTest do
