@@ -51,7 +51,7 @@ defmodule PhoenixTest.Playwright.BrowserPool do
   @impl GenServer
   def handle_call(:checkout, from, state) do
     cond do
-      length(state.available) > 0 ->
+      not Enum.empty?(state.available) ->
         browser_id = hd(state.available)
         state = do_checkout(state, from, browser_id)
         {:reply, browser_id, state}
