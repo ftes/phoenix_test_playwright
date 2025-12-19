@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
+
+## [0.10.0-rc.1]
+
+### Fixed
+- Correctly handle custom options via `browser_context_opts` and `browser_page_opts`. Commit [6182699]
+
 ## [0.10.0-rc.0] 2025-11-19
 ### Breaking changes
 - Use browser pool by default, instead of starting new browser per test suite. Commit [095e216]
@@ -165,3 +171,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [00e75c6]: https://github.com/ftes/phoenix_test_playwright/commit/00e75c6
 [2f4a8cf]: https://github.com/ftes/phoenix_test_playwright/commit/2f4a8cf
 [095e216]: https://github.com/ftes/phoenix_test_playwright/commit/095e216
+[6182699]: https://github.com/ftes/phoenix_test_playwright/commit/6182699
