@@ -259,10 +259,25 @@ defmodule PhoenixTest.Playwright.Config do
 
       {:ok, assets_dir}
     else
-      {:error, _error} ->
-        # Don't fail validation here - ws_endpoint mode doesn't require local playwright
-        # The Supervisor will raise an appropriate error if needed
-        {:ok, assets_dir}
+      {:error, error} ->
+        # When ws_endpoint is configured, local playwright installation is not required
+        # since we connect to a remote Playwright server instead
+        ws_endpoint = Application.get_env(:phoenix_test, :playwright, [])[:ws_endpoint]
+
+        if ws_endpoint do
+          {:ok, assets_dir}
+        else
+          message = """
+          Could not find Playwright in `#{assets_dir}`.
+          Reason: #{inspect(error)}
+
+          To resolve this, either:
+          1. Install Playwright locally: `npm --prefix #{assets_dir} install playwright`
+          2. Or configure a remote Playwright server via `ws_endpoint` option
+          """
+
+          {:error, message}
+        end
     end
   end
 end

@@ -1,5 +1,11 @@
 defmodule PhoenixTest.Playwright.Supervisor do
-  @moduledoc false
+  @moduledoc """
+  Supervises the Playwright connection and browser pools.
+
+  Supports two transport modes:
+  - **Local** (default): Spawns a local Node.js Playwright driver via Erlang Port
+  - **Remote**: Connects to a remote Playwright server via WebSocket when `ws_endpoint` is configured
+  """
 
   use Supervisor
 
@@ -12,30 +18,29 @@ defmodule PhoenixTest.Playwright.Supervisor do
   @impl true
   def init(:no_init_arg) do
     config = Config.global()
-    playwright_config = build_playwright_config(config)
-    children = [{PlaywrightEx.Supervisor, playwright_config}, PhoenixTest.Playwright.BrowserPoolSupervisor]
+
+    children = [
+      {PlaywrightEx.Supervisor, playwright_opts(config)},
+      PhoenixTest.Playwright.BrowserPoolSupervisor
+    ]
+
     Supervisor.init(children, strategy: :rest_for_one)
   end
 
-  defp build_playwright_config(config) do
-    base_opts = Keyword.take(config, ~w(timeout js_logger)a)
+  defp playwright_opts(config) do
+    base = Keyword.take(config, ~w(timeout js_logger)a)
 
-    if ws_endpoint = config[:ws_endpoint] do
-      # WebSocket mode - connect to remote Playwright server
-      # Append browser type as query parameter (required by run-server)
-      browser = config[:browser] || :chromium
-      ws_endpoint_with_browser = append_browser_param(ws_endpoint, browser)
-      Keyword.put(base_opts, :ws_endpoint, ws_endpoint_with_browser)
-    else
-      # Local Port mode (default) - spawn local Node.js driver
-      Keyword.put(base_opts, :executable, Config.executable())
+    case config[:ws_endpoint] do
+      nil -> Keyword.put(base, :executable, Config.executable())
+      url -> Keyword.put(base, :ws_endpoint, ws_endpoint_with_browser(url, config))
     end
   end
 
-  defp append_browser_param(ws_endpoint, browser) do
-    uri = URI.parse(ws_endpoint)
-    query = URI.decode_query(uri.query || "")
-    new_query = Map.put(query, "browser", to_string(browser))
-    %{uri | query: URI.encode_query(new_query)} |> URI.to_string()
+  # Playwright's run-server requires the browser type as a query parameter
+  defp ws_endpoint_with_browser(url, config) do
+    browser = config[:browser] || :chromium
+    uri = URI.parse(url)
+    query = (uri.query || "") |> URI.decode_query() |> Map.put("browser", to_string(browser)) |> URI.encode_query()
+    URI.to_string(%{uri | query: query})
   end
 end
