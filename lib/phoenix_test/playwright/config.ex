@@ -148,6 +148,19 @@ schema_opts = [
   trace_dir: [
     default: "traces",
     type: :string
+  ],
+  ws_endpoint: [
+    type: :string,
+    doc: """
+    WebSocket endpoint URL for connecting to a remote Playwright server.
+    If provided, uses WebSocket transport instead of spawning a local Node.js process.
+    Example: "ws://localhost:3000/ws"
+
+    This is useful for:
+    - Alpine Linux containers (glibc issues with local Playwright driver)
+    - Containerized CI environments with a separate Playwright server
+    - Connecting to remote/shared Playwright instances
+    """
   ]
 ]
 
@@ -246,16 +259,10 @@ defmodule PhoenixTest.Playwright.Config do
 
       {:ok, assets_dir}
     else
-      {:error, error} ->
-        message = """
-        could not find playwright in `#{assets_dir}`.
-        Reason: #{inspect(error)}
-
-        To resolve this please
-        1. Install playwright, e.g. via `npm --prefix assets install playwright`
-        """
-
-        {:error, message}
+      {:error, _error} ->
+        # Don't fail validation here - ws_endpoint mode doesn't require local playwright
+        # The Supervisor will raise an appropriate error if needed
+        {:ok, assets_dir}
     end
   end
 end
