@@ -46,7 +46,8 @@ defmodule PhoenixTestPlaywright.MixProject do
       {:styler, "~> 1.3", only: [:dev, :test], runtime: false},
       {:makeup_diff, "~> 0.1", only: :dev},
       {:nimble_options, "~> 1.1"},
-      {:playwright_ex, "~> 0.3"}
+      # {:playwright_ex, "~> 0.3"}
+      {:playwright_ex, github: "ftes/playwright_ex", ref: "545bc4d"}
     ]
   end
 

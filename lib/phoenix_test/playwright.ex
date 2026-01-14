@@ -111,6 +111,24 @@ defmodule PhoenixTest.Playwright do
   run: "mix test || if [[ $? = 2 ]]; then PW_TRACE=true mix test --failed; else false; fi"
   ```
 
+  ### Step annotations
+
+  Playwright traces support [grouping labelled test
+  steps](https://playwright.dev/docs/api/class-tracing#tracing-group) and
+  assigning them source code locations. This makes it easier to see what a test
+  is doing and where. These groups are visible in the Playwright trace viewer.
+
+      test "user registration", %{conn: conn} do
+        conn
+        |> visit(~p"/")
+        |> step("Submit registration form", fn conn ->
+          conn
+          |> fill_in("Email", with: "user@example.com")
+          |> fill_in("Password", with: "secret")
+          |> click_button("Sign up")
+        end)
+        |> assert_has(".flash", text: "Welcome!")
+      end
 
   ## Screenshots
   ### Manually
@@ -264,6 +282,7 @@ defmodule PhoenixTest.Playwright do
   alias PlaywrightEx.Frame
   alias PlaywrightEx.Page
   alias PlaywrightEx.Selector
+  alias PlaywrightEx.Tracing
 
   require Logger
 
@@ -271,6 +290,7 @@ defmodule PhoenixTest.Playwright do
     :context_id,
     :page_id,
     :frame_id,
+    :tracing_id,
     :navigate_recorder_pid,
     :dialog_listener_pid,
     :last_input_selector,
@@ -288,11 +308,12 @@ defmodule PhoenixTest.Playwright do
   @endpoint Application.compile_env(:phoenix_test, :endpoint)
 
   @doc false
-  def build(%{context_id: context_id, page_id: page_id, frame_id: frame_id, config: config}) do
+  def build(%{context_id: context_id, page_id: page_id, frame_id: frame_id, tracing_id: tracing_id, config: config}) do
     %__MODULE__{
       context_id: context_id,
       page_id: page_id,
       frame_id: frame_id,
+      tracing_id: tracing_id,
       navigate_recorder_pid: start_navigate_recorder(frame_id),
       dialog_listener_pid: start_dialog_listener(page_id, config[:accept_dialogs])
     }
@@ -320,6 +341,76 @@ defmodule PhoenixTest.Playwright do
     ExUnit.AssertionError ->
       Process.sleep(@retry_interval)
       retry(fun, remaining - @retry_interval)
+  end
+
+  @doc """
+  Label a step in the Playwright trace.
+
+  This is useful for marking custom helper functions or complex multi-step operations
+  so they appear as distinct steps in the trace viewer for easier debugging.
+  Steps can be nested.
+  Their source location is noted in the trace.
+
+  ## Examples
+
+      def complete_checkout(conn, user_email) do
+        conn
+        |> sign_in_as(user_email)
+        |> step("Check out", fn conn ->
+          conn
+          |> step("Fill shipping information", fn conn ->
+            conn
+            |> fill_in("Address", with: "123 Main St")
+            |> fill_in("City", with: "Portland")
+            |> click_button("Continue")
+          end)
+          |> step("Fill payment information", fn conn ->
+            conn
+            |> fill_in("Card number", with: "4242424242424242")
+            |> fill_in("CVV", with: "123")
+            |> click_button("Place order")
+          end)
+        end)
+      end
+
+      defp sign_in_as(conn, user_email) do
+        conn
+        |> step("Sign in as \#{user_email}", fn conn ->
+          conn
+          |> fill_in("Email", with: user_email)
+          |> fill_in("Password", with: "password123")
+          |> click_button("Sign In")
+        end)
+      end
+  """
+  defmacro step(conn, title, fun) do
+    caller_location = [file: Path.absname(__CALLER__.file), line: __CALLER__.line]
+
+    quote do
+      conn = unquote(conn)
+      title = unquote(title)
+      fun = unquote(fun)
+
+      result =
+        if conn.tracing_id do
+          Tracing.group(
+            conn.tracing_id,
+            [
+              name: title,
+              location: unquote(Macro.escape(caller_location)),
+              timeout: PhoenixTest.Playwright.timeout()
+            ],
+            fn -> fun.(conn) end
+          )
+        else
+          fun.(conn)
+        end
+
+      case result do
+        %PhoenixTest.Playwright{} = conn -> conn
+        other -> raise ArgumentError, "step/3 function must return a PhoenixTest.Playwright conn, got: #{inspect(other)}"
+      end
+    end
   end
 
   @doc false
@@ -980,8 +1071,12 @@ defmodule PhoenixTest.Playwright do
     [uri.path, uri.query] |> Enum.reject(&is_nil/1) |> Enum.join("?")
   end
 
-  defp timeout, do: Config.global(:timeout)
-  defp timeout(opts), do: Keyword.get_lazy(opts, :timeout, &timeout/0)
+  @doc false
+  def timeout, do: Config.global(:timeout)
+
+  @doc false
+  def timeout(opts), do: Keyword.get_lazy(opts, :timeout, &timeout/0)
+
   defp ensure_timeout(opts), do: Keyword.put_new_lazy(opts, :timeout, &timeout/0)
 end
 

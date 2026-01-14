@@ -115,6 +115,7 @@ defmodule PhoenixTest.Playwright.Case do
       context_id: browser_context.guid,
       page_id: page.guid,
       frame_id: page.main_frame.guid,
+      tracing_id: browser_context.tracing.guid,
       config: config
     })
   end
