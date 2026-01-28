@@ -5,15 +5,6 @@ defmodule PhoenixTest.StepTest do
   alias PlaywrightEx.Tracing
 
   describe "step/3" do
-    test "returns the conn unchanged", %{conn: conn_before} do
-      conn_after =
-        conn_before
-        |> visit("/pw/live")
-        |> Playwright.step("Test step", fn c -> c end)
-
-      assert conn_after == conn_before
-    end
-
     test "produces labels that can be seen in the trace viewer", %{conn: conn} do
       {:ok, _} = Tracing.tracing_start(conn.tracing_id, timeout: timeout())
       {:ok, _} = Tracing.tracing_start_chunk(conn.tracing_id, timeout: timeout())

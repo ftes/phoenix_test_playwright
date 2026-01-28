@@ -386,30 +386,16 @@ defmodule PhoenixTest.Playwright do
   defmacro step(conn, title, fun) do
     caller_location = [file: Path.absname(__CALLER__.file), line: __CALLER__.line]
 
-    quote do
-      conn = unquote(conn)
-      title = unquote(title)
-      fun = unquote(fun)
-
-      result =
-        if conn.tracing_id do
-          Tracing.group(
-            conn.tracing_id,
-            [
-              name: title,
-              location: unquote(Macro.escape(caller_location)),
-              timeout: PhoenixTest.Playwright.timeout()
-            ],
-            fn -> fun.(conn) end
-          )
-        else
-          fun.(conn)
-        end
-
-      case result do
-        %PhoenixTest.Playwright{} = conn -> conn
-        other -> raise ArgumentError, "step/3 function must return a PhoenixTest.Playwright conn, got: #{inspect(other)}"
-      end
+    quote bind_quoted: [conn: conn, title: title, fun: fun, caller_location: caller_location] do
+      Tracing.group(
+        conn.tracing_id,
+        [
+          name: title,
+          location: caller_location,
+          timeout: PhoenixTest.Playwright.timeout()
+        ],
+        fn -> fun.(conn) end
+      )
     end
   end
 
