@@ -396,6 +396,8 @@ defmodule PhoenixTest.Playwright do
         ],
         fn -> fun.(conn) end
       )
+
+      conn
     end
   end
 
