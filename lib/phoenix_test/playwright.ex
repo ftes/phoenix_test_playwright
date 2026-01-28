@@ -1061,7 +1061,6 @@ defmodule PhoenixTest.Playwright do
 
   defp timeout, do: Config.global(:timeout)
   defp timeout(opts), do: Keyword.get_lazy(opts, :timeout, &timeout/0)
-
   defp ensure_timeout(opts), do: Keyword.put_new_lazy(opts, :timeout, &timeout/0)
 end
 
