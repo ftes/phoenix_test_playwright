@@ -392,7 +392,7 @@ defmodule PhoenixTest.Playwright do
         [
           name: title,
           location: caller_location,
-          timeout: PhoenixTest.Playwright.timeout()
+          timeout: Config.global(:timeout)
         ],
         fn -> fun.(conn) end
       )
@@ -1059,11 +1059,8 @@ defmodule PhoenixTest.Playwright do
     [uri.path, uri.query] |> Enum.reject(&is_nil/1) |> Enum.join("?")
   end
 
-  @doc false
-  def timeout, do: Config.global(:timeout)
-
-  @doc false
-  def timeout(opts), do: Keyword.get_lazy(opts, :timeout, &timeout/0)
+  defp timeout, do: Config.global(:timeout)
+  defp timeout(opts), do: Keyword.get_lazy(opts, :timeout, &timeout/0)
 
   defp ensure_timeout(opts), do: Keyword.put_new_lazy(opts, :timeout, &timeout/0)
 end
