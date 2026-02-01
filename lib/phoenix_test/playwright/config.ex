@@ -155,6 +155,7 @@ schema = NimbleOptions.new!(schema_opts)
 
 setup_all_keys = ~w(browser_pool browser browser_launch_timeout executable_path headless slow_mo)a
 setup_keys = ~w(accept_dialogs ecto_sandbox_stop_owner_delay screenshot trace browser_context_opts browser_page_opts)a
+merge_global_into_browser_pool_keys = ~w(browser browser_launch_timeout headless slow_mo)a
 
 defmodule PhoenixTest.Playwright.Config do
   @moduledoc """
@@ -177,6 +178,7 @@ defmodule PhoenixTest.Playwright.Config do
   @schema_opts schema_opts
   @screenshot_opts_schema screenshot_opts_schema
   @setup_all_keys setup_all_keys
+  @merge_global_into_browser_pool_keys merge_global_into_browser_pool_keys
   @setup_keys setup_keys
   @playwright_recommended_version playwright_recommended_version
 
@@ -207,6 +209,17 @@ defmodule PhoenixTest.Playwright.Config do
   end
 
   @doc false
+  def global(:browser_pools) do
+    all = Application.get_env(:phoenix_test, :playwright, [])
+    global = Keyword.take(all, @merge_global_into_browser_pool_keys)
+
+    all
+    |> update_in([:browser_pools], &if(&1, do: Enum.map(&1, fn p -> Keyword.merge(global, p) end)))
+    |> NimbleOptions.validate!(@schema)
+    |> normalize()
+    |> Keyword.fetch!(:browser_pools)
+  end
+
   def global(key), do: Keyword.fetch!(global(), key)
 
   @doc false
