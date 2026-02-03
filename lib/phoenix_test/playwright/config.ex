@@ -56,6 +56,7 @@ schema_opts = [
     doc: """
     The directory where the JS assets are located and the Playwright CLI is installed.
     Playwright version `#{playwright_recommended_version}` or newer is recommended.
+    Alternatively, use `ws_endpoint` to connect to a remote Playwright server instead, in which case no local node and playwright is required and `assets_dir` is ignored.
     """
   ],
   browser: browser_opts[:browser],
@@ -247,6 +248,24 @@ defmodule PhoenixTest.Playwright.Config do
   defp normalize(_key, value), do: value
 
   def __validate_assets_dir__(assets_dir) do
+    all = Application.get_env(:phoenix_test, :playwright, [])
+
+    error_msg = """
+    Could not find Playwright in `#{assets_dir}`.
+
+    To resolve this, either:
+    1. Install Playwright locally: `npm --prefix #{assets_dir} install playwright`
+    2. Or configure a remote Playwright server via `ws_endpoint` option
+    """
+
+    cond do
+      all[:ws_endpoint] -> {:ok, assets_dir}
+      not playwright_installed?(assets_dir) -> {:error, error_msg}
+      true -> {:ok, assets_dir}
+    end
+  end
+
+  defp playwright_installed?(assets_dir) do
     playwright_json = Path.join([assets_dir, "node_modules", "playwright", "package.json"])
 
     with {:ok, string} <- File.read(playwright_json),
@@ -257,27 +276,9 @@ defmodule PhoenixTest.Playwright.Config do
         IO.warn("Playwright version #{version} is below recommended #{@playwright_recommended_version}")
       end
 
-      {:ok, assets_dir}
+      true
     else
-      {:error, error} ->
-        # When ws_endpoint is configured, local playwright installation is not required
-        # since we connect to a remote Playwright server instead
-        ws_endpoint = Application.get_env(:phoenix_test, :playwright, [])[:ws_endpoint]
-
-        if ws_endpoint do
-          {:ok, assets_dir}
-        else
-          message = """
-          Could not find Playwright in `#{assets_dir}`.
-          Reason: #{inspect(error)}
-
-          To resolve this, either:
-          1. Install Playwright locally: `npm --prefix #{assets_dir} install playwright`
-          2. Or configure a remote Playwright server via `ws_endpoint` option
-          """
-
-          {:error, message}
-        end
+      _ -> false
     end
   end
 end
