@@ -38,9 +38,10 @@ defmodule PhoenixTest.Playwright.Supervisor do
 
   # Playwright's run-server requires the browser type as a query parameter
   defp ws_endpoint_with_browser(url, config) do
-    browser = config[:browser] || :chromium
-    uri = URI.parse(url)
-    query = (uri.query || "") |> URI.decode_query() |> Map.put("browser", to_string(browser)) |> URI.encode_query()
-    URI.to_string(%{uri | query: query})
+    browser = config[:browser]
+    url
+    |> URI.parse()
+    |> URI.append_query("browser=#{config[:browser]}")
+    |> URI.to_string()
   end
 end
