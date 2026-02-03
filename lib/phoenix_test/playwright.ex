@@ -94,6 +94,23 @@ defmodule PhoenixTest.Playwright do
           slow_mo: :timer.seconds(1)
 
 
+  ## Remote Playwright Server
+
+  Connect to a remote Playwright server via WebSocket instead of spawning a local
+  Node.js driver. Useful for Alpine Linux containers (glibc issues) or containerized CI.
+
+      # config/test.exs
+      config :phoenix_test, playwright: [ws_endpoint: "ws://localhost:3000"]
+
+      # or, to enable via environment variable
+      config :phoenix_test, playwright: [ws_endpoint: System.get_env("PLAYWRIGHT_WS_ENDPOINT")]
+
+      # Start Playwright server
+      docker run -p 3000:3000 --rm --init -it --workdir /home/pwuser --user pwuser mcr.microsoft.com/playwright:v1.58.0-noble /bin/sh -c "npx -y playwright@1.58.0 run-server --port 3000 --host 0.0.0.0"
+
+  The browser type is automatically appended as a query parameter (e.g., `?browser=chromium`).
+
+
   ## Traces
   Playwright traces record a full browser history, including 'user' interaction, browser console, network transfers etc.
   Traces can be explored in an interactive viewer for debugging purposes.
