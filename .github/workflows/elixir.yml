@@ -92,6 +92,7 @@ jobs:
       - name: Install dependencies
         run: mix do deps.get, deps.compile
       - name: Install JS dependencies, build assets and install browsers
+        if: matrix.transport == 'port'
         run: mix setup
       - name: Run tests
         run: mix ${{ matrix.mix_task }} --warnings-as-errors || if [[ $? = 2 ]]; then PW_TRACE=true mix ${{ matrix.mix_task }} --failed; else false; fi
@@ -102,8 +103,6 @@ jobs:
             exit 1
           fi
       - name: Fail if trace on exit failed
-        # FIXME Accessing trace from remote server
-        if: matrix.transport == 'port'
         run: |
           if ! ls traces/PhoenixTest.Playwright.CaseTest.test__tag__trace_saves_trace_on_test_exit* >/dev/null 2>&1; then
             echo "Trace on exit feature failed"
