@@ -98,9 +98,11 @@ defmodule PhoenixTestPlaywright.MixProject do
 
   defp aliases do
     [
-      setup: ["deps.get", "assets.setup", "assets.build", "ecto.create"],
+      setup: ["deps.get", "assets.setup", "assets.setup.playwright", "assets.build", "ecto.create"],
       "assets.setup": [
-        "esbuild.install --if-missing",
+        "esbuild.install --if-missing"
+      ],
+      "assets.setup.playwright": [
         "cmd npm install --prefix priv/static/assets",
         "cmd npx --prefix priv/static/assets playwright install chromium --with-deps --only-shell",
         "cmd npx --prefix priv/static/assets playwright install firefox --with-deps --only-shell"

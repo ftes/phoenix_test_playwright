@@ -94,6 +94,9 @@ jobs:
       - name: Install JS dependencies, build assets and install browsers
         if: matrix.transport == 'port'
         run: mix setup
+      - name: Build assets
+        if: matrix.transport == 'websocket'
+        run: mix assets.setup && mix assets.build
       - name: Run tests
         run: mix ${{ matrix.mix_task }} --warnings-as-errors || if [[ $? = 2 ]]; then PW_TRACE=true mix ${{ matrix.mix_task }} --failed; else false; fi
       - name: Fail if screenshot on exit failed
