@@ -11,9 +11,6 @@ defmodule PhoenixTest.Playwright.CaseTest do
   end
 
   describe "@tag :trace" do
-    if Application.compile_env!(:phoenix_test, :playwright)[:ws_endpoint],
-      do: @describetag(skip: "FIXME Accessing trace from remote server")
-
     @tag :trace
     test "saves trace on test exit (for verification in CI)", %{conn: conn} do
       conn
