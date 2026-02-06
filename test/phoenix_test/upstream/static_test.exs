@@ -664,9 +664,6 @@ defmodule PhoenixTest.StaticTest do
   end
 
   describe "upload/4" do
-    if Application.compile_env!(:phoenix_test, :playwright)[:ws_endpoint],
-      do: @describetag(skip: "FIXME File uploads via remote server")
-
     test "uploads image", %{conn: conn} do
       conn
       |> visit("/page/index")
