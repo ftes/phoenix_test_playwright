@@ -20,23 +20,8 @@ env:
 
 jobs:
   build:
-    name: Build and test
+    name: Build and lint
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: phoenix_test_playwright_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -69,12 +54,47 @@ jobs:
           path: priv/plts
       - name: Run Dialyzer
         run: mix dialyzer --format github --format dialyxir
+
+  test:
+    name: Test (${{ matrix.transport }})
+    runs-on: ubuntu-latest
+    needs: build
+
+    strategy:
+      fail-fast: false
+      matrix:
+        transport: [port, websocket]
+        include:
+          - transport: port
+            mix_task: test
+          - transport: websocket
+            mix_task: test.websocket
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: phoenix_test_playwright_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup languages
+        uses: jdx/mise-action@v2
+      - name: Install dependencies
+        run: mix do deps.get, deps.compile
       - name: Install JS dependencies, build assets and install browsers
         run: mix setup
       - name: Run tests
-        run: "mix test --warnings-as-errors || if [[ $? = 2 ]]; then PW_TRACE=true mix test --failed; else false; fi"
-      - name: Run websocket transport tests
-        run: mix test.websocket --warnings-as-errors
+        run: mix ${{ matrix.mix_task }} --warnings-as-errors || if [[ $? = 2 ]]; then PW_TRACE=true mix ${{ matrix.mix_task }} --failed; else false; fi
       - name: Fail if screenshot on exit failed
         run: |
           if ! ls screenshots/PhoenixTest.Playwright.CaseTest.test__tag__screenshot_saves_screenshot_on_test_exit* >/dev/null 2>&1; then
@@ -82,6 +102,8 @@ jobs:
             exit 1
           fi
       - name: Fail if trace on exit failed
+        # FIXME Accessing trace from remote server
+        if: matrix.transport == 'port'
         run: |
           if ! ls traces/PhoenixTest.Playwright.CaseTest.test__tag__trace_saves_trace_on_test_exit* >/dev/null 2>&1; then
             echo "Trace on exit feature failed"
@@ -91,13 +113,13 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: Traces
+          name: Traces-${{ matrix.transport }}
           path: ./traces
           if-no-files-found: ignore
       - name: Upload verification screenshots
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: screenshots
+          name: screenshots-${{ matrix.transport }}
           path: ./screenshots
           if-no-files-found: ignore

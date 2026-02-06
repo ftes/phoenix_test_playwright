@@ -7,14 +7,18 @@ defmodule PhoenixTest.Playwright.CookieArgsTest do
     test "adds default url" do
       cookie = [name: "name", value: "42"]
 
-      assert CookieArgs.from_cookie(cookie) == %{name: "name", value: "42", url: "http://localhost:4002"}
+      assert CookieArgs.from_cookie(cookie) == %{
+               name: "name",
+               value: "42",
+               url: Application.get_env(:phoenix_test, :base_url)
+             }
     end
 
     test "allows overriding values" do
       cookie = [
         name: "name",
         value: "42",
-        url: "http://localhost:4002/path",
+        url: "#{Application.get_env(:phoenix_test, :base_url)}/path",
         same_site: "Lax",
         http_only: true,
         secure: true
@@ -23,7 +27,7 @@ defmodule PhoenixTest.Playwright.CookieArgsTest do
       assert CookieArgs.from_cookie(cookie) == %{
                name: "name",
                value: "42",
-               url: "http://localhost:4002/path",
+               url: "#{Application.get_env(:phoenix_test, :base_url)}/path",
                secure: true,
                http_only: true,
                same_site: "Lax"
@@ -38,7 +42,7 @@ defmodule PhoenixTest.Playwright.CookieArgsTest do
 
       assert CookieArgs.from_session_options(cookie, session_options) == %{
                name: "_phoenix_key",
-               url: "http://localhost:4002",
+               url: Application.get_env(:phoenix_test, :base_url),
                value: "SFMyNTY.g3QAAAABbQAAAAZzZWNyZXRtAAAADG1vbnR5X3B5dGhvbg.fgc5Hcsik_B4PSRMNkRdPd3Jo147_w5_msEz39ILXJw"
              }
     end

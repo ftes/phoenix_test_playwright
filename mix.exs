@@ -19,7 +19,7 @@ defmodule PhoenixTestPlaywright.MixProject do
       dialyzer: [
         plt_local_path: "priv/plts/project.plt",
         plt_core_path: "priv/plts/core.plt",
-        plt_add_apps: [:ex_unit, :phoenix_test]
+        plt_add_apps: [:ex_unit, :mix, :phoenix_test]
       ],
       name: "PhoenixTestPlaywright",
       source_url: @source_url,
@@ -78,7 +78,8 @@ defmodule PhoenixTestPlaywright.MixProject do
         "assets.setup": :test,
         "assets.build": :test,
         esbuild: :test,
-        "esbuild.install": :test
+        "esbuild.install": :test,
+        "test.websocket": :test
       ]
     ]
   end
@@ -105,15 +106,13 @@ defmodule PhoenixTestPlaywright.MixProject do
         "cmd npx --prefix priv/static/assets playwright install firefox --with-deps --only-shell"
       ],
       "assets.build": ["esbuild default"],
-      "test.websocket": ["cmd sh -c 'WEBSOCKET_TESTS=true PORT=4003 mix test \"$@\"' --"],
       check: [
         "format --check-formatted",
         "credo",
         "compile --warnings-as-errors",
         "dialyzer --format github --format dialyxir",
         "assets.build",
-        "test --warnings-as-errors",
-        "test.websocket --warnings-as-errors"
+        "test --warnings-as-errors"
       ]
     ]
   end

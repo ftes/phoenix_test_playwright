@@ -488,7 +488,8 @@ defmodule PhoenixTest.StaticTest do
       |> refute_has("#form-data", text: "race_2")
     end
 
-    if System.get_env("CI"), do: @tag(skip: "investigate")
+    if System.get_env("CI") || Application.compile_env!(:phoenix_test, :playwright)[:ws_endpoint],
+      do: @tag(skip: "investigate")
 
     test "can target a label with exact: false", %{conn: conn} do
       conn
@@ -511,7 +512,8 @@ defmodule PhoenixTest.StaticTest do
       |> assert_has("#form-data", text: "race: human")
     end
 
-    if System.get_env("CI"), do: @tag(skip: "investigate")
+    if System.get_env("CI") || Application.compile_env!(:phoenix_test, :playwright)[:ws_endpoint],
+      do: @tag(skip: "investigate")
 
     test "can target option with selector if multiple labels have same text", %{conn: conn} do
       conn
@@ -662,6 +664,9 @@ defmodule PhoenixTest.StaticTest do
   end
 
   describe "upload/4" do
+    if Application.compile_env!(:phoenix_test, :playwright)[:ws_endpoint],
+      do: @describetag(skip: "FIXME File uploads via remote server")
+
     test "uploads image", %{conn: conn} do
       conn
       |> visit("/page/index")

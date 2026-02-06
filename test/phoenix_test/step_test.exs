@@ -3,6 +3,9 @@ defmodule PhoenixTest.StepTest do
 
   alias PlaywrightEx.Tracing
 
+  if Application.compile_env!(:phoenix_test, :playwright)[:ws_endpoint],
+    do: @moduletag(skip: "FIXME Accessing trace from remote server")
+
   describe "step/3" do
     test "produces labels that can be seen in the trace viewer", %{conn: conn} do
       start_tracing(conn)
@@ -20,9 +23,9 @@ defmodule PhoenixTest.StepTest do
       end)
 
       trace = stop_tracing(conn)
-      assert trace =~ ~r/Fill in form with test data.*step_test.exs.*"line":12/
-      assert trace =~ ~r/Type into text input.*"line":14/
-      assert trace =~ ~r/Verify form data changed.*"line":17/
+      assert trace =~ ~r/Fill in form with test data.*step_test.exs.*"line":15/
+      assert trace =~ ~r/Type into text input.*"line":17/
+      assert trace =~ ~r/Verify form data changed.*"line":20/
     end
   end
 

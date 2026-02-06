@@ -829,6 +829,9 @@ defmodule PhoenixTest.LiveTest do
   end
 
   describe "upload/4" do
+    if Application.compile_env!(:phoenix_test, :playwright)[:ws_endpoint],
+      do: @describetag(skip: "FIXME File uploads via remote server")
+
     test "uploads an image", %{conn: conn} do
       conn
       |> visit("/live/index")

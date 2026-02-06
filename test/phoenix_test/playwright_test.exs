@@ -202,7 +202,7 @@ defmodule PhoenixTest.PlaywrightTest do
           visit(conn, "/pw/js-script-console-error")
         end)
 
-      assert log =~ "TESTME 42 (http://localhost:4002/pw/js-script-console-error:16)"
+      assert log =~ "TESTME 42 (#{Application.get_env(:phoenix_test, :base_url)}/pw/js-script-console-error:16)"
     end
 
     test "logs without location if unknown", %{conn: conn} do
