@@ -32,7 +32,7 @@ defmodule PhoenixTest.Playwright do
   ## Getting started
   1. Add dependency
           # mix.exs
-          {:phoenix_test_playwright, "~> 0.9", only: :test, runtime: false}
+          {:phoenix_test_playwright, "~> 0.11", only: :test, runtime: false}
 
   2. Install playwright and browser
           npm --prefix assets i -D playwright
