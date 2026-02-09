@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
+## [0.11.0] 2026-02-09
+### Added
+- Support remote Playwright server via WebSocket. Commit [396fbdc], [@carsoncall]
+### Changed
+- Browser pools: Fall back to global options (headless, slow_mo etc). Commit [72b9799]
+
 ## [0.10.1] 2026-01-30
 ### Added
 - `PhoenixTest.Playwright.step/3`: label groups of actions in a trace with automatic source file and line. Commit [3eaeb5a], [@nathanl]
@@ -162,6 +168,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [@tomfarm]: https://github.com/tomfarm
 [@peaceful-james]: https://github.com/peaceful-james
 [@nathanl]: https://github.com/nathanl
+[@carsoncall]: https://github.com/carsoncall
 
 [3b54699]: https://github.com/ftes/phoenix_test_playwright/commit/3b54699
 [5ff530]: https://github.com/ftes/phoenix_test_playwright/commit/5ff530
@@ -187,3 +194,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [7073add]: https://github.com/ftes/phoenix_test_playwright/commit/7073add
 [1605dce]: https://github.com/ftes/phoenix_test_playwright/commit/1605dce
 [3eaeb5a]: https://github.com/ftes/phoenix_test_playwright/commit/3eaeb5a
+[72b9799]: https://github.com/ftes/phoenix_test_playwright/commit/72b9799
+[396fbdc]: https://github.com/ftes/phoenix_test_playwright/commit/396fbdc
