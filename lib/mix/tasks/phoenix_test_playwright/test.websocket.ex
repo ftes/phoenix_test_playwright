@@ -18,6 +18,9 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
 
   use Mix.Task
 
+  # `:test`-only deps not available when running `mix docs` in `:dev` env
+  @compile {:no_warn_undefined, [Testcontainers, Testcontainers.Container, Testcontainers.PortWaitStrategy]}
+
   @impl Mix.Task
   def run(args) do
     # Start testcontainers (transitively starts tesla, hackney, etc.)
