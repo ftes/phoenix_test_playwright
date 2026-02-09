@@ -1,4 +1,4 @@
-defmodule Mix.Tasks.Test.Websocket do
+defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
   @shortdoc "Runs tests using a containerized Playwright server via websocket"
   @moduledoc """
   Runs the test suite against a Playwright server running in a Docker container,
@@ -9,9 +9,9 @@ defmodule Mix.Tasks.Test.Websocket do
 
   ## Usage
 
-      mix test.websocket
-      mix test.websocket --warnings-as-errors
-      mix test.websocket test/specific_test.exs
+      mix phoenix_test_playwright.test.websocket
+      mix phoenix_test_playwright.test.websocket --warnings-as-errors
+      mix phoenix_test_playwright.test.websocket test/specific_test.exs
 
   All arguments are passed through to `mix test`.
   """
@@ -20,11 +20,8 @@ defmodule Mix.Tasks.Test.Websocket do
 
   @impl Mix.Task
   def run(args) do
-    # Start testcontainers
-    Enum.each([:tesla, :hackney, :fs, :logger], fn app ->
-      {:ok, _} = Application.ensure_all_started(app)
-    end)
-
+    # Start testcontainers (transitively starts tesla, hackney, etc.)
+    {:ok, _} = Application.ensure_all_started(:testcontainers)
     {:ok, _} = Testcontainers.start()
 
     {:ok, playwright_version} = PhoenixTest.Playwright.Config.playwright_version()

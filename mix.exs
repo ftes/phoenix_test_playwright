@@ -54,7 +54,7 @@ defmodule PhoenixTestPlaywright.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:makeup_diff, "~> 0.1", only: :dev},
       {:nimble_options, "~> 1.1"},
-      {:playwright_ex, github: "ftes/playwright_ex"}
+      {:playwright_ex, "~> 0.4"}
     ]
   end
 
@@ -108,6 +108,7 @@ defmodule PhoenixTestPlaywright.MixProject do
         "cmd npx --prefix priv/static/assets playwright install firefox --with-deps --only-shell"
       ],
       "assets.build": ["esbuild default"],
+      "test.websocket": "phoenix_test_playwright.test.websocket",
       check: [
         "format --check-formatted",
         "credo",
