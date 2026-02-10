@@ -1,7 +1,7 @@
 defmodule PhoenixTestPlaywright.MixProject do
   use Mix.Project
 
-  @version "0.11.0"
+  @version "0.11.1"
   @source_url "https://github.com/ftes/phoenix_test_playwright"
   @description """
   Execute PhoenixTest cases in an actual browser via Playwright.

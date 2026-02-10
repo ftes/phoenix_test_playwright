@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
+## [0.11.1] 2026-02-10
+### Fixed
+- Fix regression: Config validation error if `browser_pools` not set. Commit [987828e]
+- Fix regression: Don't rely on `package-lock.json` for bun. Commit [8b342a8]
+
 ## [0.11.0] 2026-02-09
 ### Added
 - Support remote Playwright server via WebSocket. Commit [396fbdc], [@carsoncall]
@@ -196,3 +201,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [3eaeb5a]: https://github.com/ftes/phoenix_test_playwright/commit/3eaeb5a
 [72b9799]: https://github.com/ftes/phoenix_test_playwright/commit/72b9799
 [396fbdc]: https://github.com/ftes/phoenix_test_playwright/commit/396fbdc
+[987828e]: https://github.com/ftes/phoenix_test_playwright/commit/987828e
+[8b342a8]: https://github.com/ftes/phoenix_test_playwright/commit/8b342a8
