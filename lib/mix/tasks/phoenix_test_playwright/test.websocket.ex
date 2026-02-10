@@ -27,7 +27,7 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
     {:ok, _} = Application.ensure_all_started(:testcontainers)
     {:ok, _} = Testcontainers.start()
 
-    {:ok, playwright_version} = PhoenixTest.Playwright.Config.playwright_version()
+    playwright_version = playwright_version_from_lock_file()
     playwright_image = "mcr.microsoft.com/playwright:v#{playwright_version}-noble"
 
     container_config =
@@ -58,6 +58,16 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
     System.put_env("BASE_URL", "http://#{docker_host}:#{port}")
 
     Mix.Task.run("test", args)
+  end
+
+  defp playwright_version_from_lock_file do
+    :phoenix_test
+    |> Application.fetch_env!(:playwright)
+    |> Keyword.fetch!(:assets_dir)
+    |> Path.join("package-lock.json")
+    |> File.read!()
+    |> JSON.decode!()
+    |> get_in(~w(packages node_modules/playwright version))
   end
 
   defp docker_host_address do
