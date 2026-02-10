@@ -228,7 +228,9 @@ defmodule PhoenixTest.Playwright.Config do
     global = Keyword.take(all, @merge_global_into_browser_pool_keys)
 
     all
-    |> update_in([:browser_pools], &if(&1, do: Enum.map(&1, fn p -> Keyword.merge(global, p) end)))
+    |> Keyword.replace_lazy(:browser_pools, fn pools ->
+      Enum.map(pools, fn p -> Keyword.merge(global, p) end)
+    end)
     |> NimbleOptions.validate!(@schema)
     |> normalize()
     |> Keyword.fetch!(:browser_pools)
