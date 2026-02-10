@@ -279,15 +279,12 @@ defmodule PhoenixTest.Playwright.Config do
     end
   end
 
-  @doc """
-  Returns the Playwright version from package-lock.json in the assets directory.
-  """
-  def playwright_version(assets_dir \\ global()[:assets_dir]) do
-    lock_file = Path.join(assets_dir, "package-lock.json")
+  defp playwright_version(assets_dir) do
+    package_json = Path.join([assets_dir, "node_modules", "playwright", "package.json"])
 
-    with {:ok, string} <- File.read(lock_file),
+    with {:ok, string} <- File.read(package_json),
          {:ok, json} <- Phoenix.json_library().decode(string),
-         version when is_binary(version) <- json["packages"]["node_modules/playwright"]["version"] do
+         version when is_binary(version) <- json["version"] do
       {:ok, version}
     else
       _ -> :error
