@@ -639,6 +639,12 @@ defmodule PhoenixTest.Playwright do
       type_doc: "`t:selector/0`",
       required: true,
       doc: "The target selector."
+    ],
+    playwright: [
+      type: :keyword_list,
+      default: [],
+      doc:
+        "Additional options passed to [frame.dragAndDrop](https://playwright.dev/docs/api/class-frame#frame-drag-and-drop)."
     ]
   ]
 
@@ -655,12 +661,20 @@ defmodule PhoenixTest.Playwright do
   @spec drag(t(), selector(), [
           unquote(NimbleOptions.option_typespec(@drag_opts_schema))
         ]) :: t()
-  def drag(conn, source_selector, to: target_selector) do
+  def drag(conn, source_selector, opts) do
+    {target_selector, opts} = opts |> NimbleOptions.validate!(@drag_opts_schema) |> Keyword.pop!(:to)
+
     source_selector = conn |> maybe_within() |> Selector.concat(source_selector)
     target_selector = conn |> maybe_within() |> Selector.concat(target_selector)
 
+    opts =
+      Keyword.merge(
+        [source: source_selector, target: target_selector, timeout: timeout()],
+        Keyword.fetch!(opts, :playwright)
+      )
+
     conn.frame_id
-    |> Frame.drag_and_drop(source: source_selector, target: target_selector, timeout: timeout())
+    |> Frame.drag_and_drop(opts)
     |> handle_response(source_selector)
 
     conn

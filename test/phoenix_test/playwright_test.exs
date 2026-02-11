@@ -135,6 +135,17 @@ defmodule PhoenixTest.PlaywrightTest do
       |> drag(Selector.text("Drag this"), to: Selector.text("Drop here"))
       |> assert_has("#drag-status", text: "dropped")
     end
+
+    test "passes custom options to playwright (effectively fails to drag, but without error)", %{conn: conn} do
+      conn
+      |> visit("/pw/live")
+      |> refute_has("#drag-status", text: "dropped")
+      |> drag(Selector.text("Drag this"),
+        to: Selector.text("Drop here"),
+        playwright: [source_position: %{x: 0, y: 100}, force: true]
+      )
+      |> refute_has("#drag-status", text: "dropped")
+    end
   end
 
   describe "add_cookies/2" do
