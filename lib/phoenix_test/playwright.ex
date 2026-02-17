@@ -1088,6 +1088,10 @@ defmodule PhoenixTest.Playwright do
   1. `window.liveSocket.isConnected()` to return true
   2. The `.phx-connected` class to appear on the main LiveView element
 
+  Requires `window.liveSocket` to be exposed globally in your app's JavaScript
+  (e.g., `window.liveSocket = liveSocket`). This is the default in Phoenix-generated
+  app.js files.
+
   ## Options
 
     * `:timeout` - Maximum wait time in milliseconds. Defaults to the configured timeout.
@@ -1132,7 +1136,17 @@ defmodule PhoenixTest.Playwright do
     })
     """
 
-    conn = tap(conn, &({:ok, _} = Frame.evaluate(&1.frame_id, expression: js, timeout: timeout + 1_000)))
+    conn =
+      tap(conn, fn conn ->
+        case Frame.evaluate(conn.frame_id, expression: js, timeout: timeout + 1_000) do
+          {:ok, _} ->
+            :ok
+
+          {:error, _} ->
+            raise ExUnit.AssertionError,
+              message: "LiveSocket not connected within #{timeout}ms"
+        end
+      end)
 
     if wait_for_selector_opt do
       tap(conn, fn conn ->
@@ -1168,7 +1182,16 @@ defmodule PhoenixTest.Playwright do
   """
   @spec evaluate(t(), String.t(), keyword()) :: t()
   def evaluate(conn, expression, opts \\ []) do
-    tap(conn, &({:ok, _} = Frame.evaluate(&1.frame_id, expression: expression, timeout: timeout(opts))))
+    tap(conn, fn conn ->
+      case Frame.evaluate(conn.frame_id, expression: expression, timeout: timeout(opts)) do
+        {:ok, _} ->
+          :ok
+
+        {:error, _} ->
+          raise ExUnit.AssertionError,
+            message: "JavaScript evaluation failed: #{inspect(expression)}"
+      end
+    end)
   end
 
   @doc """

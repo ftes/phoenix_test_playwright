@@ -245,7 +245,7 @@ defmodule PhoenixTest.PlaywrightTest do
     end
 
     test "raises on timeout when LiveSocket never connects", %{conn: conn} do
-      assert_raise MatchError, fn ->
+      assert_raise ExUnit.AssertionError, fn ->
         conn
         |> visit("/pw/other")
         |> wait_for_live_socket(timeout: 200)
@@ -269,7 +269,7 @@ defmodule PhoenixTest.PlaywrightTest do
     end
 
     test "raises on JavaScript error", %{conn: conn} do
-      assert_raise MatchError, fn ->
+      assert_raise ExUnit.AssertionError, fn ->
         conn
         |> visit("/pw/other")
         |> evaluate("nonExistentFunction()")
