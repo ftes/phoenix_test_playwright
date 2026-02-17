@@ -228,4 +228,186 @@ defmodule PhoenixTest.PlaywrightTest do
       refute log =~ "localhost"
     end
   end
+
+  describe "wait_for_live_socket/1" do
+    test "waits for LiveSocket connection on a LiveView page", %{conn: conn} do
+      conn
+      |> visit("/pw/live")
+      |> wait_for_live_socket()
+      |> assert_has("h1", text: "Playwright")
+    end
+
+    test "accepts timeout option", %{conn: conn} do
+      conn
+      |> visit("/pw/live")
+      |> wait_for_live_socket(timeout: 10_000)
+      |> assert_has("h1", text: "Playwright")
+    end
+
+    test "raises on timeout when LiveSocket never connects", %{conn: conn} do
+      assert_raise MatchError, fn ->
+        conn
+        |> visit("/pw/other")
+        |> wait_for_live_socket(timeout: 200)
+      end
+    end
+  end
+
+  describe "evaluate/2" do
+    test "evaluates JavaScript and returns the session", %{conn: conn} do
+      conn
+      |> visit("/pw/live")
+      |> evaluate("document.title")
+      |> assert_has("h1", text: "Playwright")
+    end
+
+    test "can modify the DOM", %{conn: conn} do
+      conn
+      |> visit("/pw/other")
+      |> evaluate("document.querySelector('h1').textContent = 'Modified'")
+      |> assert_has("h1", text: "Modified")
+    end
+
+    test "raises on JavaScript error", %{conn: conn} do
+      assert_raise MatchError, fn ->
+        conn
+        |> visit("/pw/other")
+        |> evaluate("nonExistentFunction()")
+      end
+    end
+  end
+
+  describe "evaluate_and_return/2" do
+    test "returns the JS evaluation result and the session", %{conn: conn} do
+      {title, conn} =
+        conn
+        |> visit("/live/index")
+        |> evaluate_and_return("document.querySelector('h1').textContent")
+
+      assert title =~ "LiveView main page"
+      assert_has(conn, "h1", text: "LiveView main page")
+    end
+
+    test "returns numeric values", %{conn: conn} do
+      {result, _conn} =
+        conn
+        |> visit("/pw/live")
+        |> evaluate_and_return("1 + 2")
+
+      assert result == 3
+    end
+
+    test "returns various JavaScript types", %{conn: conn} do
+      conn = visit(conn, "/pw/other")
+
+      {bool, conn} = evaluate_and_return(conn, "true")
+      assert bool == true
+
+      {null, conn} = evaluate_and_return(conn, "null")
+      assert null == nil
+
+      {obj, _conn} = evaluate_and_return(conn, "({a: 1, b: 'hello'})")
+      assert obj == %{"a" => 1, "b" => "hello"}
+    end
+
+    test "raises on JavaScript error", %{conn: conn} do
+      assert_raise RuntimeError, ~r/JS evaluation failed/, fn ->
+        conn
+        |> visit("/pw/other")
+        |> evaluate_and_return("throw new Error('test error')")
+      end
+    end
+  end
+
+  describe "wait_for_url/2" do
+    test "waits for URL to contain expected path after navigation", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> click_button("Button with push navigation")
+      |> wait_for_url("/live/page_2")
+      |> assert_has("h1", text: "LiveView page 2")
+    end
+
+    test "waits for URL to contain expected path after patch", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> click_button("Button with push patch")
+      |> wait_for_url("foo=bar")
+    end
+
+    test "raises on timeout when URL never matches", %{conn: conn} do
+      assert_raise ExUnit.AssertionError, fn ->
+        conn
+        |> visit("/pw/other")
+        |> wait_for_url("/never-going-here", timeout: 200)
+      end
+    end
+  end
+
+  describe "wait_for_text/2" do
+    test "waits for text to appear on the page", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> wait_for_text("LiveView main page")
+    end
+
+    test "waits for text that appears after a LiveView event", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> click_button("Change h3")
+      |> wait_for_text("I've been changed!")
+    end
+
+    test "raises on timeout when text never appears", %{conn: conn} do
+      assert_raise ExUnit.AssertionError, fn ->
+        conn
+        |> visit("/pw/other")
+        |> wait_for_text("text that will never appear", timeout: 200)
+      end
+    end
+  end
+
+  describe "wait_for_selector/2" do
+    test "waits for an element to appear", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> click_button("Show tab")
+      |> wait_for_selector("#tab")
+      |> assert_has("#tab", text: "Tab title")
+    end
+
+    test "respects the within context", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> click_button("Show tab")
+      |> within("#tab", fn conn ->
+        conn
+        |> wait_for_selector("h2")
+        |> assert_has("h2", text: "Tab title")
+      end)
+    end
+
+    test "accepts state option for hidden elements", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> wait_for_selector("#tab", state: "hidden")
+    end
+
+    test "waits for element to transition from hidden to visible", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> wait_for_selector("#tab", state: "hidden")
+      |> click_button("Show tab")
+      |> wait_for_selector("#tab")
+      |> assert_has("#tab", text: "Tab title")
+    end
+
+    test "raises on timeout when selector never appears", %{conn: conn} do
+      assert_raise ExUnit.AssertionError, fn ->
+        conn
+        |> visit("/live/index")
+        |> wait_for_selector("#never-exists", timeout: 200)
+      end
+    end
+  end
 end

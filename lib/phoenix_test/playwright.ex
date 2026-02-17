@@ -1079,6 +1079,291 @@ defmodule PhoenixTest.Playwright do
   end
 
   @doc """
+  Waits for the Phoenix LiveSocket to be connected.
+
+  After page navigation, LiveView needs to establish a WebSocket connection
+  before `phx-click` and other LiveView bindings become active. This function
+  waits for both:
+
+  1. `window.liveSocket.isConnected()` to return true
+  2. The `.phx-connected` class to appear on the main LiveView element
+
+  ## Options
+
+    * `:timeout` - Maximum wait time in milliseconds. Defaults to the configured timeout.
+    * `:wait_for_selector` - Additional CSS selector to wait for after connection.
+      Useful for pages that conditionally render content with `if connected?(@socket)`.
+
+  ## Examples
+
+      conn
+      |> visit("/dashboard")
+      |> wait_for_live_socket()
+      |> click_button("Submit")
+
+      # Wait for conditional content after connection
+      conn
+      |> visit("/tracker")
+      |> wait_for_live_socket(wait_for_selector: "#tracker-page")
+  """
+  @spec wait_for_live_socket(t(), keyword()) :: t()
+  def wait_for_live_socket(conn, opts \\ []) do
+    timeout = timeout(opts)
+    wait_for_selector_opt = Keyword.get(opts, :wait_for_selector)
+
+    js = """
+    new Promise((resolve, reject) => {
+      const timeout = #{timeout};
+      const start = Date.now();
+      const check = () => {
+        const phxConnected = !!document.querySelector(
+          '[data-phx-main].phx-connected, body.phx-connected'
+        );
+        const socketConnected = typeof window.liveSocket !== 'undefined'
+          ? (window.liveSocket.isConnected() || false)
+          : false;
+        if (phxConnected && socketConnected) return resolve(true);
+        if (Date.now() - start > timeout) return reject(
+          new Error('LiveSocket not connected within ' + timeout + 'ms')
+        );
+        requestAnimationFrame(check);
+      };
+      check();
+    })
+    """
+
+    conn = tap(conn, &({:ok, _} = Frame.evaluate(&1.frame_id, expression: js, timeout: timeout + 1_000)))
+
+    if wait_for_selector_opt do
+      tap(conn, fn conn ->
+        {:ok, _} =
+          Frame.wait_for_selector(conn.frame_id,
+            selector: wait_for_selector_opt,
+            strict: false,
+            timeout: timeout
+          )
+      end)
+    else
+      conn
+    end
+  end
+
+  @doc """
+  Evaluates a JavaScript expression in the page context.
+
+  The result of the evaluation is discarded. Use `evaluate_and_return/3` if you
+  need the result.
+
+  ## Options
+
+    * `:timeout` - Maximum wait time in milliseconds. Defaults to the configured timeout.
+
+  ## Examples
+
+      conn
+      |> evaluate("console.log('hello')")
+
+      conn
+      |> evaluate("window.scrollTo(0, document.body.scrollHeight)")
+  """
+  @spec evaluate(t(), String.t(), keyword()) :: t()
+  def evaluate(conn, expression, opts \\ []) do
+    tap(conn, &({:ok, _} = Frame.evaluate(&1.frame_id, expression: expression, timeout: timeout(opts))))
+  end
+
+  @doc """
+  Evaluates a JavaScript expression and returns the result along with the session.
+
+  Returns a `{result, session}` tuple, which breaks the pipe chain but gives
+  access to the evaluated value.
+
+  ## Options
+
+    * `:timeout` - Maximum wait time in milliseconds. Defaults to the configured timeout.
+
+  ## Examples
+
+      {title, conn} = evaluate_and_return(conn, "document.title")
+
+      {count, conn} = evaluate_and_return(conn, "document.querySelectorAll('li').length")
+  """
+  @spec evaluate_and_return(t(), String.t(), keyword()) :: {any(), t()}
+  def evaluate_and_return(conn, expression, opts \\ []) do
+    case Frame.evaluate(conn.frame_id, expression: expression, timeout: timeout(opts)) do
+      {:ok, value} -> {value, conn}
+      {:error, err} -> raise "JS evaluation failed: #{inspect(err)}"
+    end
+  end
+
+  @doc """
+  Waits for the page URL to contain the expected path.
+
+  Unlike `assert_path/2` which checks the last recorded navigation event,
+  this function actively waits for URL changes. Useful for LiveView patches
+  and async redirects.
+
+  ## Options
+
+    * `:timeout` - Maximum wait time in milliseconds. Defaults to the configured timeout.
+
+  ## Examples
+
+      conn
+      |> click_button("Save")
+      |> wait_for_url("/accounts/123")
+
+      conn
+      |> click_link("Dashboard")
+      |> wait_for_url("/dashboard", timeout: 10_000)
+  """
+  @spec wait_for_url(t(), String.t(), keyword()) :: t()
+  def wait_for_url(conn, expected_path, opts \\ []) do
+    timeout = timeout(opts)
+
+    js = """
+    (expected) => new Promise((resolve, reject) => {
+      const timeout = #{timeout};
+      const start = Date.now();
+      const check = () => {
+        if (window.location.href.includes(expected)) return resolve(true);
+        if (Date.now() - start > timeout) return reject(
+          new Error('URL did not contain "' + expected + '" within ' + timeout + 'ms')
+        );
+        requestAnimationFrame(check);
+      };
+      check();
+    })
+    """
+
+    tap(conn, fn conn ->
+      case Frame.evaluate(conn.frame_id,
+             expression: js,
+             is_function: true,
+             arg: expected_path,
+             timeout: timeout + 1_000
+           ) do
+        {:ok, _} ->
+          :ok
+
+        {:error, _} ->
+          raise ExUnit.AssertionError,
+            message: "URL did not contain #{inspect(expected_path)} within #{timeout}ms"
+      end
+    end)
+  end
+
+  @doc """
+  Waits for text to appear anywhere on the page.
+
+  Uses JavaScript polling to check for text in the document body.
+  Useful for waiting for async LiveView updates.
+
+  ## Options
+
+    * `:timeout` - Maximum wait time in milliseconds. Defaults to the configured timeout.
+
+  ## Examples
+
+      conn
+      |> visit("/dashboard")
+      |> wait_for_text("Welcome back")
+      |> click_link("Settings")
+  """
+  @spec wait_for_text(t(), String.t(), keyword()) :: t()
+  def wait_for_text(conn, text, opts \\ []) do
+    timeout = timeout(opts)
+
+    js = """
+    (expected) => new Promise((resolve, reject) => {
+      const timeout = #{timeout};
+      const start = Date.now();
+      const check = () => {
+        if (document.body?.textContent?.includes(expected)) return resolve(true);
+        if (Date.now() - start > timeout) return reject(
+          new Error('Text "' + expected + '" not found within ' + timeout + 'ms')
+        );
+        requestAnimationFrame(check);
+      };
+      check();
+    })
+    """
+
+    tap(conn, fn conn ->
+      case Frame.evaluate(conn.frame_id,
+             expression: js,
+             is_function: true,
+             arg: text,
+             timeout: timeout + 1_000
+           ) do
+        {:ok, _} ->
+          :ok
+
+        {:error, _} ->
+          raise ExUnit.AssertionError,
+            message: "Text #{inspect(text)} not found within #{timeout}ms"
+      end
+    end)
+  end
+
+  @doc """
+  Waits for a CSS selector to appear in the DOM.
+
+  Unlike `assert_has/2`, this is a flow control function — use it when you need
+  to wait for an element before performing an action, not as a test assertion.
+
+  ## Options
+
+    * `:timeout` - Maximum wait time in milliseconds. Defaults to the configured timeout.
+    * `:state` - State to wait for: `"visible"` (default), `"hidden"`, `"attached"`, `"detached"`.
+
+  ## Examples
+
+      conn
+      |> click_button("Open modal")
+      |> wait_for_selector("#modal-content")
+      |> fill_in("Name", with: "Alice")
+
+      conn
+      |> click_button("Close")
+      |> wait_for_selector("#modal", state: "hidden")
+  """
+  @spec wait_for_selector(t(), css_selector(), keyword()) :: t()
+  def wait_for_selector(conn, selector, opts \\ []) do
+    timeout = timeout(opts)
+    state = Keyword.get(opts, :state, "visible")
+
+    full_selector =
+      conn
+      |> maybe_within()
+      |> Selector.concat(Selector.css(selector))
+      |> Selector.build()
+
+    tap(conn, fn conn ->
+      do_wait_for_selector(conn.frame_id, full_selector, state, timeout)
+    end)
+  end
+
+  # For hidden/detached states, PlaywrightEx.Frame.wait_for_selector tries to
+  # access .element on the response, but Playwright returns nil for these states.
+  # We rescue the KeyError and treat it as success.
+  defp do_wait_for_selector(frame_id, selector, state, timeout) when state in ["hidden", "detached"] do
+    Frame.wait_for_selector(frame_id, selector: selector, state: state, strict: false, timeout: timeout)
+  rescue
+    KeyError -> :ok
+  end
+
+  defp do_wait_for_selector(frame_id, selector, state, timeout) do
+    case Frame.wait_for_selector(frame_id, selector: selector, state: state, strict: false, timeout: timeout) do
+      {:ok, _} ->
+        :ok
+
+      {:error, _} ->
+        raise ExUnit.AssertionError,
+          message: "Selector #{inspect(selector)} not found within #{timeout}ms"
+    end
+  end
+
+  @doc """
   See `PhoenixTest.unwrap/2`.
 
   Invokes `fun` with various Playwright IDs.
