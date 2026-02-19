@@ -189,7 +189,7 @@ defmodule PhoenixTest.Playwright.Case do
     end
 
     defp maybe_start_sandbox_owner(repo, config, context) do
-      pid = EctoSandbox.start_owner!(repo, shared: not context.async)
+9      pid = EctoSandbox.start_owner!(repo, shared: not context.async)
       on_exit(fn -> stop_sandbox_owner(pid, config, context) end)
       repo
     end
