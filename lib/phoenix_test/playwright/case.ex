@@ -41,6 +41,10 @@ defmodule PhoenixTest.Playwright.Case do
           click_button: 4,
           click_link: 4,
           drag: 3,
+          evaluate: 2,
+          evaluate: 3,
+          evaluate_and_return: 2,
+          evaluate_and_return: 3,
           press: 3,
           press: 4,
           screenshot: 2,
@@ -49,6 +53,14 @@ defmodule PhoenixTest.Playwright.Case do
           type: 3,
           type: 4,
           visit: 3,
+          wait_for_live_socket: 1,
+          wait_for_live_socket: 2,
+          wait_for_selector: 2,
+          wait_for_selector: 3,
+          wait_for_text: 2,
+          wait_for_text: 3,
+          wait_for_url: 2,
+          wait_for_url: 3,
           with_dialog: 3
         ]
 
