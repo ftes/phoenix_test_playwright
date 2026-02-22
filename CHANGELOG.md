@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - `PhoenixTest.Playwright.evaluate/2-4`: evaluate JavaScript snippets in the browser
 - `usage-rules.md` for LLM coding agents (via [usage_rules](https://hex.pm/packages/usage_rules))
+- `timeout` option for custom Playwright public functions (`evaluate`, `step`, `click`, etc.)
+- `drag/3`: pass additional options through to Playwright
 ### Fixed
 - `assert_path`/`refute_path` now work after LiveView patches and navigations (push_patch, push_navigate, etc.)
 - Restore helpful error message when `browser_launch_timeout` is too small (lost during browser pool introduction)
