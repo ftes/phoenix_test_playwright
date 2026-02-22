@@ -238,6 +238,21 @@ run: "mix test || if [[ $? = 2 ]]; then PW_SCREENSHOT=true mix test --failed; el
 ```
 
 
+## Logging in
+
+For username/password login, just visit the login page and fill in the credentials:
+
+```elixir
+conn
+|> visit(~p"/users/log_in")
+|> fill_in("Email", with: "user@example.com")
+|> fill_in("Password", with: "password123")
+|> click_button("Sign in")
+```
+
+For magic link / passwordless login, see the [Emails](#emails) section below.
+
+
 ## Emails
 
 If you want to verify the HTML of sent emails in your feature tests,

@@ -50,6 +50,19 @@ conn
 - `@tag screenshot: true` — auto-capture screenshot on failure
 - `open_browser/1` — open current page in system browser
 
+## Logging in
+
+For username/password login, just visit the login page and fill in the credentials:
+```elixir
+conn
+|> visit(~p"/users/log_in")
+|> fill_in("Email", with: "user@example.com")
+|> fill_in("Password", with: "password123")
+|> click_button("Sign in")
+```
+
+For magic link / passwordless login, see the [Emails section](https://hexdocs.pm/phoenix_test_playwright/readme.md#emails) in the docs.
+
 ## Common problems
 
 ### LiveView not connected
