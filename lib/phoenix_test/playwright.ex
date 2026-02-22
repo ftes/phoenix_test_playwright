@@ -1133,20 +1133,17 @@ defmodule PhoenixTest.Playwright do
           t()
   @spec evaluate(t(), String.t(), [unquote(NimbleOptions.option_typespec(@evaluate_opts_schema))], (any() -> any())) ::
           t()
-  def evaluate(conn, expression, opts_or_fun \\ [], fun \\ nil)
+  def evaluate(conn, expression), do: evaluate(conn, expression, [], & &1)
+  def evaluate(conn, expression, fun) when is_function(fun, 1), do: evaluate(conn, expression, [], fun)
+  def evaluate(conn, expression, opts) when is_list(opts), do: evaluate(conn, expression, opts, & &1)
 
-  def evaluate(conn, expression, fun, nil) when is_function(fun, 1) do
-    evaluate(conn, expression, [], fun)
-  end
-
-  def evaluate(conn, expression, opts, fun) when is_list(opts) do
+  def evaluate(conn, expression, opts, fun) when is_list(opts) and is_function(fun, 1) do
     opts = NimbleOptions.validate!(opts, @evaluate_opts_schema)
 
     tap(conn, fn conn ->
       case Frame.evaluate(conn.frame_id, expression: expression, timeout: timeout(opts)) do
         {:ok, value} ->
-          if fun, do: fun.(value)
-          :ok
+          fun.(value)
 
         {:error, error} ->
           raise ExUnit.AssertionError,
