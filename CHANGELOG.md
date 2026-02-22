@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
 ## [Unreleased]
+### Added
+- `PhoenixTest.Playwright.evaluate/2-4`: evaluate JavaScript snippets in the browser
 ### Fixed
 - `assert_path`/`refute_path` now work after LiveView patches and navigations (push_patch, push_navigate, etc.)
 - Restore helpful error message when `browser_launch_timeout` is too small (lost during browser pool introduction)
