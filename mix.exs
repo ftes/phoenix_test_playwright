@@ -65,6 +65,7 @@ defmodule PhoenixTestPlaywright.MixProject do
     [
       licenses: ["MIT"],
       links: %{"Github" => @source_url},
+      files: ~w(lib .formatter.exs mix.exs README* LICENSE* CHANGELOG* usage-rules.md),
       exclude_patterns: ~w(assets/node_modules priv/static/assets priv/plts)
     ]
   end
@@ -86,9 +87,10 @@ defmodule PhoenixTestPlaywright.MixProject do
 
   defp docs do
     [
-      main: "PhoenixTest.Playwright",
+      main: "readme",
       source_ref: "v#{@version}",
       extras: [
+        "README.md": [title: "Overview"],
         "CHANGELOG.md": [title: "Changelog"]
       ],
       nest_modules_by_prefix: [PhoenixTest.Playwright],
