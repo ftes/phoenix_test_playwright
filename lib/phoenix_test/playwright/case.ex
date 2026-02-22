@@ -90,10 +90,9 @@ defmodule PhoenixTest.Playwright.Case do
   end
 
   defp launch_browser(config) do
-    {timeout, opts} = Keyword.pop!(config, :browser_launch_timeout)
-    {browser, opts} = Keyword.pop!(opts, :browser)
+    timeout = Keyword.fetch!(config, :browser_launch_timeout)
+    browser = PhoenixTest.Playwright.Browser.launch_browser!(config)
 
-    {:ok, browser} = PlaywrightEx.launch_browser(browser, Keyword.put(opts, :timeout, timeout))
     on_exit(fn -> spawn(fn -> Browser.close(browser.guid, timeout: timeout) end) end)
     browser.guid
   end
