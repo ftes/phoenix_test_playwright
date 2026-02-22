@@ -83,7 +83,21 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
     end
     ```
 
-6. (Optional) LLM usage rules for AI coding agents (via [usage_rules](https://hex.pm/packages/usage_rules))
+6. (Optional) Concurrent browser tests with `async: true` (see [Phoenix.Ecto.SQL.Sandbox](https://hexdocs.pm/phoenix_ecto/Phoenix.Ecto.SQL.Sandbox.html))
+
+    ```elixir
+    # lib/your_app_web/endpoint.ex
+    if Application.compile_env(:your_app, :sql_sandbox) do
+      plug Phoenix.Ecto.SQL.Sandbox
+    end
+    ```
+
+    ```elixir
+    # config/test.exs
+    config :your_app, sql_sandbox: true
+    ```
+
+7. (Optional) LLM usage rules for AI coding agents (via [usage_rules](https://hex.pm/packages/usage_rules))
 
     ```elixir
     # mix.exs
@@ -380,11 +394,53 @@ This library adds functions beyond the standard PhoenixTest API (e.g. `screensho
 but it does not wrap the entire Playwright API.
 
 You can add any missing functionality yourself using `unwrap/2` with
-[PlaywrightEx](https://hexdocs.pm/playwright_ex) modules (`Frame`, `Selector`, `Page`, `BrowserContext`).
-
-See [PhoenixTest.Playwright — Missing Playwright features](https://hexdocs.pm/phoenix_test_playwright/PhoenixTest.Playwright.html#module-missing-playwright-features) for examples.
+[PlaywrightEx](https://hexdocs.pm/playwright_ex) modules (`Frame`, `Selector`, `Page`, `BrowserContext`),
+and the [Playwright source](https://github.com/microsoft/playwright/blob/main/packages/playwright-core/src/client/frame.ts).
 
 If you think others might benefit, please [open a PR](https://github.com/ftes/phoenix_test_playwright/pulls).
+
+Here is some inspiration:
+
+```elixir
+def choose_styled_radio_with_hidden_input_button(conn, label, opts \\ []) do
+  opts = Keyword.validate!(opts, exact: true)
+  PhoenixTest.Playwright.click(conn, PlaywrightEx.Selector.text(label, opts))
+end
+
+def assert_a11y(conn) do
+  PlaywrightEx.Frame.evaluate(conn.frame_id, expression: A11yAudit.JS.axe_core(), timeout: timeout())
+  {:ok, json} = PlaywrightEx.Frame.evaluate(conn.frame_id, expression: "axe.run()", timeout: timeout())
+  results = A11yAudit.Results.from_json(json)
+  A11yAudit.Assertions.assert_no_violations(results)
+
+  conn
+end
+
+def within_iframe(conn, selector \\ "iframe", fun) when is_function(fun, 1) do
+  within(conn, "#{selector} >> internal:control=enter-frame", fun)
+end
+
+# |> assert_download("Wonderwall.pdf", &click_button(&1, "Download PDF"))
+def assert_download(conn, filename, fun) do
+  test_pid = self()
+
+  conn
+  |> unwrap(fn %{page_id: page_id} ->
+    spawn_link(fn ->
+      PlaywrightEx.subscribe(page_id)
+
+      receive do
+        {:playwright_msg, %{method: :download, params: params}} ->
+          send(test_pid, {:download, params.suggested_filename})
+      end
+    end)
+  end)
+  |> fun.()
+  |> unwrap(fn _ ->
+    assert_receive {:download, ^filename}, 500
+  end)
+end
+```
 
 
 ## Contributing

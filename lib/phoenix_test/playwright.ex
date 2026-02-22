@@ -1,84 +1,19 @@
 defmodule PhoenixTest.Playwright do
   @moduledoc ~S"""
-  Run feature tests in an actual browser, using [PhoenixTest](https://hexdocs.pm/phoenix_test) and [Playwright](https://playwright.dev/).
+  Playwright driver for [PhoenixTest](https://hexdocs.pm/phoenix_test).
 
-      defmodule Features.RegisterTest do
-        use PhoenixTest.Playwright.Case,
-          async: true,                         # async with Ecto sandbox
-          parameterize: [                      # run in multiple browsers in parallel
-            %{browser_pool: :chromium},
-            %{browser_pool: :firefox}
-          ]
+  This module implements the PhoenixTest driver protocol, running tests in a real browser
+  via Playwright. The `conn` in tests is not a `Plug.Conn` but a `%PhoenixTest.Playwright{}`
+  struct holding the Playwright session state (page, frame, browser context, etc.).
 
-        @tag trace: :open                      # replay in interactive viewer
-        test "register", %{conn: conn} do
-          conn
-          |> visit(~p"/")
-          |> click_link("Register")
-          |> fill_in("Email", with: "f@ftes.de")
-          |> click_button("Create an account")
-          |> assert_has(".error", text: "required")
-          |> screenshot("error.png", full_page: true)
-        end
-      end
+  It also provides browser-specific functions beyond the standard PhoenixTest API,
+  such as `screenshot/3`, `evaluate/2`, `type/3`, `press/3`, and `drag/3`.
 
-  Please [get in touch](https://ftes.de) with feedback of any shape and size.
-
-  Enjoy! Freddy.
-
-  P.S. Looking for a standalone Playwright client? See `PlaywrightEx`.
-
-  See the [README](readme.html) for getting started, configuration, and troubleshooting.
+  See the [README](README.md) for getting started, configuration, and troubleshooting.
 
   ## Missing Playwright features
-  This module includes functions that are not part of the PhoenixTest protocol, e.g. `screenshot/3` and `click_link/4`.
 
-  But it does not wrap the entire Playwright API, which is quite large.
-  You should be able to add any missing functionality yourself
-  using `PhoenixTest.unwrap/2`, [`Frame`](`PlaywrightEx.Frame`), [`Selector`](`PlaywrightEx.Selector`),
-  and the [Playwright code](https://github.com/microsoft/playwright/blob/main/packages/playwright-core/src/client/frame.ts).
-
-  If you think others might benefit, please [open a PR](https://github.com/ftes/phoenix_test_playwright/pulls).
-
-  Here is some inspiration:
-      def choose_styled_radio_with_hidden_input_button(conn, label, opts \\ []) do
-        opts = Keyword.validate!(opts, exact: true)
-        PhoenixTest.Playwright.click(conn, PlaywrightEx.Selector.text(label, opts))
-      end
-
-      def assert_a11y(conn) do
-        PlaywrightEx.Frame.evaluate(conn.frame_id, expression: A11yAudit.JS.axe_core(), timeout: timeout())
-        {:ok, json} = PlaywrightEx.Frame.evaluate(conn.frame_id, expression: "axe.run()", timeout: timeout())
-        results = A11yAudit.Results.from_json(json)
-        A11yAudit.Assertions.assert_no_violations(results)
-
-        conn
-      end
-
-      def within_iframe(conn, selector \\ "iframe", fun) when is_function(fun, 1) do
-        within(conn, "#{selector} >> internal:control=enter-frame", fun)
-      end
-
-      # |> assert_download("Wonderwall.pdf", &click_button(&1, "Download PDF"))
-      def assert_download(conn, filename, fun) do
-        test_pid = self()
-
-        conn
-        |> unwrap(fn %{page_id: page_id} ->
-          spawn_link(fn ->
-            PlaywrightEx.subscribe(page_id)
-
-            receive do
-              {:playwright_msg, %{method: :download, params: params}} ->
-                send(test_pid, {:download, params.suggested_filename})
-            end
-          end)
-        end)
-        |> fun.()
-        |> unwrap(fn _ ->
-          assert_receive {:download, ^filename}, 500
-        end)
-      end
+  See the [README](README.md#missing-playwright-features).
   """
 
   import ExUnit.Assertions

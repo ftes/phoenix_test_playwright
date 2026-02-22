@@ -12,7 +12,7 @@ Use this when you need to test JavaScript behavior, browser-specific quirks, or 
 
 ## Setup
 
-This assumes [PhoenixTest](https://hexdocs.pm/phoenix_test) and [PhoenixTest.Playwright](https://hexdocs.pm/phoenix_test_playwright/PhoenixTest.Playwright.md#module-getting-started) have been set up (dependencies, config, `test_helper.exs`).
+This assumes [PhoenixTest](https://hexdocs.pm/phoenix_test) and [PhoenixTest.Playwright](https://hexdocs.pm/phoenix_test_playwright/PhoenixTest.Playwright.md#module-getting-started) have been set up (dependencies, config, Ecto sandbox, `test_helper.exs`).
 
 ## Test example
 
@@ -36,7 +36,7 @@ end
 
 This library adds browser-specific functions (e.g. `screenshot/2`, `evaluate/2`, `type/3`, `press/3`, `drag/3`). See the [docs](https://hexdocs.pm/phoenix_test_playwright/PhoenixTest.Playwright.md) for the full list.
 
-For anything the library doesn't cover, use `unwrap/2` to access `PlaywrightEx` modules (`Frame`, `Selector`, `Page`, `BrowserContext`) directly, or `evaluate/2` for simple JavaScript (see [Missing Playwright features](https://hexdocs.pm/phoenix_test_playwright/PhoenixTest.Playwright.md#module-missing-playwright-features)):
+For anything the library doesn't cover, use `unwrap/2` to access `PlaywrightEx` modules (`Frame`, `Selector`, `Page`, `BrowserContext`) directly, or `evaluate/2` for simple JavaScript (see [Missing Playwright features](https://hexdocs.pm/phoenix_test_playwright/readme.md#missing-playwright-features)):
 
 ```elixir
 # Subscribe to page-level events (e.g. downloads)
