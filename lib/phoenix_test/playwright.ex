@@ -1118,6 +1118,51 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
+  @evaluate_opts_schema [timeout: @timeout_opt]
+
+  @doc """
+  Evaluates a JavaScript expression in the page context.
+
+  When a callback function is given, it receives the JavaScript result. This
+  is useful for assertions or side effects without breaking the pipe chain.
+
+  ## Options
+  #{NimbleOptions.docs(@evaluate_opts_schema)}
+
+  ## Examples
+      conn
+      |> evaluate("window.scrollTo(0, document.body.scrollHeight)")
+
+      conn
+      |> evaluate("document.title", & assert &1 =~ "Dashboard")
+  """
+  @spec evaluate(t(), String.t()) :: t()
+  @spec evaluate(t(), String.t(), [unquote(NimbleOptions.option_typespec(@evaluate_opts_schema))] | (any() -> any())) ::
+          t()
+  @spec evaluate(t(), String.t(), [unquote(NimbleOptions.option_typespec(@evaluate_opts_schema))], (any() -> any())) ::
+          t()
+  def evaluate(conn, expression, opts_or_fun \\ [], fun \\ nil)
+
+  def evaluate(conn, expression, fun, nil) when is_function(fun, 1) do
+    evaluate(conn, expression, [], fun)
+  end
+
+  def evaluate(conn, expression, opts, fun) when is_list(opts) do
+    opts = NimbleOptions.validate!(opts, @evaluate_opts_schema)
+
+    tap(conn, fn conn ->
+      case Frame.evaluate(conn.frame_id, expression: expression, timeout: timeout(opts)) do
+        {:ok, value} ->
+          if fun, do: fun.(value)
+          :ok
+
+        {:error, error} ->
+          raise ExUnit.AssertionError,
+            message: "JavaScript evaluation failed: #{inspect(expression)}\n\n#{inspect(error)}"
+      end
+    end)
+  end
+
   @doc """
   See `PhoenixTest.unwrap/2`.
 

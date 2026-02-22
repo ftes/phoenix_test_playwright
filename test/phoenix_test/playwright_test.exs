@@ -96,6 +96,55 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
+  describe "evaluate/2" do
+    test "evaluates JavaScript and returns the session", %{conn: conn} do
+      conn
+      |> visit("/pw/live")
+      |> evaluate("document.title")
+      |> assert_has("h1", text: "Playwright")
+    end
+
+    test "can modify the DOM", %{conn: conn} do
+      conn
+      |> visit("/pw/other")
+      |> evaluate("document.querySelector('h1').textContent = 'Modified'")
+      |> assert_has("h1", text: "Modified")
+    end
+
+    test "raises on JavaScript error", %{conn: conn} do
+      assert_raise ExUnit.AssertionError, fn ->
+        conn
+        |> visit("/pw/other")
+        |> evaluate("nonExistentFunction()")
+      end
+    end
+
+    test "passes result to callback when provided", %{conn: conn} do
+      test_pid = self()
+
+      conn
+      |> visit("/pw/other")
+      |> evaluate("document.querySelector('h1').textContent", fn title ->
+        send(test_pid, {:title, title})
+      end)
+      |> assert_has("h1", text: "Other")
+
+      assert_receive {:title, "Other"}
+    end
+
+    test "accepts opts and callback together", %{conn: conn} do
+      test_pid = self()
+
+      conn
+      |> visit("/pw/other")
+      |> evaluate("1 + 2", [timeout: 5000], fn result ->
+        send(test_pid, {:result, result})
+      end)
+
+      assert_receive {:result, 3}
+    end
+  end
+
   describe "unwrap" do
     test "provides an escape hatch that gives access to the underlying frame", %{conn: conn} do
       conn
