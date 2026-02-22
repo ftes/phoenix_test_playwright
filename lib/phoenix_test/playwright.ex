@@ -326,7 +326,7 @@ defmodule PhoenixTest.Playwright do
   alias PhoenixTest.Playwright.Config
   alias PhoenixTest.Playwright.CookieArgs
   alias PhoenixTest.Playwright.EventListener
-  alias PhoenixTest.Playwright.EventRecorder
+
   alias PlaywrightEx.BrowserContext
   alias PlaywrightEx.Dialog
   alias PlaywrightEx.Frame
@@ -341,7 +341,7 @@ defmodule PhoenixTest.Playwright do
     :page_id,
     :frame_id,
     :tracing_id,
-    :navigate_recorder_pid,
+
     :dialog_listener_pid,
     :last_input_selector,
     within: :none
@@ -366,14 +366,8 @@ defmodule PhoenixTest.Playwright do
       page_id: page_id,
       frame_id: frame_id,
       tracing_id: tracing_id,
-      navigate_recorder_pid: start_navigate_recorder(frame_id),
       dialog_listener_pid: start_dialog_listener(page_id, config[:accept_dialogs])
     }
-  end
-
-  defp start_navigate_recorder(frame_id) do
-    args = %{guid: frame_id, filter: &match?(%{method: :navigated}, &1)}
-    ExUnit.Callbacks.start_supervised!({EventRecorder, args}, id: "#{frame_id}-navigate-recorder")
   end
 
   defp start_dialog_listener(page_id, auto_accept?) do
@@ -1182,9 +1176,16 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def current_path(conn) do
-    [event | _] = EventRecorder.events(conn.navigate_recorder_pid)
-    uri = URI.parse(event.params.url)
-    [uri.path, uri.query] |> Enum.reject(&is_nil/1) |> Enum.join("?")
+    case Frame.evaluate(conn.frame_id,
+           expression: "window.location.pathname + window.location.search",
+           timeout: timeout()
+         ) do
+      {:ok, path} ->
+        path
+
+      {:error, _} ->
+        raise ExUnit.AssertionError, message: "Could not read current path (page may be navigating)"
+    end
   end
 
   defp timeout, do: Config.global(:timeout)

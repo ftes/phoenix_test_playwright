@@ -1165,7 +1165,7 @@ defmodule PhoenixTest.LiveTest do
       assert Driver.current_path(session) == "/page/index?details=true&foo=bar"
     end
 
-    @tag skip: "ignore"
+    @tag skip: "ignore: current_path is a point-in-time read, click doesn't wait for navigation"
     test "it is updated on live navigation", %{conn: conn} do
       session =
         conn
@@ -1175,7 +1175,7 @@ defmodule PhoenixTest.LiveTest do
       assert Driver.current_path(session) == "/live/page_2?details=true&foo=bar"
     end
 
-    @tag skip: "ignore"
+    @tag skip: "ignore: current_path is a point-in-time read, click doesn't wait for navigation"
     test "it is updated on live patching", %{conn: conn} do
       session =
         conn
@@ -1185,7 +1185,7 @@ defmodule PhoenixTest.LiveTest do
       assert Driver.current_path(session) == "/live/index?details=true&foo=bar"
     end
 
-    @tag skip: "ignore"
+    @tag skip: "ignore: current_path is a point-in-time read, click doesn't wait for navigation"
     test "it is updated on push navigation", %{conn: conn} do
       session =
         conn
@@ -1195,7 +1195,7 @@ defmodule PhoenixTest.LiveTest do
       assert Driver.current_path(session) == "/live/page_2?foo=bar"
     end
 
-    @tag skip: "ignore"
+    @tag skip: "ignore: current_path is a point-in-time read, click doesn't wait for navigation"
     test "it is updated on push patch", %{conn: conn} do
       session =
         conn

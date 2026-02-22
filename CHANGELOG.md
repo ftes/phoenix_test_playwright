@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 ### Fixed
+- `assert_path`/`refute_path` now work after LiveView patches and navigations (push_patch, push_navigate, etc.)
 - Restore helpful error message when `browser_launch_timeout` is too small (lost during browser pool introduction)
 
 ## [0.11.1] 2026-02-10

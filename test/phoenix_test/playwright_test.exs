@@ -277,4 +277,34 @@ defmodule PhoenixTest.PlaywrightTest do
       refute log =~ "localhost"
     end
   end
+
+  describe "assert_path after live navigation" do
+    test "live patch via click_link", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> click_link("Patch link")
+      |> assert_path("/live/index", query_params: %{"details" => "true", "foo" => "bar"})
+    end
+
+    test "push patch via click_button", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> click_button("Button with push patch")
+      |> assert_path("/live/index", query_params: %{"foo" => "bar"})
+    end
+
+    test "live navigate via click_link", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> click_link("Navigate link")
+      |> assert_path("/live/page_2", query_params: %{"details" => "true", "foo" => "bar"})
+    end
+
+    test "push navigate via click_button", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> click_button("Button with push navigation")
+      |> assert_path("/live/page_2", query_params: %{"foo" => "bar"})
+    end
+  end
 end
