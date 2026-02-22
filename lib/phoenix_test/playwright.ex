@@ -326,7 +326,6 @@ defmodule PhoenixTest.Playwright do
   alias PhoenixTest.Playwright.Config
   alias PhoenixTest.Playwright.CookieArgs
   alias PhoenixTest.Playwright.EventListener
-
   alias PlaywrightEx.BrowserContext
   alias PlaywrightEx.Dialog
   alias PlaywrightEx.Frame
@@ -341,7 +340,6 @@ defmodule PhoenixTest.Playwright do
     :page_id,
     :frame_id,
     :tracing_id,
-
     :dialog_listener_pid,
     :last_input_selector,
     within: :none
