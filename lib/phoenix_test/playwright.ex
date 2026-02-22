@@ -352,8 +352,10 @@ defmodule PhoenixTest.Playwright do
   @type playwright_selector :: String.t()
   @type selector :: playwright_selector() | css_selector()
 
+  @timeout_opt [type: :non_neg_integer, doc: "Maximum wait time in milliseconds. Defaults to the configured timeout."]
+
   @exact_opt_schema [type: :boolean, default: false, doc: "Exact or substring text match."]
-  @exact_opts_schema [exact: @exact_opt_schema]
+  @exact_opts_schema [exact: @exact_opt_schema, timeout: @timeout_opt]
 
   @endpoint Application.compile_env(:phoenix_test, :endpoint)
 
@@ -454,12 +456,18 @@ defmodule PhoenixTest.Playwright do
   @doc false
   def visit(conn, path), do: visit(conn, path, [])
 
+  @visit_opts_schema [timeout: @timeout_opt]
+
   @doc """
   Like `PhoenixTest.visit/2`, but with a custom `timeout`.
+
+  ## Options
+  #{NimbleOptions.docs(@visit_opts_schema)}
   """
+  @spec visit(t(), String.t(), [unquote(NimbleOptions.option_typespec(@visit_opts_schema))]) :: t()
   def visit(conn, path, opts) do
-    opts = Keyword.validate!(opts, timeout: timeout())
-    tap(conn, &({:ok, _} = Frame.goto(&1.frame_id, Keyword.put(opts, :url, path))))
+    opts = NimbleOptions.validate!(opts, @visit_opts_schema)
+    tap(conn, &({:ok, _} = Frame.goto(&1.frame_id, opts |> ensure_timeout() |> Keyword.put(:url, path))))
   end
 
   @doc """
@@ -502,10 +510,17 @@ defmodule PhoenixTest.Playwright do
     tap(conn, &({:ok, _} = BrowserContext.add_cookies(&1.context_id, cookies: cookies, timeout: timeout())))
   end
 
+  @clear_cookies_opts_schema [timeout: @timeout_opt]
+
   @doc """
-  Removes all cookies from the context
+  Removes all cookies from the context.
+
+  ## Options
+  #{NimbleOptions.docs(@clear_cookies_opts_schema)}
   """
+  @spec clear_cookies(t(), [unquote(NimbleOptions.option_typespec(@clear_cookies_opts_schema))]) :: t()
   def clear_cookies(conn, opts \\ []) do
+    opts = NimbleOptions.validate!(opts, @clear_cookies_opts_schema)
     tap(conn, &({:ok, _} = BrowserContext.clear_cookies(&1.context_id, ensure_timeout(opts))))
   end
 
@@ -541,7 +556,8 @@ defmodule PhoenixTest.Playwright do
       type: :boolean,
       default: false,
       doc: "Only applicable to .png images."
-    ]
+    ],
+    timeout: @timeout_opt
   ]
 
   @doc """
@@ -578,7 +594,8 @@ defmodule PhoenixTest.Playwright do
       type: :non_neg_integer,
       default: 0,
       doc: "Time to wait between key presses in milliseconds."
-    ]
+    ],
+    timeout: @timeout_opt
   ]
   @doc """
   Focuses the matching element and simulates user typing.
@@ -614,7 +631,8 @@ defmodule PhoenixTest.Playwright do
       type: :non_neg_integer,
       default: 0,
       doc: "Time to wait between keydown and keyup in milliseconds."
-    ]
+    ],
+    timeout: @timeout_opt
   ]
   @doc """
   Focuses the matching element and presses a combination of the keyboard keys.
@@ -666,7 +684,8 @@ defmodule PhoenixTest.Playwright do
       default: [],
       doc:
         "Additional options passed to [frame.dragAndDrop](https://playwright.dev/docs/api/class-frame#frame-drag-and-drop)."
-    ]
+    ],
+    timeout: @timeout_opt
   ]
 
   @doc """
@@ -690,7 +709,7 @@ defmodule PhoenixTest.Playwright do
 
     opts =
       Keyword.merge(
-        [source: source_selector, target: target_selector, timeout: timeout()],
+        [source: source_selector, target: target_selector, timeout: timeout(opts)],
         Keyword.fetch!(opts, :playwright)
       )
 
@@ -904,7 +923,7 @@ defmodule PhoenixTest.Playwright do
       |> Selector.concat(Selector.text(text, opts))
 
     conn.frame_id
-    |> Frame.click(selector: selector, timeout: timeout())
+    |> Frame.click(selector: selector, timeout: timeout(opts))
     |> handle_response(selector)
 
     conn
@@ -931,7 +950,7 @@ defmodule PhoenixTest.Playwright do
       |> Selector.build()
 
     conn.frame_id
-    |> Frame.click(selector: selector, timeout: timeout())
+    |> Frame.click(selector: selector, timeout: timeout(opts))
     |> handle_response(selector)
 
     conn
@@ -958,7 +977,7 @@ defmodule PhoenixTest.Playwright do
       |> Selector.build()
 
     conn.frame_id
-    |> Frame.click(selector: selector, timeout: timeout())
+    |> Frame.click(selector: selector, timeout: timeout(opts))
     |> handle_response(selector)
 
     conn
