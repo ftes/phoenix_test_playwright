@@ -7,13 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.12.0] 2026-02-22
 ### Added
-- `PhoenixTest.Playwright.evaluate/2-4`: evaluate JavaScript snippets in the browser
-- `usage-rules.md` for LLM coding agents (via [usage_rules](https://hex.pm/packages/usage_rules))
-- `timeout` option for custom Playwright public functions (`evaluate`, `step`, `click`, etc.)
-- `drag/3`: pass additional options through to Playwright
+- `PhoenixTest.Playwright.evaluate/2-4`: evaluate JavaScript snippets in the browser. Commit [eead742]
+- `usage-rules.md` for LLM coding agents (via [usage_rules](https://hex.pm/packages/usage_rules)). Commit [80eb40c]
+- `timeout` option for custom Playwright public functions (`evaluate`, `step`, `click`, etc.). Commit [0799600]
+- `drag/3`: pass additional options through to Playwright. Commit [fc3f15c]
 ### Fixed
-- `assert_path`/`refute_path` now work after LiveView patches and navigations (push_patch, push_navigate, etc.)
-- Restore helpful error message when `browser_launch_timeout` is too small (lost during browser pool introduction)
+- `assert_path`/`refute_path` now work after LiveView patches and navigations (push_patch, push_navigate, etc.). Commit [2fdd358]
+- Restore helpful error message when `browser_launch_timeout` is too small (lost during browser pool introduction). Commit [596f938]
 
 ## [0.11.1] 2026-02-10
 ### Fixed
@@ -211,5 +211,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [3eaeb5a]: https://github.com/ftes/phoenix_test_playwright/commit/3eaeb5a
 [72b9799]: https://github.com/ftes/phoenix_test_playwright/commit/72b9799
 [396fbdc]: https://github.com/ftes/phoenix_test_playwright/commit/396fbdc
+[eead742]: https://github.com/ftes/phoenix_test_playwright/commit/eead742
+[80eb40c]: https://github.com/ftes/phoenix_test_playwright/commit/80eb40c
+[0799600]: https://github.com/ftes/phoenix_test_playwright/commit/0799600
+[fc3f15c]: https://github.com/ftes/phoenix_test_playwright/commit/fc3f15c
+[2fdd358]: https://github.com/ftes/phoenix_test_playwright/commit/2fdd358
+[596f938]: https://github.com/ftes/phoenix_test_playwright/commit/596f938
 [987828e]: https://github.com/ftes/phoenix_test_playwright/commit/987828e
 [8b342a8]: https://github.com/ftes/phoenix_test_playwright/commit/8b342a8
