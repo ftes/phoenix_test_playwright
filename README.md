@@ -71,7 +71,7 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
 
     ```elixir
     defmodule MyTest do
-      use PhoenixTest.Playwright.Case, async: true
+      use PhoenixTest.Playwright.Case
 
       # `conn` isn't a `Plug.Conn` but a Playwright session.
       # We use the name `conn` anyway so you can easily switch `PhoenixTest` drivers.
@@ -83,19 +83,7 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
     end
     ```
 
-6. (Optional) Concurrent browser tests with `async: true` (see [Phoenix.Ecto.SQL.Sandbox](https://hexdocs.pm/phoenix_ecto/Phoenix.Ecto.SQL.Sandbox.html))
-
-    ```elixir
-    # lib/your_app_web/endpoint.ex
-    if Application.compile_env(:your_app, :sql_sandbox) do
-      plug Phoenix.Ecto.SQL.Sandbox
-    end
-    ```
-
-    ```elixir
-    # config/test.exs
-    config :your_app, sql_sandbox: true
-    ```
+6. (Optional) Enable concurrent browser tests with `async: true`: see [Ecto Sandbox](#ecto-sandbox)
 
 7. (Optional) LLM usage rules for AI coding agents (via [usage_rules](https://hex.pm/packages/usage_rules))
 
@@ -111,11 +99,12 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
     defp usage_rules do
       [
         # Option A: inline into a rules file
-        file: "AGENTS.md",
+        file: "AGENTS.md", # or "CLAUDE.md"
         usage_rules: [~r/^phoenix/],
-        # Option B: generate as a Claude skill (can be used instead of or in addition to file)
+        # Option B: generate as skill (can be used instead of or in addition to file)
         skills: [
-          deps: [~r/^phoenix/]
+          location: ".agents/skills", # or ".claude/skills"
+          deps: [:phoenix_test_playwright]
         ]
       ]
     end
@@ -328,7 +317,7 @@ Make sure to use that same playwright JS version to install the browser,
 e.g. via `npx --prefix assets playwright install`.
 
 
-## Ecto SQL.Sandbox
+## Ecto Sandbox
 
 ```elixir
 defmodule MyTest do
