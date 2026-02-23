@@ -278,6 +278,21 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
+  describe "new_session/2" do
+    test "can create a second session in the same test", context do
+      context.conn
+      |> visit("/pw/live")
+      |> assert_has("h1", text: "Playwright")
+
+      config = PhoenixTest.Playwright.Config.validate!(%{})
+      conn2 = PhoenixTest.Playwright.Case.new_session(config, context)
+
+      conn2
+      |> visit("/pw/other")
+      |> assert_has("h1", text: "Other")
+    end
+  end
+
   describe "assert_path after live navigation" do
     test "live patch via click_link", %{conn: conn} do
       conn

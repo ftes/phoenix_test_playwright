@@ -194,6 +194,16 @@ defmodule PhoenixTest.Playwright.Case do
       pid = EctoSandbox.start_owner!(repo, shared: not context.async)
       on_exit(fn -> stop_sandbox_owner(pid, config, context) end)
       repo
+    rescue
+      e in MatchError ->
+        case e do
+          %MatchError{term: {:error, {{:badmatch, {:already, :allowed}}, _}}} ->
+            # Already checked out (e.g. second new_session call in same test)
+            repo
+
+          _ ->
+            reraise e, __STACKTRACE__
+        end
     end
 
     defp stop_sandbox_owner(checkout_pid, config, context) do
