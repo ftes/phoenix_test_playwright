@@ -4,6 +4,10 @@ defmodule PhoenixTest.Playwright.BrowserLaunchTimeoutTest do
   alias PhoenixTest.Playwright.BrowserPool
   alias PhoenixTest.Playwright.Case, as: PlaywrightCase
 
+  # With websocket transport, the browser is pre-launched on the remote server,
+  # so launch timeouts don't apply.
+  @moduletag :skip_websocket
+
   @error_message "You may need to increase the :browser_launch_timeout option"
 
   describe "browser pool launch" do

@@ -57,7 +57,7 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
     port = Application.get_env(:phoenix_test_playwright, PhoenixTest.Endpoint)[:http][:port]
     System.put_env("BASE_URL", "http://#{docker_host}:#{port}")
 
-    Mix.Task.run("test", args)
+    Mix.Task.run("test", args ++ ["--exclude", "skip_websocket"])
   end
 
   defp playwright_version_from_lock_file do
