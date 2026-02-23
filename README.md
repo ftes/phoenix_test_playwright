@@ -160,6 +160,9 @@ Connect to a remote Playwright server via WebSocket instead of spawning a local
 Node.js driver. Useful for Alpine Linux containers (glibc issues) or containerized CI.
 
 ```elixir
+# mix.exs
+{:websockex, "~> 0.4", only: :test}
+
 # config/test.exs
 config :phoenix_test, playwright: [ws_endpoint: "ws://localhost:3000"]
 
