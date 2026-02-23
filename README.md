@@ -41,7 +41,7 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
 
     ```elixir
     # mix.exs
-    {:phoenix_test_playwright, "~> 0.11", only: :test, runtime: false}
+    {:phoenix_test_playwright, "~> 0.12", only: :test, runtime: false}
     ```
 
 2. Install playwright and browser

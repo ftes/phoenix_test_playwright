@@ -5,13 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
-## [Unreleased]
+## [0.12.1] 2026-02-23
 ### Added
-- Recommend `browser_pool: false` when using `ws_endpoint` (remote server has a single pre-launched browser).
+- Recommend `browser_pool: false` when using `ws_endpoint` (remote server has a single pre-launched browser). Commit [60f4b6f]
 ### Changed
-- Use `browser_pool: false` (instead of `nil`) to disable browser pooling.
+- Use `browser_pool: false` (instead of `nil`) to disable browser pooling. Commit [74eb3a7]
 ### Fixed
-- Allow calling `Case.new_session/2` multiple times in the same test (e.g. for multi-user scenarios).
+- `Case.new_session/2`: 'already allowed' error (regression in `v0.12.0`, commit [0a8538c]). Commit [281d71a]
 
 ## [0.12.0] 2026-02-22
 ### Added
@@ -227,3 +227,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [596f938]: https://github.com/ftes/phoenix_test_playwright/commit/596f938
 [987828e]: https://github.com/ftes/phoenix_test_playwright/commit/987828e
 [8b342a8]: https://github.com/ftes/phoenix_test_playwright/commit/8b342a8
+[60f4b6f]: https://github.com/ftes/phoenix_test_playwright/commit/60f4b6f
+[74eb3a7]: https://github.com/ftes/phoenix_test_playwright/commit/74eb3a7
+[281d71a]: https://github.com/ftes/phoenix_test_playwright/commit/281d71a
+[0a8538c]: https://github.com/ftes/phoenix_test_playwright/commit/0a8538c
