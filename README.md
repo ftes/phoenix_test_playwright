@@ -164,10 +164,10 @@ Node.js driver. Useful for Alpine Linux containers (glibc issues) or containeriz
 {:websockex, "~> 0.4", only: :test}
 
 # config/test.exs
-config :phoenix_test, playwright: [ws_endpoint: "ws://localhost:3000"]
+config :phoenix_test, playwright: [ws_endpoint: "ws://localhost:3000", browser_pool: nil]
 
 # or, to enable via environment variable
-config :phoenix_test, playwright: [ws_endpoint: System.get_env("PLAYWRIGHT_WS_ENDPOINT")]
+config :phoenix_test, playwright: [ws_endpoint: System.get_env("PLAYWRIGHT_WS_ENDPOINT"), browser_pool: nil]
 ```
 
 ```sh

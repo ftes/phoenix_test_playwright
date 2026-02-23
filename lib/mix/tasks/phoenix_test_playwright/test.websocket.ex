@@ -49,6 +49,7 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
       :phoenix_test
       |> Application.get_env(:playwright, [])
       |> Keyword.put(:ws_endpoint, ws_endpoint)
+      |> Keyword.put(:browser_pool, nil)
 
     Application.put_env(:phoenix_test, :playwright, playwright_config)
 

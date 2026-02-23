@@ -157,6 +157,9 @@ schema_opts = [
     If provided, uses WebSocket transport instead of spawning a local Node.js process.
     Example: "ws://localhost:3000/ws"
 
+    The remote server provides a single pre-launched browser, so `browser_pool` should
+    be set to `nil` (pooling has no effect with a remote server).
+
     This is useful for:
     - Alpine Linux containers (glibc issues with local Playwright driver)
     - Containerized CI environments with a separate Playwright server
