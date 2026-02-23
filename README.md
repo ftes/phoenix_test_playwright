@@ -384,8 +384,9 @@ config :phoenix_test, playwright: [
 ```
 
 For more details on LiveView and Ecto integration, see the advanced set up instructions:
-- [with LiveViews](https://hexdocs.pm/phoenix_ecto/Phoenix.Ecto.SQL.Sandbox.html#module-acceptance-tests-with-liveviews)
-- [with Channels](https://hexdocs.pm/phoenix_ecto/Phoenix.Ecto.SQL.Sandbox.html#module-acceptance-tests-with-channels)
+- [with LiveViews](`Phoenix.Ecto.SQL.Sandbox#module-acceptance-tests-with-liveviews`)
+- [with Channels](`Phoenix.Ecto.SQL.Sandbox#module-acceptance-tests-with-channels`)
+- [with Ash authentication](https://hexdocs.pm/ash_authentication_phoenix/AshAuthentication.Phoenix.LiveSession.html#ash_authentication_live_session/3): use `on_mount_prepend`
 
 
 ## Missing Playwright features
