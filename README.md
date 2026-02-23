@@ -137,7 +137,7 @@ config :phoenix_test,
   ]
 ```
 
-See [PhoenixTest.Playwright.Config](https://hexdocs.pm/phoenix_test_playwright/PhoenixTest.Playwright.Config.html) for more details.
+See `PhoenixTest.Playwright.Config` for more details.
 
 You can override some options in your test:
 
@@ -276,8 +276,6 @@ The iframe used to render the email HTML body makes this slightly tricky:
 end)
 ```
 
-For a full example see [ftes/phoenix_test_playwright_example/tree/phoenix-1.8](https://github.com/ftes/phoenix_test_playwright_example/tree/phoenix-1.8).
-
 
 ## Common problems
 
@@ -315,27 +313,32 @@ you probably used the wrong playwright JS version to install the browser.
 
 Each playwright JS version pins a specific browser version.
 Tests are run using `./assets/node_modules/playwright`
-(see `assets_dir` in [PhoenixTest.Playwright.Config](https://hexdocs.pm/phoenix_test_playwright/PhoenixTest.Playwright.Config.html)).
+(see `assets_dir` in `PhoenixTest.Playwright.Config`).
 Make sure to use that same playwright JS version to install the browser,
 e.g. via `npx --prefix assets playwright install`.
 
 
 ## Ecto Sandbox
 
-```elixir
-defmodule MyTest do
-  use PhoenixTest.Playwright.Case, async: true
-end
-```
+Make sure you have followed the advanced set up instructions for `Phoenix.Ecto.SQL.Sandbox`
+- [with LiveViews](`Phoenix.Ecto.SQL.Sandbox#module-acceptance-tests-with-liveviews`)
+- [with Channels](`Phoenix.Ecto.SQL.Sandbox#module-acceptance-tests-with-channels`)
+- [with Ash authentication](https://hexdocs.pm/ash_authentication_phoenix/AshAuthentication.Phoenix.LiveSession.html#ash_authentication_live_session/3): use `on_mount_prepend`
 
-[PhoenixTest.Playwright.Case](https://hexdocs.pm/phoenix_test_playwright/PhoenixTest.Playwright.Case.html) automatically takes care of this. It starts the
+`PhoenixTest.Playwright.Case` takes care of the rest. It starts the
 sandbox under a separate process than your test and uses
 `ExUnit.Callbacks.on_exit/1` to ensure the sandbox is shut down afterward. It
 also sends a `User-Agent` header with the
 `Phoenix.Ecto.SQL.Sandbox` metadata for your Ecto repos. This allows
 the sandbox to be shared with the LiveView and other processes which need to
 use the database inside the same transaction as the test. It also allows for
-[concurrent browser tests](https://hexdocs.pm/phoenix_ecto/main.html#concurrent-browser-tests).
+[concurrent browser tests](`e:phoenix_ecto:main#concurrent-browser-tests`).
+
+```elixir
+defmodule MyTest do
+  use PhoenixTest.Playwright.Case, async: true
+end
+```
 
 ### Ownership errors with LiveViews
 
@@ -374,11 +377,6 @@ config :phoenix_test, playwright: [
   ecto_sandbox_stop_owner_delay: 50  # 50ms
 ]
 ```
-
-For more details on LiveView and Ecto integration, see the advanced set up instructions:
-- [with LiveViews](`Phoenix.Ecto.SQL.Sandbox#module-acceptance-tests-with-liveviews`)
-- [with Channels](`Phoenix.Ecto.SQL.Sandbox#module-acceptance-tests-with-channels`)
-- [with Ash authentication](https://hexdocs.pm/ash_authentication_phoenix/AshAuthentication.Phoenix.LiveSession.html#ash_authentication_live_session/3): use `on_mount_prepend`
 
 
 ## Missing Playwright features
