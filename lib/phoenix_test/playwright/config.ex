@@ -79,9 +79,11 @@ schema_opts = [
   ],
   browser_pool: [
     default: :default_pool,
-    type: :atom,
+    type: {:or, [:atom, {:in, [false, nil]}]},
+    type_doc: "`atom | false`",
     doc: """
     Reuse a browser from this pool instead of launching a new browser per test suite.
+    `false` to disable pooling and launch a new browser per test suite.
     """
   ],
   browser_pool_checkout_timeout: [
@@ -158,7 +160,7 @@ schema_opts = [
     Example: "ws://localhost:3000/ws"
 
     The remote server provides a single pre-launched browser, so `browser_pool` should
-    be set to `nil` (pooling has no effect with a remote server).
+    be set to `false` (pooling has no effect with a remote server).
 
     This is useful for:
     - Alpine Linux containers (glibc issues with local Playwright driver)
@@ -248,6 +250,11 @@ defmodule PhoenixTest.Playwright.Config do
   def setup_keys, do: @setup_keys
 
   defp normalize(config), do: Keyword.new(config, fn {key, value} -> {key, normalize(key, value)} end)
+
+  defp normalize(:browser_pool, nil) do
+    IO.warn("browser_pool: nil is deprecated, use browser_pool: false instead")
+    false
+  end
 
   defp normalize(:screenshot, true), do: NimbleOptions.validate!([], @screenshot_opts_schema)
   defp normalize(_key, value), do: value

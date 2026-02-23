@@ -146,7 +146,7 @@ defmodule DebuggingFeatureTest do
   use PhoenixTest.Playwright.Case,
     async: true,
     # Launch new browser for this test suite with custom options below
-    browser_pool: nil,
+    browser_pool: false,
     # Show browser and pause 1 second between every interaction
     headless: false,
     slow_mo: :timer.seconds(1)
@@ -164,10 +164,10 @@ Node.js driver. Useful for Alpine Linux containers (glibc issues) or containeriz
 {:websockex, "~> 0.4", only: :test}
 
 # config/test.exs
-config :phoenix_test, playwright: [ws_endpoint: "ws://localhost:3000", browser_pool: nil]
+config :phoenix_test, playwright: [ws_endpoint: "ws://localhost:3000", browser_pool: false]
 
 # or, to enable via environment variable
-config :phoenix_test, playwright: [ws_endpoint: System.get_env("PLAYWRIGHT_WS_ENDPOINT"), browser_pool: nil]
+config :phoenix_test, playwright: [ws_endpoint: System.get_env("PLAYWRIGHT_WS_ENDPOINT"), browser_pool: false]
 ```
 
 ```sh

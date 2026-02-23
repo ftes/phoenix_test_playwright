@@ -24,7 +24,7 @@ defmodule PhoenixTest.Playwright.BrowserLaunchTimeoutTest do
   describe "direct launch (no pool)" do
     test "produces a helpful error when browser_launch_timeout is too small" do
       assert_raise RuntimeError, ~r/#{@error_message}/, fn ->
-        PlaywrightCase.do_setup_all(%{browser_pool: nil, browser_launch_timeout: 1})
+        PlaywrightCase.do_setup_all(%{browser_pool: false, browser_launch_timeout: 1})
       end
     end
   end
