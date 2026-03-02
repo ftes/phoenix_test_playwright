@@ -9,8 +9,8 @@ defmodule PhoenixTest.Playwright.BrowserLaunchOptsTest do
     browser_launch_opts: [args: ["--disable-background-networking"]]
 
   test "launches browser with custom launch opts", %{conn: conn} do
-    # If browser_launch_opts weren't handled correctly, the browser launch would fail.
-    # This test verifies the option is properly passed through the launch pipeline.
+    # Verifies that browser_launch_opts is accepted by the config and doesn't
+    # break browser launching. The args are passed through to Playwright.
     conn
     |> visit("/pw/live")
     |> assert_has("h1")
