@@ -153,6 +153,28 @@ defmodule DebuggingFeatureTest do
 end
 ```
 
+### Browser Launch Options
+
+Pass additional arguments to the browser via `browser_launch_opts`. This is useful for
+testing features that require specific browser flags, like fake media streams for
+audio/video capture tests:
+
+```elixir
+# config/test.exs
+config :phoenix_test,
+  playwright: [
+    browser_launch_opts: [
+      args: [
+        "--use-fake-ui-for-media-stream",
+        "--use-fake-device-for-media-stream"
+      ]
+    ]
+  ]
+```
+
+See [Playwright's browserType.launch() docs](https://playwright.dev/docs/api/class-browsertype#browser-type-launch)
+for all available options.
+
 
 ## Remote Playwright Server
 

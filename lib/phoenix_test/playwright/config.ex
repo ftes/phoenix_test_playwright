@@ -12,6 +12,14 @@ browser_opts = [
     type: {:in, browsers},
     type_doc: "`#{Enum.map_join(browsers, " | ", &":#{&1}")}`"
   ],
+  browser_launch_opts: [
+    default: [],
+    type: {:or, [:map, :keyword_list]},
+    doc: """
+    Additional arguments passed to Playwright [browserType.launch](https://playwright.dev/docs/api/class-browsertype#browser-type-launch).
+    E.g. `[args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"]]`.
+    """
+  ],
   browser_launch_timeout: [
     default: to_timeout(second: 4),
     type: :non_neg_integer
@@ -60,6 +68,7 @@ schema_opts = [
     """
   ],
   browser: browser_opts[:browser],
+  browser_launch_opts: browser_opts[:browser_launch_opts],
   browser_context_opts: [
     default: [],
     type: {:or, [:map, :keyword_list]},
@@ -172,9 +181,9 @@ schema_opts = [
 
 schema = NimbleOptions.new!(schema_opts)
 
-setup_all_keys = ~w(browser_pool browser browser_launch_timeout executable_path headless slow_mo)a
+setup_all_keys = ~w(browser_pool browser browser_launch_opts browser_launch_timeout executable_path headless slow_mo)a
 setup_keys = ~w(accept_dialogs ecto_sandbox_stop_owner_delay screenshot trace browser_context_opts browser_page_opts)a
-merge_global_into_browser_pool_keys = ~w(browser browser_launch_timeout headless slow_mo)a
+merge_global_into_browser_pool_keys = ~w(browser browser_launch_opts browser_launch_timeout headless slow_mo)a
 
 defmodule PhoenixTest.Playwright.Config do
   @moduledoc """
