@@ -14,7 +14,7 @@ browser_opts = [
   ],
   browser_launch_opts: [
     default: [],
-    type: {:or, [:map, :keyword_list]},
+    type: :keyword_list,
     doc: """
     Additional arguments passed to Playwright [browserType.launch](https://playwright.dev/docs/api/class-browsertype#browser-type-launch).
     E.g. `[args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"]]`.

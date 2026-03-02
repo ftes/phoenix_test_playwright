@@ -9,11 +9,6 @@ defmodule PhoenixTest.Playwright.ConfigTest do
       assert config[:browser_launch_opts] == [args: ["--disable-gpu"]]
     end
 
-    test "accepts map" do
-      config = Config.validate!(browser_launch_opts: %{args: ["--disable-gpu"]})
-      assert config[:browser_launch_opts] == %{args: ["--disable-gpu"]}
-    end
-
     test "defaults to empty list" do
       config = Config.validate!([])
       assert config[:browser_launch_opts] == []
