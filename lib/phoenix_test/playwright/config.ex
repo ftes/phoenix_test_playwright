@@ -68,7 +68,6 @@ schema_opts = [
     """
   ],
   browser: browser_opts[:browser],
-  browser_launch_opts: browser_opts[:browser_launch_opts],
   browser_context_opts: [
     default: [],
     type: {:or, [:map, :keyword_list]},
@@ -77,6 +76,7 @@ schema_opts = [
     E.g. `[http_credentials: %{username: "a", password: "b"}]`.
     """
   ],
+  browser_launch_opts: browser_opts[:browser_launch_opts],
   browser_launch_timeout: browser_opts[:browser_launch_timeout],
   browser_page_opts: [
     default: [],
