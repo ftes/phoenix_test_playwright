@@ -20,19 +20,14 @@ defmodule PhoenixTest.Playwright.BrowserLaunchOptsTest do
     conn
     |> visit("/pw/live")
     |> assert_has("h1")
-    |> unwrap(fn %{frame_id: frame_id} ->
-      {:ok, result} =
-        PlaywrightEx.Frame.evaluate(frame_id,
-          expression: """
-            navigator.mediaDevices.getUserMedia({ audio: true })
-              .then(() => "success")
-              .catch(e => "error: " + e.name)
-          """,
-          timeout: timeout()
-        )
-
-      assert result == "success"
-    end)
+    |> evaluate(
+      """
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(() => "success")
+        .catch(e => "error: " + e.name)
+      """,
+      &assert(&1 == "success")
+    )
   end
 end
 
@@ -50,19 +45,14 @@ defmodule PhoenixTest.Playwright.BrowserLaunchOptsWithoutFlagsTest do
     conn
     |> visit("/pw/live")
     |> assert_has("h1")
-    |> unwrap(fn %{frame_id: frame_id} ->
-      {:ok, result} =
-        PlaywrightEx.Frame.evaluate(frame_id,
-          expression: """
-            navigator.mediaDevices.getUserMedia({ audio: true })
-              .then(() => "success")
-              .catch(e => "error: " + e.name)
-          """,
-          timeout: timeout()
-        )
-
+    |> evaluate(
+      """
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(() => "success")
+        .catch(e => "error: " + e.name)
+      """,
       # Without fake device flags, getUserMedia should fail in headless mode
-      assert result =~ "error:"
-    end)
+      &assert(&1 =~ "error:")
+    )
   end
 end
