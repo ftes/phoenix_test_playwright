@@ -16,6 +16,8 @@ defmodule PhoenixTest.Playwright.BrowserLaunchOptsTest do
       ]
     ]
 
+  @moduletag skip: !!Application.compile_env!(:phoenix_test, :playwright)[:ws_endpoint]
+
   test "getUserMedia succeeds with fake media device flags", %{conn: conn} do
     conn
     |> visit("/pw/live")
@@ -40,6 +42,8 @@ defmodule PhoenixTest.Playwright.BrowserLaunchOptsWithoutFlagsTest do
   use PhoenixTest.Playwright.Case,
     async: true,
     browser_pool: false
+
+  @moduletag skip: !!Application.compile_env!(:phoenix_test, :playwright)[:ws_endpoint]
 
   test "getUserMedia fails without fake media device flags", %{conn: conn} do
     conn

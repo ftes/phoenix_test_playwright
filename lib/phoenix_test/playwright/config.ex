@@ -18,6 +18,7 @@ browser_opts = [
     doc: """
     Additional arguments passed to Playwright [browserType.launch](https://playwright.dev/docs/api/class-browsertype#browser-type-launch).
     E.g. `[args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"]]`.
+    Can't be used with remote browser (ws_endpoint).
     """
   ],
   browser_launch_timeout: [
