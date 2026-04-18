@@ -201,6 +201,10 @@ defmodule PhoenixTest.Playwright.Case do
             # Already checked out (e.g. second new_session call in same test)
             repo
 
+          %MatchError{term: {:error, {{:badmatch, :already_shared}, _}}} ->
+            # Already shared (e.g. second new_session call in same async: false test)
+            repo
+
           _ ->
             reraise e, __STACKTRACE__
         end
