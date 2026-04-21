@@ -111,6 +111,16 @@ defmodule PhoenixTest.PlaywrightTest do
       |> assert_has("h1", text: "Modified")
     end
 
+    test "accepts function with arg", %{conn: conn} do
+      conn
+      |> visit("/pw/other")
+      |> evaluate("selectors => selectors.forEach(s => document.querySelector(s).remove())",
+        is_function: true,
+        arg: ["h1"]
+      )
+      |> refute_has("h1")
+    end
+
     test "raises on JavaScript error", %{conn: conn} do
       assert_raise ExUnit.AssertionError, fn ->
         conn

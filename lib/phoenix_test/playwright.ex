@@ -812,7 +812,19 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
-  @evaluate_opts_schema [timeout: @timeout_opt]
+  @evaluate_opts_schema [
+    timeout: @timeout_opt,
+    is_function: [
+      type: :boolean,
+      default: false,
+      doc: "Whether the expression is a function."
+    ],
+    arg: [
+      type: :any,
+      default: nil,
+      doc: "Optional argument to pass to the function."
+    ]
+  ]
 
   @doc """
   Evaluates a JavaScript expression in the page context.
@@ -828,6 +840,9 @@ defmodule PhoenixTest.Playwright do
       |> evaluate("window.scrollTo(0, document.body.scrollHeight)")
 
       conn
+      |> evaluate("selectors => selectors.forEach(s => document.querySelector(s).remove())", is_function: true, arg: ["h1"])
+
+      conn
       |> evaluate("document.title", & assert &1 =~ "Dashboard")
   """
   @spec evaluate(t(), String.t()) :: t()
@@ -840,10 +855,14 @@ defmodule PhoenixTest.Playwright do
   def evaluate(conn, expression, opts) when is_list(opts), do: evaluate(conn, expression, opts, & &1)
 
   def evaluate(conn, expression, opts, fun) when is_list(opts) and is_function(fun, 1) do
-    opts = NimbleOptions.validate!(opts, @evaluate_opts_schema)
+    args =
+      opts
+      |> NimbleOptions.validate!(@evaluate_opts_schema)
+      |> ensure_timeout()
+      |> Keyword.put(:expression, expression)
 
     tap(conn, fn conn ->
-      case Frame.evaluate(conn.frame_id, expression: expression, timeout: timeout(opts)) do
+      case Frame.evaluate(conn.frame_id, args) do
         {:ok, value} ->
           fun.(value)
 
