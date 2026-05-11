@@ -843,7 +843,38 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def submit(conn) do
-    Frame.press(conn.frame_id, selector: conn.last_input_selector, key: "Enter", timeout: timeout())
+    conn.frame_id
+    |> Frame.focus(selector: conn.last_input_selector, timeout: timeout())
+    |> handle_response(conn.last_input_selector)
+
+    case Frame.evaluate(conn.frame_id,
+           expression: """
+           () => {
+             const element = document.activeElement;
+             const form = element && element.form;
+
+             if (!form) {
+               throw new Error("Last interacted element is not associated with a form");
+             }
+
+             const submitter = form.querySelector(
+               'button:not([type]):not(:disabled), button[type="submit"]:not(:disabled), input[type="submit"]:not(:disabled), input[type="image"]:not(:disabled)'
+             );
+
+             form.requestSubmit(submitter || undefined);
+           }
+           """,
+           is_function: true,
+           timeout: timeout()
+         ) do
+      {:ok, _} ->
+        :ok
+
+      {:error, error} ->
+        raise ExUnit.AssertionError,
+          message: "Could not submit form for selector \"#{conn.last_input_selector}\":\n#{more_info(error)}"
+    end
+
     conn
   end
 

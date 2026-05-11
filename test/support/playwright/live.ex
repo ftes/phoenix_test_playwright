@@ -12,6 +12,14 @@ defmodule PhoenixTest.Playwright.Live do
       <input id="text-input" name="text" />
     </.form>
 
+    <.form for={%{}} phx-submit="save">
+      <label for="select-input">Select input</label>
+      <select id="select-input" name="select" onkeydown="if (event.key === 'Enter') event.preventDefault()">
+        <option value="one">One</option>
+        <option value="two">Two</option>
+      </select>
+    </.form>
+
     <dl id="changed-form-data">
       <%= for {key, value} <- @changed_form_data do %>
         <dt>{key}:</dt> <dd>{value}</dd>
@@ -19,7 +27,7 @@ defmodule PhoenixTest.Playwright.Live do
     </dl>
 
     <dl id="submitted-form-data">
-      <%= for {key, value} <- @changed_form_data do %>
+      <%= for {key, value} <- @submitted_form_data do %>
         <dt>{key}:</dt> <dd>{value}</dd>
       <% end %>
     </dl>
