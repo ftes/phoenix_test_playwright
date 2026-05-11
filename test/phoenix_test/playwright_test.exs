@@ -199,6 +199,16 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
+  describe "submit/1" do
+    test "submits the form when the last interacted input is a select", %{conn: conn} do
+      conn
+      |> visit("/pw/live")
+      |> select("Select input", option: "Two")
+      |> submit()
+      |> assert_has("#submitted-form-data", text: "select: two")
+    end
+  end
+
   describe "drag/3" do
     test "triggers a javascript event handler", %{conn: conn} do
       conn
