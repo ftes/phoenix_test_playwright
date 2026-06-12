@@ -86,6 +86,13 @@ defmodule PhoenixTest.LiveTest do
       |> assert_has("h1", text: "Main page")
     end
 
+    test "handles <.link navigate={..}> to a dead view", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> click_link("Navigate with navigate to dead view")
+      |> assert_has("h1", text: "Main page")
+    end
+
     @tag skip: "ignore"
     test "preserves headers across navigation", %{conn: conn} do
       conn
@@ -821,6 +828,55 @@ defmodule PhoenixTest.LiveTest do
       end)
       |> refute_has("#form-data", text: "like-elixir: yes")
       |> assert_has("#form-data", text: "like-elixir: no")
+    end
+
+    test "removes checked values from array named checkboxes on change", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> within("#array-checkbox-form", fn session ->
+        uncheck(session, "One")
+      end)
+      |> refute_has("#form-data", text: "one")
+      |> assert_has("#form-data", text: "two")
+    end
+
+    test "removes checked values from array named checkboxes on submit", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> within("#array-checkbox-form", fn session ->
+        session
+        |> uncheck("One")
+        |> submit()
+      end)
+      |> refute_has("#form-data", text: "one")
+      |> assert_has("#form-data", text: "two")
+    end
+
+    test "can uncheck an array named checkbox after checking it on change", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> within("#array-checkbox-form", fn session ->
+        session
+        |> check("Three")
+        |> uncheck("Three")
+      end)
+      |> refute_has("#form-data", text: "three")
+      |> assert_has("#form-data", text: "one")
+      |> assert_has("#form-data", text: "two")
+    end
+
+    test "can uncheck an array named checkbox after checking it on submit", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> within("#array-checkbox-form", fn session ->
+        session
+        |> check("Three")
+        |> uncheck("Three")
+        |> submit()
+      end)
+      |> refute_has("#form-data", text: "three")
+      |> assert_has("#form-data", text: "one")
+      |> assert_has("#form-data", text: "two")
     end
 
     @tag skip: "ignore"
