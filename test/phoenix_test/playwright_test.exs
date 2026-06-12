@@ -96,6 +96,40 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
+  describe "assertion option validation" do
+    test "raises for unsupported assert_has/refute_has options", %{conn: conn} do
+      session = visit(conn, "/pw/live")
+
+      assert_raise NimbleOptions.ValidationError, ~r/unknown.*:playwright/, fn ->
+        assert_has(session, "h1", playwright: [strict: false])
+      end
+
+      assert_raise NimbleOptions.ValidationError, ~r/unknown.*:playwright/, fn ->
+        refute_has(session, "h1", playwright: [strict: false])
+      end
+    end
+
+    test "raises for unsupported public API options", %{conn: conn} do
+      session = visit(conn, "/pw/live")
+
+      assert_raise NimbleOptions.ValidationError, ~r/unknown.*:bogus/, fn ->
+        PhoenixTest.Playwright.reload_page(session, bogus: true)
+      end
+
+      assert_raise NimbleOptions.ValidationError, ~r/unknown.*:bogus/, fn ->
+        assert_path(session, "/pw/live", bogus: true)
+      end
+
+      assert_raise NimbleOptions.ValidationError, ~r/unknown.*:bogus/, fn ->
+        PhoenixTest.Playwright.fill_in(session, "Text input", with: "value", bogus: true)
+      end
+
+      assert_raise NimbleOptions.ValidationError, ~r/unknown.*:bogus/, fn ->
+        PhoenixTest.Playwright.select(session, "One", from: "Select input", bogus: true)
+      end
+    end
+  end
+
   describe "assert_download/2" do
     test "asserts a download triggered by clicking a link", %{conn: conn} do
       conn
