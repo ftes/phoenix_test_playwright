@@ -194,8 +194,11 @@ defmodule PhoenixTest.Playwright do
     )
   end
 
+  @reload_page_opts_schema [timeout: @timeout_opt]
+
   @doc false
   def reload_page(conn, opts \\ []) do
+    opts = NimbleOptions.validate!(opts, @reload_page_opts_schema)
     tap(conn, &({:ok, _} = Page.reload(&1.page_id, ensure_timeout(opts))))
   end
 
@@ -449,8 +452,18 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
+  @path_assertion_opts_schema [
+    query_params: [
+      type: {:map, :any, :any},
+      doc: "Map of query params to match exactly."
+    ],
+    timeout: @timeout_opt
+  ]
+
   @doc false
   def assert_path(conn, path, opts \\ []) do
+    opts = NimbleOptions.validate!(opts, @path_assertion_opts_schema)
+
     if opts[:query_params] do
       retry(fn -> Assertions.assert_path(conn, path, opts) end, timeout(opts))
     else
@@ -460,6 +473,8 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def refute_path(conn, path, opts \\ []) do
+    opts = NimbleOptions.validate!(opts, @path_assertion_opts_schema)
+
     if opts[:query_params] do
       retry(fn -> Assertions.refute_path(conn, path, opts) end, timeout(opts))
     else
@@ -505,8 +520,44 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
+  @title_assertion_opts_schema [
+    text: [
+      type: :any,
+      required: true
+    ],
+    exact: @exact_opt_schema,
+    timeout: @timeout_opt
+  ]
+
+  @assertion_opts_schema [
+    text: [
+      type: :any
+    ],
+    value: [
+      type: :any
+    ],
+    selected: [
+      type: :any
+    ],
+    checked: [
+      type: :any
+    ],
+    label: [
+      type: :string
+    ],
+    exact: @exact_opt_schema,
+    count: [
+      type: :non_neg_integer
+    ],
+    at: [
+      type: :integer
+    ],
+    timeout: @timeout_opt
+  ]
+  @content_assertion_opts [:text, :value, :selected, :checked]
+
   defp has_title?(conn, opts, params \\ []) do
-    {text, opts} = opts |> Keyword.validate!([:text, exact: false]) |> Keyword.pop!(:text)
+    {text, opts} = opts |> NimbleOptions.validate!(@title_assertion_opts_schema) |> Keyword.pop!(:text)
 
     params =
       Keyword.merge(
@@ -523,6 +574,7 @@ defmodule PhoenixTest.Playwright do
   end
 
   defp found?(conn, selector, opts, other_opts \\ []) do
+    opts = validate_assertion_opts!(opts)
     other_opts = Keyword.validate!(other_opts, is_not: false)
 
     selector =
@@ -552,6 +604,30 @@ defmodule PhoenixTest.Playwright do
     params = [timeout: timeout(opts)] |> Keyword.merge(other_opts) |> Keyword.merge(params)
     {:ok, found?} = Frame.expect(conn.frame_id, params)
     found?
+  end
+
+  defp validate_assertion_opts!(opts) do
+    opts = NimbleOptions.validate!(opts, @assertion_opts_schema)
+
+    case Keyword.get(opts, :checked) do
+      checked when is_boolean(checked) or is_nil(checked) ->
+        :ok
+
+      checked ->
+        raise ArgumentError, "Expected :checked to be true or false, got #{inspect(checked)}"
+    end
+
+    if Keyword.has_key?(opts, :text) and Keyword.has_key?(opts, :label) do
+      raise ArgumentError, "Cannot provide :label with :text to assertions"
+    end
+
+    content_opts = Enum.filter(@content_assertion_opts, &Keyword.has_key?(opts, &1))
+
+    if length(content_opts) > 1 do
+      raise ArgumentError, "Cannot pass more than one of options :text, :value, :selected, :checked to assertions"
+    end
+
+    opts
   end
 
   defp checked_selector(nil), do: :none
@@ -768,8 +844,36 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
+  @fill_in_opts_schema [
+    with: [
+      type: :any,
+      required: true,
+      doc: "Value to fill into the input."
+    ],
+    exact: @exact_opt_schema,
+    timeout: @timeout_opt
+  ]
+
+  @form_field_opts_schema [exact: @exact_opt_schema, timeout: @timeout_opt]
+
+  @select_opts_schema [
+    from: [
+      type: :string,
+      required: true,
+      doc: "Label of the select field."
+    ],
+    exact: @exact_opt_schema,
+    exact_option: [
+      type: :boolean,
+      default: true,
+      doc: "Whether to match option text exactly."
+    ],
+    timeout: @timeout_opt
+  ]
+
   @doc false
   def fill_in(conn, css_selector \\ nil, label, opts) do
+    opts = NimbleOptions.validate!(opts, @fill_in_opts_schema)
     {value, opts} = Keyword.pop!(opts, :with)
     fun = &Frame.fill(conn.frame_id, selector: &1, value: to_string(value), timeout: timeout(opts))
     input(conn, css_selector, label, opts, fun)
@@ -777,6 +881,10 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def select(conn, css_selector \\ nil, option_labels, opts) do
+    # PhoenixTest.select/3 passes the option as `option_labels` and leaves this duplicate key in opts.
+    opts = Keyword.delete(opts, :option)
+    opts = NimbleOptions.validate!(opts, @select_opts_schema)
+
     if opts[:exact_option] != true, do: raise("exact_option not implemented")
 
     {label, opts} = Keyword.pop!(opts, :from)
@@ -787,24 +895,28 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def check(conn, css_selector \\ nil, label, opts) do
+    opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
     fun = &Frame.check(conn.frame_id, selector: &1, timeout: timeout(opts))
     input(conn, css_selector, label, opts, fun)
   end
 
   @doc false
   def uncheck(conn, css_selector \\ nil, label, opts) do
+    opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
     fun = &Frame.uncheck(conn.frame_id, selector: &1, timeout: timeout(opts))
     input(conn, css_selector, label, opts, fun)
   end
 
   @doc false
   def choose(conn, css_selector \\ nil, label, opts) do
+    opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
     fun = &Frame.check(conn.frame_id, selector: &1, timeout: timeout(opts))
     input(conn, css_selector, label, opts, fun)
   end
 
   @doc false
   def upload(conn, css_selector \\ nil, label, paths, opts) do
+    opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
     paths = paths |> List.wrap() |> Enum.map(&Path.expand/1)
     fun = &Frame.set_input_files(conn.frame_id, selector: &1, local_paths: paths, timeout: timeout(opts))
     input(conn, css_selector, label, opts, fun)
