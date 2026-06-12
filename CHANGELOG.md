@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## Unreleased
 ### Fixed
 - `assert_has/3` and `refute_has/3` now honor the `checked:` and `selected:` options.
+- Public option-taking APIs now validate supported options instead of silently ignoring unknown keys.
 - `submit/1` no longer relies on pressing Enter, so forms submit consistently when the last interacted element is a select.
 
 ## [0.14.0] 2026-05-05

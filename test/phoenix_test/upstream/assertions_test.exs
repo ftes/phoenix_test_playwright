@@ -285,7 +285,6 @@ defmodule PhoenixTest.AssertionsTest do
       end
     end
 
-    @tag skip: "investigate"
     test "raises if user provides :text and :checked options", %{conn: conn} do
       session = visit(conn, "/page/by_value")
 
@@ -294,7 +293,6 @@ defmodule PhoenixTest.AssertionsTest do
       end
     end
 
-    @tag skip: "investigate"
     test "raises if user provides non-boolean :checked option", %{conn: conn} do
       session = visit(conn, "/page/by_value")
 
@@ -303,7 +301,6 @@ defmodule PhoenixTest.AssertionsTest do
       end
     end
 
-    @tag skip: "investigate"
     test "raises if user provides more than one content option", %{conn: conn} do
       session = visit(conn, "/page/by_value")
 
@@ -320,7 +317,6 @@ defmodule PhoenixTest.AssertionsTest do
       end
     end
 
-    @tag skip: "investigate"
     test "raises if user provides :label with :text", %{conn: conn} do
       session = visit(conn, "/page/index")
 
@@ -882,7 +878,7 @@ defmodule PhoenixTest.AssertionsTest do
 
       refute_has(session, "select", label: "Race", selected: "Human")
 
-      assert_raise AssertionError, ~r/selected "Elf" with label "Race"/, fn ->
+      assert_raise AssertionError, ~r/Found element/, fn ->
         refute_has(session, "select", label: "Race", selected: "Elf")
       end
     end
@@ -965,7 +961,6 @@ defmodule PhoenixTest.AssertionsTest do
       end
     end
 
-    @tag skip: "investigate"
     test "raises if user provides :label with :text", %{conn: conn} do
       session = visit(conn, "/page/index")
 
