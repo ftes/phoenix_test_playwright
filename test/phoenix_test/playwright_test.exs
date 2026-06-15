@@ -42,6 +42,61 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
+  describe "assert_screenshot/3" do
+    setup %{conn: conn} do
+      [conn: visit(conn, "/pw/live")]
+    end
+
+    @tag :tmp_dir
+    test "captures baseline on first run and writes file", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_screenshot(conn, "capture.png", snapshot_dir: tmp_dir)
+      assert File.exists?(Path.join(tmp_dir, "capture.png"))
+    end
+
+    @tag :tmp_dir
+    test "passes silently when screenshot matches baseline", %{conn: conn, tmp_dir: tmp_dir} do
+      conn
+      |> assert_screenshot("match.png", snapshot_dir: tmp_dir)
+      |> assert_screenshot("match.png", snapshot_dir: tmp_dir)
+    end
+
+    @tag :tmp_dir
+    test "raises ExUnit.AssertionError on mismatch", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_screenshot(conn, "mismatch.png", snapshot_dir: tmp_dir)
+
+      assert_raise ExUnit.AssertionError, ~r/Screenshot mismatch for mismatch\.png/, fn ->
+        conn
+        |> visit("/pw/other")
+        |> assert_screenshot("mismatch.png", snapshot_dir: tmp_dir)
+      end
+    end
+
+    @tag :tmp_dir
+    test "creates subdirectories for nested name", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_screenshot(conn, "subdir/nested.png", snapshot_dir: tmp_dir)
+      assert File.exists?(Path.join(tmp_dir, "subdir/nested.png"))
+    end
+
+    @tag :tmp_dir
+    test "scopes screenshot to element when selector opt is given", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_screenshot(conn, "selector.png", selector: "h1", snapshot_dir: tmp_dir)
+      assert File.exists?(Path.join(tmp_dir, "selector.png"))
+    end
+
+    @tag :tmp_dir
+    test "writes diff file when mismatch produces a diff image", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_screenshot(conn, "diff.png", selector: "h1", snapshot_dir: tmp_dir)
+
+      assert_raise ExUnit.AssertionError, ~r/Screenshot mismatch for diff\.png:/, fn ->
+        conn
+        |> evaluate("document.querySelector('h1').style.color = 'red'")
+        |> assert_screenshot("diff.png", selector: "h1", snapshot_dir: tmp_dir)
+      end
+
+      assert File.exists?(Path.join([tmp_dir, "__diff__", "diff.png"]))
+    end
+  end
+
   describe "browser dialog handling: accept_dialogs config and with_dialog/3" do
     test "accepts dialog by default", %{conn: conn} do
       conn

@@ -149,6 +149,11 @@ schema_opts = [
     """
   ],
   slow_mo: browser_opts[:slow_mo],
+  snapshot_dir: [
+    default: "test/snapshots",
+    type: :string,
+    doc: "Directory for visual regression baseline screenshots (used by `assert_screenshot/3`)."
+  ],
   timeout: [
     default: to_timeout(second: 2),
     type: :non_neg_integer

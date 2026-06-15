@@ -321,6 +321,92 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
+  @assert_screenshot_opts_schema [
+    full_page: [type: :boolean, default: true],
+    omit_background: [type: :boolean, default: false],
+    animations: [type: {:in, ["disabled", "allow"]}, default: "disabled"],
+    caret: [type: {:in, ["hide", "initial"]}, default: "hide"],
+    clip: [type: :map, doc: "`%{x: float, y: float, width: float, height: float}`"],
+    selector: [type: :string, doc: "Scope screenshot to a CSS/Playwright selector."],
+    max_diff_pixels: [type: :non_neg_integer],
+    max_diff_pixel_ratio: [type: :float],
+    threshold: [type: :float],
+    scale: [type: {:in, ["css", "device"]}],
+    mask_color: [type: :string],
+    snapshot_dir: [type: :string, doc: "Override the global `:snapshot_dir` config for this call."],
+    timeout: @timeout_opt
+  ]
+
+  @doc """
+  Visual regression assertion: compares a screenshot of the current page against a stored baseline.
+
+  `name` is a file path relative to `:snapshot_dir` (see `PhoenixTest.Playwright.Config`),
+  extension included. The directory is created automatically.
+
+  On first run (no baseline file), the screenshot is captured and saved — the test passes.
+  On subsequent runs, Playwright compares the live screenshot against the baseline.
+  On mismatch, a diff image is written to `<snapshot_dir>/__diff__/<name>` and the test fails.
+
+  To update a baseline, delete the file and re-run the test.
+
+  ## Options
+  #{NimbleOptions.docs(@assert_screenshot_opts_schema)}
+
+  ## Examples
+      |> assert_screenshot("home.png")
+      |> assert_screenshot("auth/login.png", full_page: false)
+      |> assert_screenshot("hero.png", selector: ".hero-section")
+  """
+  @spec assert_screenshot(t(), String.t(), [unquote(NimbleOptions.option_typespec(@assert_screenshot_opts_schema))]) ::
+          t()
+  def assert_screenshot(conn, name, opts \\ []) do
+    opts = NimbleOptions.validate!(opts, @assert_screenshot_opts_schema)
+    {snapshot_dir, opts} = Keyword.pop(opts, :snapshot_dir)
+    snapshot_dir = snapshot_dir || Config.global(:snapshot_dir)
+    snapshot_path = Path.join(snapshot_dir, name)
+
+    opts =
+      if File.exists?(snapshot_path) do
+        Keyword.put(opts, :expected, snapshot_path |> File.read!() |> Base.encode64())
+      else
+        opts
+      end
+
+    opts = Keyword.put(opts, :timeout, timeout(opts))
+
+    params =
+      case Keyword.pop(opts, :selector) do
+        {nil, params} -> params
+        {s, params} -> Keyword.put(params, :locator, %{frame: %{guid: conn.frame_id}, selector: s})
+      end
+
+    case Page.expect_screenshot(conn.page_id, params) do
+      {:ok, actual_b64} when is_binary(actual_b64) ->
+        File.mkdir_p!(Path.dirname(snapshot_path))
+        File.write!(snapshot_path, Base.decode64!(actual_b64))
+        conn
+
+      {:ok, _} ->
+        conn
+
+      {:error, error} ->
+        maybe_write_diff(name, snapshot_dir, error)
+        flunk("Screenshot mismatch for #{name}:\n#{format_screenshot_error(error)}")
+    end
+  end
+
+  defp maybe_write_diff(name, snapshot_dir, %{diff: diff}) when is_binary(diff) do
+    diff_path = Path.join([snapshot_dir, "__diff__", name])
+    File.mkdir_p!(Path.dirname(diff_path))
+    File.write!(diff_path, Base.decode64!(diff))
+  end
+
+  defp maybe_write_diff(_, _, _), do: :ok
+
+  defp format_screenshot_error(%{log: log}) when is_list(log), do: Enum.join(log, "\n")
+  defp format_screenshot_error(%{error_message: msg}), do: msg
+  defp format_screenshot_error(error), do: inspect(error, pretty: true)
+
   @type_opts_schema [
     delay: [
       type: :non_neg_integer,

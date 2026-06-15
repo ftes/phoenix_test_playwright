@@ -33,6 +33,8 @@ defmodule PhoenixTest.Playwright.Case do
         only: [
           add_cookies: 2,
           add_session_cookie: 3,
+          assert_screenshot: 2,
+          assert_screenshot: 3,
           clear_cookies: 1,
           clear_cookies: 2,
           click: 2,
