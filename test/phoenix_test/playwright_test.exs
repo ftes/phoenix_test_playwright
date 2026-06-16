@@ -53,26 +53,52 @@ defmodule PhoenixTest.PlaywrightTest do
       assert File.exists?(Path.join(tmp_dir, "capture.png"))
     end
 
-    @tag :tmp_dir
-    test "passes silently when screenshot matches baseline", %{conn: conn, tmp_dir: tmp_dir} do
-      conn
-      |> assert_screenshot("match.png", snapshot_dir: tmp_dir)
-      |> assert_screenshot("match.png", snapshot_dir: tmp_dir)
+    test "passes silently when screenshot matches baseline", %{conn: conn} do
+      assert_screenshot(conn, "baseline.png")
+    end
+
+    test "raises when screenshot does not match baseline", %{conn: conn} do
+      assert_raise ExUnit.AssertionError,
+                   """
+
+
+                   Screenshot mismatch for baseline.png:
+                          - Expect screenshot with timeout 500ms
+                            - verifying given screenshot expectation
+                          - taking page screenshot
+                            - disabled all CSS animations
+                          - waiting for fonts to load...
+                          - fonts loaded
+                          - 26552 pixels (ratio 0.03 of all image pixels) are different.
+                          - waiting 100ms before taking screenshot
+                          - taking page screenshot
+                            - disabled all CSS animations
+                          - waiting for fonts to load...
+                          - fonts loaded
+                          - captured a stable screenshot
+                          - 26552 pixels (ratio 0.03 of all image pixels) are different.
+                   """,
+                   fn ->
+                     conn
+                     |> visit("/pw/other")
+                     |> assert_screenshot("baseline.png")
+                   end
     end
 
     @tag :tmp_dir
-    test "raises ExUnit.AssertionError on mismatch", %{conn: conn, tmp_dir: tmp_dir} do
-      assert_screenshot(conn, "mismatch.png", snapshot_dir: tmp_dir)
-
-      assert_raise ExUnit.AssertionError, ~r/Screenshot mismatch for mismatch\.png/, fn ->
-        conn
-        |> visit("/pw/other")
-        |> assert_screenshot("mismatch.png", snapshot_dir: tmp_dir)
-      end
+    test "raises on invalid clip option", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_raise ArgumentError,
+                   "Expected options.clip.width not to be 0.",
+                   fn ->
+                     assert_screenshot(conn, "clip.png",
+                       snapshot_dir: tmp_dir,
+                       clip: %{x: 0, y: 0, width: 0, height: 100}
+                     )
+                   end
     end
 
     @tag :tmp_dir
-    test "creates subdirectories for nested name", %{conn: conn, tmp_dir: tmp_dir} do
+    test "creates subdirectory for nested name", %{conn: conn, tmp_dir: tmp_dir} do
       assert_screenshot(conn, "subdir/nested.png", snapshot_dir: tmp_dir)
       assert File.exists?(Path.join(tmp_dir, "subdir/nested.png"))
     end
@@ -80,7 +106,11 @@ defmodule PhoenixTest.PlaywrightTest do
     @tag :tmp_dir
     test "scopes screenshot to element when selector opt is given", %{conn: conn, tmp_dir: tmp_dir} do
       assert_screenshot(conn, "selector.png", selector: "h1", snapshot_dir: tmp_dir)
-      assert File.exists?(Path.join(tmp_dir, "selector.png"))
+
+      # Change the color of a sibling element — full-page screenshot would differ, but scoped to h1 it still matches
+      conn
+      |> evaluate("document.querySelector('#drag-source').style.backgroundColor = 'blue'")
+      |> assert_screenshot("selector.png", selector: "h1", snapshot_dir: tmp_dir)
     end
 
     @tag :tmp_dir

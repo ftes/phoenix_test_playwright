@@ -139,7 +139,9 @@ schema_opts = [
   ],
   screenshot_dir: [
     default: "screenshots",
-    type: :string
+    type: :string,
+    doc:
+      "Directory where `screenshot/3` saves files. See also `:snapshot_dir` for `assert_screenshot/3` reference images."
   ],
   selector_engines: [
     default: [],
@@ -152,7 +154,7 @@ schema_opts = [
   snapshot_dir: [
     default: "test/snapshots",
     type: :string,
-    doc: "Directory for visual regression baseline screenshots (used by `assert_screenshot/3`)."
+    doc: "Directory where `assert_screenshot/3` reads and writes reference images for visual regression comparisons."
   ],
   timeout: [
     default: to_timeout(second: 2),

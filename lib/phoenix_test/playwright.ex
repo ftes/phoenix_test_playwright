@@ -332,7 +332,11 @@ defmodule PhoenixTest.Playwright do
     max_diff_pixel_ratio: [type: :float],
     threshold: [type: :float],
     scale: [type: {:in, ["css", "device"]}],
-    mask_color: [type: :string],
+    mask: [
+      type: {:list, :string},
+      doc: "List of CSS/Playwright selectors whose elements will be masked in the screenshot."
+    ],
+    mask_color: [type: :string, doc: "Color used to mask elements specified in `:mask`. Defaults to `#FF00FF` (magenta)."],
     snapshot_dir: [type: :string, doc: "Override the global `:snapshot_dir` config for this call."],
     timeout: @timeout_opt
   ]
@@ -361,8 +365,7 @@ defmodule PhoenixTest.Playwright do
           t()
   def assert_screenshot(conn, name, opts \\ []) do
     opts = NimbleOptions.validate!(opts, @assert_screenshot_opts_schema)
-    {snapshot_dir, opts} = Keyword.pop(opts, :snapshot_dir)
-    snapshot_dir = snapshot_dir || Config.global(:snapshot_dir)
+    {snapshot_dir, opts} = Keyword.pop(opts, :snapshot_dir, Config.global(:snapshot_dir))
     snapshot_path = Path.join(snapshot_dir, name)
 
     opts =
@@ -372,26 +375,29 @@ defmodule PhoenixTest.Playwright do
         opts
       end
 
-    opts = Keyword.put(opts, :timeout, timeout(opts))
+    opts = ensure_timeout(opts)
 
-    params =
+    opts =
       case Keyword.pop(opts, :selector) do
-        {nil, params} -> params
-        {s, params} -> Keyword.put(params, :locator, %{frame: %{guid: conn.frame_id}, selector: s})
+        {nil, opts} -> opts
+        {s, opts} -> Keyword.put(opts, :locator, %{frame: %{guid: conn.frame_id}, selector: s})
       end
 
-    case Page.expect_screenshot(conn.page_id, params) do
+    case Page.expect_screenshot(conn.page_id, opts) do
+      {:ok, nil} ->
+        conn
+
       {:ok, actual_b64} when is_binary(actual_b64) ->
         File.mkdir_p!(Path.dirname(snapshot_path))
         File.write!(snapshot_path, Base.decode64!(actual_b64))
         conn
 
-      {:ok, _} ->
-        conn
-
-      {:error, error} ->
+      {:error, %{log: log} = error} ->
         maybe_write_diff(name, snapshot_dir, error)
-        flunk("Screenshot mismatch for #{name}:\n#{format_screenshot_error(error)}")
+        flunk("Screenshot mismatch for #{name}:\n#{Enum.join(log, "\n")}")
+
+      {:error, %{error_message: msg}} ->
+        raise ArgumentError, msg
     end
   end
 
@@ -402,10 +408,6 @@ defmodule PhoenixTest.Playwright do
   end
 
   defp maybe_write_diff(_, _, _), do: :ok
-
-  defp format_screenshot_error(%{log: log}) when is_list(log), do: Enum.join(log, "\n")
-  defp format_screenshot_error(%{error_message: msg}), do: msg
-  defp format_screenshot_error(error), do: inspect(error, pretty: true)
 
   @type_opts_schema [
     delay: [
