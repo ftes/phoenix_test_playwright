@@ -322,21 +322,50 @@ defmodule PhoenixTest.Playwright do
   end
 
   @assert_screenshot_opts_schema [
-    full_page: [type: :boolean, default: true],
-    omit_background: [type: :boolean, default: false],
-    animations: [type: {:in, ["disabled", "allow"]}, default: "disabled"],
-    caret: [type: {:in, ["hide", "initial"]}, default: "hide"],
-    clip: [type: :map, doc: "`%{x: float, y: float, width: float, height: float}`"],
-    selector: [type: :string, doc: "Scope screenshot to a CSS/Playwright selector."],
-    max_diff_pixels: [type: :non_neg_integer],
-    max_diff_pixel_ratio: [type: :float],
-    threshold: [type: :float],
-    scale: [type: {:in, ["css", "device"]}],
+    full_page: [
+      type: :boolean,
+      default: true,
+      doc: "Capture the full scrollable page. Set to `false` to capture only the visible viewport."
+    ],
+    omit_background: [
+      type: :boolean,
+      default: false,
+      doc: "Make the page background transparent. Only meaningful for PNG output."
+    ],
+    animations: [
+      type: {:in, ["disabled", "allow"]},
+      default: "disabled",
+      doc: "CSS animation behaviour. Defaults to `\"disabled\"` so screenshots are deterministic."
+    ],
+    caret: [
+      type: {:in, ["hide", "initial"]},
+      default: "hide",
+      doc: "Whether to hide the text cursor. Defaults to `\"hide\"` for deterministic screenshots."
+    ],
+    clip: [type: :map, doc: "Clip the screenshot to `%{x: float, y: float, width: float, height: float}`."],
+    selector: [type: :string, doc: "Scope the screenshot to a CSS or Playwright selector instead of the full page."],
+    max_diff_pixels: [
+      type: :non_neg_integer,
+      doc: "Maximum number of pixels allowed to differ before the assertion fails."
+    ],
+    max_diff_pixel_ratio: [
+      type: :float,
+      doc: "Maximum ratio of differing pixels (0.0-1.0). Takes precedence over `:max_diff_pixels` when both are set."
+    ],
+    threshold: [
+      type: :float,
+      doc:
+        "Per-pixel color difference tolerance (0.0-1.0). Higher values accept more color drift. Playwright default: `0.2`."
+    ],
+    scale: [
+      type: {:in, ["css", "device"]},
+      doc: ~s{Whether to use CSS pixels (`"css"`) or physical device pixels (`"device"`) when taking the screenshot.}
+    ],
     mask: [
       type: {:list, :string},
-      doc: "List of CSS/Playwright selectors whose elements will be masked in the screenshot."
+      doc: "CSS/Playwright selectors whose matched elements are painted over before comparison, hiding dynamic content."
     ],
-    mask_color: [type: :string, doc: "Color used to mask elements specified in `:mask`. Defaults to `#FF00FF` (magenta)."],
+    mask_color: [type: :string, doc: "Fill color for masked elements. Defaults to `#FF00FF` (magenta)."],
     snapshot_dir: [type: :string, doc: "Override the global `:snapshot_dir` config for this call."],
     timeout: @timeout_opt
   ]
@@ -344,14 +373,15 @@ defmodule PhoenixTest.Playwright do
   @doc """
   Visual regression assertion: compares a screenshot of the current page against a stored baseline.
 
-  `name` is a file path relative to `:snapshot_dir` (see `PhoenixTest.Playwright.Config`),
-  extension included. The directory is created automatically.
+  `name` is a relative path within `:snapshot_dir` (see `PhoenixTest.Playwright.Config`), including
+  the file extension — for example `"home.png"` or `"auth/login.png"`. Subdirectories are created
+  automatically.
 
-  On first run (no baseline file), the screenshot is captured and saved — the test passes.
-  On subsequent runs, Playwright compares the live screenshot against the baseline.
-  On mismatch, a diff image is written to `<snapshot_dir>/__diff__/<name>` and the test fails.
+  On first run (no baseline exists), the screenshot is saved as the new baseline and the test passes.
+  On subsequent runs, the live screenshot is compared pixel-by-pixel against the baseline.
+  On mismatch, a diff image is saved to `<snapshot_dir>/__diff__/<name>` and the test fails.
 
-  To update a baseline, delete the file and re-run the test.
+  To update a baseline, delete the snapshot file and re-run the test.
 
   ## Options
   #{NimbleOptions.docs(@assert_screenshot_opts_schema)}
