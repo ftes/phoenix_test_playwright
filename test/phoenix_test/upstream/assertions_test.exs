@@ -169,7 +169,6 @@ defmodule PhoenixTest.AssertionsTest do
       |> assert_has("select", label: "Region", selected: "Shire")
     end
 
-    @tag skip: "investigate"
     test "does not match a select by an unselected option", %{conn: conn} do
       session = visit(conn, "/page/by_value")
 
@@ -180,7 +179,6 @@ defmodule PhoenixTest.AssertionsTest do
       end
     end
 
-    @tag skip: "investigate"
     test "assert by label and selected raises an error if selected not found", %{conn: conn} do
       session = visit(conn, "/page/by_value")
 
@@ -191,7 +189,6 @@ defmodule PhoenixTest.AssertionsTest do
       end
     end
 
-    @tag skip: "investigate"
     test "does not match a select by the selected option value attribute", %{conn: conn} do
       session = visit(conn, "/page/by_value")
 
@@ -202,7 +199,6 @@ defmodule PhoenixTest.AssertionsTest do
       end
     end
 
-    @tag skip: "investigate"
     test "succeeds when asserting checked state + count", %{conn: conn} do
       conn
       |> visit("/page/by_value")
@@ -279,7 +275,6 @@ defmodule PhoenixTest.AssertionsTest do
       end
     end
 
-    @tag skip: "investigate"
     test "raises an error if checked state (with label) cannot be found", %{conn: conn} do
       session = visit(conn, "/page/by_value")
 
@@ -875,7 +870,6 @@ defmodule PhoenixTest.AssertionsTest do
       end
     end
 
-    @tag skip: "investigate"
     test "can refute a select by unselected option", %{conn: conn} do
       conn
       |> visit("/page/by_value")
@@ -900,7 +894,6 @@ defmodule PhoenixTest.AssertionsTest do
       |> refute_has(".user", checked: false, count: 2)
     end
 
-    @tag skip: "investigate"
     test "can refute by checked state and label", %{conn: conn} do
       conn
       |> visit("/page/by_value")

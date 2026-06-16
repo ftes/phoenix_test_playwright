@@ -530,6 +530,8 @@ defmodule PhoenixTest.Playwright do
       |> maybe_within()
       |> Selector.concat(Selector.css(selector))
       |> Selector.and(Selector.label(opts[:label], exact: true))
+      |> Selector.and(checked_selector(opts[:checked]))
+      |> selector_has(selected_selector(opts[:selected]))
       |> Selector.concat("visible=true")
       |> Selector.concat(Selector.text(opts[:text], opts))
       |> Selector.concat(Selector.value(opts[:value]))
@@ -551,6 +553,21 @@ defmodule PhoenixTest.Playwright do
     {:ok, found?} = Frame.expect(conn.frame_id, params)
     found?
   end
+
+  defp checked_selector(nil), do: :none
+  defp checked_selector(true), do: Selector.css(":checked")
+  defp checked_selector(false), do: Selector.css(":not(:checked)")
+
+  defp selected_selector(nil), do: :none
+
+  defp selected_selector(selected) do
+    "option:checked"
+    |> Selector.css()
+    |> Selector.concat(Selector.text(to_string(selected), exact: true))
+  end
+
+  defp selector_has(selector, :none), do: selector
+  defp selector_has(selector, has_selector), do: Selector.has(selector, has_selector)
 
   def assert_download(conn, filename_or_fun) do
     download =
