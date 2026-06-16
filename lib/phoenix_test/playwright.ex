@@ -426,7 +426,7 @@ defmodule PhoenixTest.Playwright do
         maybe_write_diff(name, snapshot_dir, error)
         flunk("Screenshot mismatch for #{name}:\n#{Enum.join(log, "\n")}")
 
-      {:error, %{error_message: msg}} ->
+      {:error, %{custom_error_message: msg}} ->
         raise ArgumentError, msg
     end
   end
