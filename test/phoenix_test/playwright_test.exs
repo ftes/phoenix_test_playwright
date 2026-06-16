@@ -83,6 +83,8 @@ defmodule PhoenixTest.PlaywrightTest do
                      |> visit("/pw/other")
                      |> assert_screenshot("baseline.png")
                    end
+
+      on_exit(fn -> File.rm!("test/snapshots/__diff__/baseline.png") end)
     end
 
     @tag :tmp_dir
@@ -124,6 +126,27 @@ defmodule PhoenixTest.PlaywrightTest do
       end
 
       assert File.exists?(Path.join([tmp_dir, "__diff__", "diff.png"]))
+    end
+
+    test "raises without writing diff when comparison times out", %{conn: conn} do
+      assert_raise ExUnit.AssertionError,
+                   """
+
+
+                   Screenshot mismatch for baseline.png:
+                          - Expect screenshot with timeout 1ms
+                            - verifying given screenshot expectation
+                          - taking page screenshot
+                            - disabled all CSS animations
+                          - Timeout 1ms exceeded.
+                   """,
+                   fn ->
+                     conn
+                     |> visit("/pw/other")
+                     |> assert_screenshot("baseline.png", timeout: 1)
+                   end
+
+      refute File.exists?("test/snapshots/__diff__/baseline.png")
     end
   end
 
