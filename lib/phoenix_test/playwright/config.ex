@@ -154,7 +154,15 @@ schema_opts = [
   snapshot_dir: [
     default: "test/snapshots",
     type: :string,
-    doc: "Directory where `assert_screenshot/3` reads and writes reference images for visual regression comparisons."
+    doc: """
+    Directory where `assert_screenshot/3` reads and writes baseline images.
+
+    Diff images on mismatch are written to `<snapshot_dir>/__diff__/`. Add that subdirectory to `.gitignore`:
+
+    ```
+    **/__diff__/
+    ```
+    """
   ],
   timeout: [
     default: to_timeout(second: 2),
