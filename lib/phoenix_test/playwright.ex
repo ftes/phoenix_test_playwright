@@ -410,29 +410,11 @@ defmodule PhoenixTest.Playwright do
     snapshot_path = Path.join(snapshot_dir, name)
 
     opts =
-      if File.exists?(snapshot_path) do
-        Keyword.put(opts, :expected, snapshot_path |> File.read!() |> Base.encode64())
-      else
-        opts
-      end
-
-    opts = ensure_timeout(opts)
-
-    opts =
-      case Keyword.pop(opts, :selector) do
-        {nil, opts} -> opts
-        {s, opts} -> Keyword.put(opts, :locator, %{frame: %{guid: conn.frame_id}, selector: s})
-      end
-
-    opts =
-      case Keyword.pop(opts, :mask) do
-        {nil, opts} ->
-          opts
-
-        {selectors, opts} ->
-          masks = Enum.map(selectors, &%{frame: %{guid: conn.frame_id}, selector: &1})
-          Keyword.put(opts, :mask, masks)
-      end
+      opts
+      |> maybe_add_expected(snapshot_path)
+      |> ensure_timeout()
+      |> maybe_convert_selector(conn.frame_id)
+      |> maybe_convert_mask(conn.frame_id)
 
     case Page.expect_screenshot(conn.page_id, opts) do
       {:ok, nil} ->
@@ -448,6 +430,32 @@ defmodule PhoenixTest.Playwright do
 
       {:error, %{custom_error_message: msg}} ->
         flunk(msg)
+    end
+  end
+
+  defp maybe_add_expected(opts, snapshot_path) do
+    if File.exists?(snapshot_path) do
+      Keyword.put(opts, :expected, snapshot_path |> File.read!() |> Base.encode64())
+    else
+      opts
+    end
+  end
+
+  defp maybe_convert_selector(opts, frame_id) do
+    case Keyword.pop(opts, :selector) do
+      {nil, opts} -> opts
+      {s, opts} -> Keyword.put(opts, :locator, %{frame: %{guid: frame_id}, selector: s})
+    end
+  end
+
+  defp maybe_convert_mask(opts, frame_id) do
+    case Keyword.pop(opts, :mask) do
+      {nil, opts} ->
+        opts
+
+      {selectors, opts} ->
+        masks = Enum.map(selectors, &%{frame: %{guid: frame_id}, selector: &1})
+        Keyword.put(opts, :mask, masks)
     end
   end
 
