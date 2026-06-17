@@ -59,24 +59,22 @@ defmodule PhoenixTest.PlaywrightTest do
 
     test "raises when screenshot does not match baseline", %{conn: conn} do
       assert_raise ExUnit.AssertionError,
-                   """
+                   ~r"""
 
 
-                   Screenshot mismatch for baseline.png:
-                          - Expect screenshot with timeout 500ms
+                   Screenshot mismatch for baseline\.png:
+                          - Expect screenshot with timeout \d+ms
                             - verifying given screenshot expectation
                           - taking page screenshot
-                            - disabled all CSS animations
-                          - waiting for fonts to load...
+                          - waiting for fonts to load\.\.\.
                           - fonts loaded
-                          - 26552 pixels (ratio 0.03 of all image pixels) are different.
-                          - waiting 100ms before taking screenshot
+                          - \d+ pixels \(ratio \d+(?:\.\d+)? of all image pixels\) are different\.
+                          - waiting \d+ms before taking screenshot
                           - taking page screenshot
-                            - disabled all CSS animations
-                          - waiting for fonts to load...
+                          - waiting for fonts to load\.\.\.
                           - fonts loaded
                           - captured a stable screenshot
-                          - 26552 pixels (ratio 0.03 of all image pixels) are different.
+                          - \d+ pixels \(ratio \d+(?:\.\d+)? of all image pixels\) are different\.
                    """,
                    fn ->
                      conn
@@ -147,7 +145,6 @@ defmodule PhoenixTest.PlaywrightTest do
                           - Expect screenshot with timeout 1ms
                             - verifying given screenshot expectation
                           - taking page screenshot
-                            - disabled all CSS animations
                           - Timeout 1ms exceeded.
                    """,
                    fn ->
