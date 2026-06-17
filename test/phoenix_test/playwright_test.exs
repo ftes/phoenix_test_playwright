@@ -116,6 +116,16 @@ defmodule PhoenixTest.PlaywrightTest do
     end
 
     @tag :tmp_dir
+    test "masks elements so changes within them don't cause mismatch", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_screenshot(conn, "mask.png", mask: ["h1"], snapshot_dir: tmp_dir)
+
+      # Change the h1 text — masked element differs, but screenshot still matches
+      conn
+      |> evaluate("document.querySelector('h1').textContent = 'changed'")
+      |> assert_screenshot("mask.png", mask: ["h1"], snapshot_dir: tmp_dir)
+    end
+
+    @tag :tmp_dir
     test "writes diff file when mismatch produces a diff image", %{conn: conn, tmp_dir: tmp_dir} do
       assert_screenshot(conn, "diff.png", selector: "h1", snapshot_dir: tmp_dir)
 

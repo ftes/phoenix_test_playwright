@@ -413,6 +413,16 @@ defmodule PhoenixTest.Playwright do
         {s, opts} -> Keyword.put(opts, :locator, %{frame: %{guid: conn.frame_id}, selector: s})
       end
 
+    opts =
+      case Keyword.pop(opts, :mask) do
+        {nil, opts} ->
+          opts
+
+        {selectors, opts} ->
+          masks = Enum.map(selectors, &%{frame: %{guid: conn.frame_id}, selector: &1})
+          Keyword.put(opts, :mask, masks)
+      end
+
     case Page.expect_screenshot(conn.page_id, opts) do
       {:ok, nil} ->
         conn
