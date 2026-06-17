@@ -439,26 +439,22 @@ defmodule PhoenixTest.Playwright do
         conn
 
       {:ok, actual_b64} when is_binary(actual_b64) ->
-        File.mkdir_p!(Path.dirname(snapshot_path))
-        File.write!(snapshot_path, Base.decode64!(actual_b64))
+        write_file!(snapshot_path, actual_b64)
         conn
 
-      {:error, %{log: log} = error} ->
-        maybe_write_diff(name, snapshot_dir, error)
-        flunk("Screenshot mismatch for #{name}:\n#{Enum.join(log, "\n")}")
+      {:error, %{diff: diff, custom_error_message: msg}} when is_binary(diff) ->
+        write_file!(Path.join([snapshot_dir, "__diff__", name]), diff)
+        flunk("Screenshot mismatch for #{name}: #{msg}")
 
       {:error, %{custom_error_message: msg}} ->
-        raise ArgumentError, msg
+        flunk(msg)
     end
   end
 
-  defp maybe_write_diff(name, snapshot_dir, %{diff: diff}) when is_binary(diff) do
-    diff_path = Path.join([snapshot_dir, "__diff__", name])
-    File.mkdir_p!(Path.dirname(diff_path))
-    File.write!(diff_path, Base.decode64!(diff))
+  defp write_file!(path, base64) do
+    File.mkdir_p!(Path.dirname(path))
+    File.write!(path, Base.decode64!(base64))
   end
-
-  defp maybe_write_diff(_, _, _), do: :ok
 
   @type_opts_schema [
     delay: [

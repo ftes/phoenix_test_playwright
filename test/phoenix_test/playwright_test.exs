@@ -59,23 +59,7 @@ defmodule PhoenixTest.PlaywrightTest do
 
     test "raises when screenshot does not match baseline", %{conn: conn} do
       assert_raise ExUnit.AssertionError,
-                   ~r"""
-
-
-                   Screenshot mismatch for baseline\.png:
-                          - Expect screenshot with timeout \d+ms
-                            - verifying given screenshot expectation
-                          - taking page screenshot
-                          - waiting for fonts to load\.\.\.
-                          - fonts loaded
-                          - \d+ pixels \(ratio \d+(?:\.\d+)? of all image pixels\) are different\.
-                          - waiting \d+ms before taking screenshot
-                          - taking page screenshot
-                          - waiting for fonts to load\.\.\.
-                          - fonts loaded
-                          - captured a stable screenshot
-                          - \d+ pixels \(ratio \d+(?:\.\d+)? of all image pixels\) are different\.
-                   """,
+                   ~r"Screenshot mismatch for baseline\.png: \d+ pixels \(ratio \d+(?:\.\d+)? of all image pixels\) are different\.",
                    fn ->
                      conn
                      |> visit("/pw/other")
@@ -87,8 +71,8 @@ defmodule PhoenixTest.PlaywrightTest do
 
     @tag :tmp_dir
     test "raises on invalid clip option", %{conn: conn, tmp_dir: tmp_dir} do
-      assert_raise ArgumentError,
-                   "Expected options.clip.width not to be 0.",
+      assert_raise ExUnit.AssertionError,
+                   ~r"Expected options.clip.width not to be 0.",
                    fn ->
                      assert_screenshot(conn, "clip.png",
                        snapshot_dir: tmp_dir,
@@ -127,31 +111,23 @@ defmodule PhoenixTest.PlaywrightTest do
     test "writes diff file when mismatch produces a diff image", %{conn: conn, tmp_dir: tmp_dir} do
       assert_screenshot(conn, "diff.png", selector: "h1", snapshot_dir: tmp_dir)
 
-      assert_raise ExUnit.AssertionError, ~r/Screenshot mismatch for diff\.png:/, fn ->
-        conn
-        |> evaluate("document.querySelector('h1').style.color = 'red'")
-        |> assert_screenshot("diff.png", selector: "h1", snapshot_dir: tmp_dir)
-      end
+      assert_raise ExUnit.AssertionError,
+                   ~r/Screenshot mismatch for diff\.png: \d+ pixels \(ratio \d+(?:\.\d+)? of all image pixels\) are different./,
+                   fn ->
+                     conn
+                     |> evaluate("document.querySelector('h1').style.color = 'red'")
+                     |> assert_screenshot("diff.png", selector: "h1", snapshot_dir: tmp_dir)
+                   end
 
       assert File.exists?(Path.join([tmp_dir, "__diff__", "diff.png"]))
     end
 
     test "raises without writing diff when comparison times out", %{conn: conn} do
-      assert_raise ExUnit.AssertionError,
-                   """
-
-
-                   Screenshot mismatch for baseline.png:
-                          - Expect screenshot with timeout 1ms
-                            - verifying given screenshot expectation
-                          - taking page screenshot
-                          - Timeout 1ms exceeded.
-                   """,
-                   fn ->
-                     conn
-                     |> visit("/pw/other")
-                     |> assert_screenshot("baseline.png", timeout: 1)
-                   end
+      assert_raise ExUnit.AssertionError, ~r"Timeout 1ms exceeded.", fn ->
+        conn
+        |> visit("/pw/other")
+        |> assert_screenshot("baseline.png", timeout: 1)
+      end
 
       refute File.exists?("test/snapshots/__diff__/baseline.png")
     end
