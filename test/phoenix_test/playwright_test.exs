@@ -73,7 +73,7 @@ defmodule PhoenixTest.PlaywrightTest do
     @tag :tmp_dir
     test "raises on invalid clip option", %{conn: conn, tmp_dir: tmp_dir} do
       assert_raise ExUnit.AssertionError,
-                   ~r"Expected options.clip.width not to be 0.",
+                   ~r"Expected options.clip.width to be greater than 0.",
                    fn ->
                      assert_screenshot(conn, "clip.png",
                        snapshot_dir: tmp_dir,
