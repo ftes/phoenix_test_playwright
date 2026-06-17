@@ -48,8 +48,6 @@ browser_pool_opts =
     size: [required: false, type: :integer, doc: "The default value is `System.schedulers_online() / 2`."]
   ] ++ browser_opts
 
-playwright_recommended_version = "1.55.0"
-
 # styler:sort
 schema_opts = [
   accept_dialogs: [
@@ -64,7 +62,7 @@ schema_opts = [
     type: {:custom, PhoenixTest.Playwright.Config, :__validate_assets_dir__, []},
     doc: """
     The directory where the JS assets are located and the Playwright CLI is installed.
-    Playwright version `#{playwright_recommended_version}` or newer is recommended.
+    Playwright version `#{PlaywrightEx.recommended_min_version()}` or newer is recommended.
     Alternatively, use `ws_endpoint` to connect to a remote Playwright server instead, in which case no local node and playwright is required and `assets_dir` is ignored.
     """
   ],
@@ -209,7 +207,6 @@ defmodule PhoenixTest.Playwright.Config do
   @setup_all_keys setup_all_keys
   @merge_global_into_browser_pool_keys merge_global_into_browser_pool_keys
   @setup_keys setup_keys
-  @playwright_recommended_version playwright_recommended_version
 
   @doc false
   def schema_opts, do: @schema_opts
@@ -270,46 +267,23 @@ defmodule PhoenixTest.Playwright.Config do
   defp normalize(_key, value), do: value
 
   def __validate_assets_dir__(assets_dir) do
-    all = Application.get_env(:phoenix_test, :playwright, [])
+    config = Application.get_env(:phoenix_test, :playwright, [])
 
-    error_msg = """
-    Could not find Playwright in `#{assets_dir}`.
+    if playwright_installed?(assets_dir) or config[:ws_endpoint] do
+      {:ok, assets_dir}
+    else
+      {:error,
+       """
+       Could not find Playwright in `#{assets_dir}`.
 
-    To resolve this, either:
-    1. Install Playwright locally: `npm --prefix #{assets_dir} install playwright`
-    2. Or configure a remote Playwright server via `ws_endpoint` option
-    """
-
-    cond do
-      all[:ws_endpoint] -> {:ok, assets_dir}
-      not playwright_installed?(assets_dir) -> {:error, error_msg}
-      true -> {:ok, assets_dir}
+       To resolve this, either:
+       1. Install Playwright locally: `npm --prefix #{assets_dir} install playwright`
+       2. Or configure a remote Playwright server via `ws_endpoint` option
+       """}
     end
   end
 
   defp playwright_installed?(assets_dir) do
-    case playwright_version(assets_dir) do
-      {:ok, version} ->
-        if Version.compare(version, @playwright_recommended_version) == :lt do
-          IO.warn("Playwright version #{version} is below recommended #{@playwright_recommended_version}")
-        end
-
-        true
-
-      :error ->
-        false
-    end
-  end
-
-  defp playwright_version(assets_dir) do
-    package_json = Path.join([assets_dir, "node_modules", "playwright", "package.json"])
-
-    with {:ok, string} <- File.read(package_json),
-         {:ok, json} <- Phoenix.json_library().decode(string),
-         version when is_binary(version) <- json["version"] do
-      {:ok, version}
-    else
-      _ -> :error
-    end
+    [assets_dir, "node_modules", "playwright", "package.json"] |> Path.join() |> File.exists?()
   end
 end
