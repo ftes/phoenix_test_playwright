@@ -54,7 +54,8 @@ defmodule PhoenixTest.PlaywrightTest do
     end
 
     test "passes silently when screenshot matches baseline", %{conn: conn} do
-      assert_screenshot(conn, "baseline.png")
+      # Add max_diff_pixel_ratio to account for different font locally vs CI
+      assert_screenshot(conn, "baseline.png", max_diff_pixel_ratio: 0.01)
     end
 
     test "raises when screenshot does not match baseline", %{conn: conn} do
