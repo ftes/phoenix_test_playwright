@@ -30,6 +30,9 @@ phoenix_test-*.tar
 /traces/
 /screenshots/
 
+# Diff images produced by assert_screenshot/3 on mismatch.
+**/__diff__/
+
 # Ignore assets that are produced by build tools.
 /priv/static/assets/*
 

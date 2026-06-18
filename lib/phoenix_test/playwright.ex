@@ -321,6 +321,149 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
+  @assert_screenshot_opts_schema [
+    full_page: [
+      type: :boolean,
+      doc:
+        "When true, takes a screenshot of the full scrollable page, instead of the currently visible viewport. Defaults to `false`."
+    ],
+    omit_background: [
+      type: :boolean,
+      doc:
+        "Hides default white background and allows capturing screenshots with transparency. Not applicable to `jpeg` images. Defaults to `false`."
+    ],
+    animations: [
+      type: {:in, ["disabled", "allow"]},
+      doc:
+        ~s{When set to `"disabled"`, stops CSS animations, CSS transitions and Web Animations. Animations get different treatment depending on their duration: finite animations are fast-forwarded to completion, so they'll fire `transitionend` event. Infinite animations are canceled to initial state, and then played over after the screenshot. Defaults to `"disabled"`.}
+    ],
+    caret: [
+      type: {:in, ["hide", "initial"]},
+      doc:
+        ~s{When set to `"hide"`, screenshot will hide text caret. When set to `"initial"`, text caret behavior will not be changed. Defaults to `"hide"`.}
+    ],
+    clip: [
+      type: :map,
+      doc:
+        "An object which specifies clipping of the resulting image. `%{x: float, y: float, width: float, height: float}`."
+    ],
+    selector: [type: :string, doc: "Scope the screenshot to a CSS or Playwright selector instead of the full page."],
+    max_diff_pixels: [
+      type: :non_neg_integer,
+      doc: "An acceptable amount of pixels that could be different. Unset by default."
+    ],
+    max_diff_pixel_ratio: [
+      type: :float,
+      doc:
+        "An acceptable ratio of pixels that are different to the total amount of pixels, between `0` and `1`. Unset by default."
+    ],
+    threshold: [
+      type: :float,
+      doc:
+        "An acceptable perceived color difference in the YIQ color space between the same pixel in compared images, between zero (strict) and one (lax). Defaults to `0.2`."
+    ],
+    scale: [
+      type: {:in, ["css", "device"]},
+      doc:
+        ~s{When set to `"css"`, screenshot will have a single pixel per each css pixel on the page. For high-dpi devices, this will keep screenshots small. Using `"device"` option will produce a single pixel per each device pixel. Defaults to `"css"`.}
+    ],
+    mask: [
+      type: {:list, :string},
+      doc:
+        "Specify selectors that should be masked when the screenshot is taken. Masked elements will be overlaid with a pink box `#FF00FF` (customized by `mask_color`) that completely covers its bounding box."
+    ],
+    mask_color: [
+      type: :string,
+      doc:
+        "Specify the color of the overlay box for masked elements, in CSS color format. Default color is pink `#FF00FF`."
+    ],
+    snapshot_dir: [type: :string, doc: "Override the global `:snapshot_dir` config for this call."],
+    timeout: @timeout_opt
+  ]
+
+  @doc """
+  Visual regression assertion: compares a screenshot of the current page against a stored baseline.
+
+  `name` is a relative path within `:snapshot_dir` (see `PhoenixTest.Playwright.Config`), including
+  the file extension — for example `"home.png"` or `"auth/login.png"`. Subdirectories are created
+  automatically.
+
+  On first run (no baseline exists), the screenshot is saved as the new baseline and the test passes.
+  On subsequent runs, the live screenshot is compared pixel-by-pixel against the baseline.
+  On mismatch, a diff image is saved to `<snapshot_dir>/__diff__/<name>` and the test fails.
+
+  To update a baseline, delete the snapshot file and re-run the test.
+
+  ## Options
+  #{NimbleOptions.docs(@assert_screenshot_opts_schema)}
+
+  ## Examples
+      |> assert_screenshot("home.png")
+      |> assert_screenshot("auth/login.png", full_page: false)
+      |> assert_screenshot("hero.png", selector: ".hero-section")
+  """
+  @spec assert_screenshot(t(), String.t(), [unquote(NimbleOptions.option_typespec(@assert_screenshot_opts_schema))]) ::
+          t()
+  def assert_screenshot(conn, name, opts \\ []) do
+    opts = NimbleOptions.validate!(opts, @assert_screenshot_opts_schema)
+    {snapshot_dir, opts} = Keyword.pop(opts, :snapshot_dir, Config.global(:snapshot_dir))
+    snapshot_path = Path.join(snapshot_dir, name)
+
+    opts =
+      opts
+      |> maybe_add_expected(snapshot_path)
+      |> ensure_timeout()
+      |> maybe_convert_selector(conn.frame_id)
+      |> maybe_convert_mask(conn.frame_id)
+
+    case Page.expect_screenshot(conn.page_id, opts) do
+      {:ok, nil} ->
+        conn
+
+      {:ok, actual_b64} when is_binary(actual_b64) ->
+        write_file!(snapshot_path, actual_b64)
+        conn
+
+      {:error, %{diff: diff, custom_error_message: msg}} when is_binary(diff) ->
+        write_file!(Path.join([snapshot_dir, "__diff__", name]), diff)
+        flunk("Screenshot mismatch for #{name}: #{msg}")
+
+      {:error, %{custom_error_message: msg}} ->
+        flunk(msg)
+    end
+  end
+
+  defp maybe_add_expected(opts, snapshot_path) do
+    if File.exists?(snapshot_path) do
+      Keyword.put(opts, :expected, snapshot_path |> File.read!() |> Base.encode64())
+    else
+      opts
+    end
+  end
+
+  defp maybe_convert_selector(opts, frame_id) do
+    case Keyword.pop(opts, :selector) do
+      {nil, opts} -> opts
+      {s, opts} -> Keyword.put(opts, :locator, %{frame: %{guid: frame_id}, selector: s})
+    end
+  end
+
+  defp maybe_convert_mask(opts, frame_id) do
+    case Keyword.pop(opts, :mask) do
+      {nil, opts} ->
+        opts
+
+      {selectors, opts} ->
+        masks = Enum.map(selectors, &%{frame: %{guid: frame_id}, selector: &1})
+        Keyword.put(opts, :mask, masks)
+    end
+  end
+
+  defp write_file!(path, base64) do
+    File.mkdir_p!(Path.dirname(path))
+    File.write!(path, Base.decode64!(base64))
+  end
+
   @type_opts_schema [
     delay: [
       type: :non_neg_integer,

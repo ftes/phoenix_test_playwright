@@ -137,7 +137,9 @@ schema_opts = [
   ],
   screenshot_dir: [
     default: "screenshots",
-    type: :string
+    type: :string,
+    doc:
+      "Directory where `screenshot/3` saves files. See also `:snapshot_dir` for `assert_screenshot/3` reference images."
   ],
   selector_engines: [
     default: [],
@@ -147,6 +149,19 @@ schema_opts = [
     """
   ],
   slow_mo: browser_opts[:slow_mo],
+  snapshot_dir: [
+    default: "test/snapshots",
+    type: :string,
+    doc: """
+    Directory where `assert_screenshot/3` reads and writes baseline images.
+
+    Diff images on mismatch are written to `<snapshot_dir>/__diff__/`. Add that subdirectory to `.gitignore`:
+
+    ```
+    **/__diff__/
+    ```
+    """
+  ],
   timeout: [
     default: to_timeout(second: 2),
     type: :non_neg_integer

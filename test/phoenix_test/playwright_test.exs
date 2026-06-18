@@ -42,6 +42,97 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
+  describe "assert_screenshot/3" do
+    setup %{conn: conn} do
+      [conn: visit(conn, "/pw/live")]
+    end
+
+    @tag :tmp_dir
+    test "captures baseline on first run and writes file", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_screenshot(conn, "capture.png", snapshot_dir: tmp_dir)
+      assert File.exists?(Path.join(tmp_dir, "capture.png"))
+    end
+
+    test "passes silently when screenshot matches baseline", %{conn: conn} do
+      assert_screenshot(conn, "baseline.png")
+    end
+
+    test "raises when screenshot does not match baseline", %{conn: conn} do
+      assert_raise ExUnit.AssertionError,
+                   ~r"Screenshot mismatch for baseline\.png: \d+ pixels \(ratio \d+(?:\.\d+)? of all image pixels\) are different\.",
+                   fn ->
+                     conn
+                     |> visit("/pw/other")
+                     |> assert_screenshot("baseline.png")
+                   end
+
+      on_exit(fn -> File.rm!("test/snapshots/__diff__/baseline.png") end)
+    end
+
+    @tag :tmp_dir
+    test "raises on invalid clip option", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_raise ExUnit.AssertionError,
+                   ~r"Expected options.clip.width not to be 0.",
+                   fn ->
+                     assert_screenshot(conn, "clip.png",
+                       snapshot_dir: tmp_dir,
+                       clip: %{x: 0, y: 0, width: 0, height: 100}
+                     )
+                   end
+    end
+
+    @tag :tmp_dir
+    test "creates subdirectory for nested name", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_screenshot(conn, "subdir/nested.png", snapshot_dir: tmp_dir)
+      assert File.exists?(Path.join(tmp_dir, "subdir/nested.png"))
+    end
+
+    @tag :tmp_dir
+    test "scopes screenshot to element when selector opt is given", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_screenshot(conn, "selector.png", selector: "h1", snapshot_dir: tmp_dir)
+
+      # Change the color of a sibling element — full-page screenshot would differ, but scoped to h1 it still matches
+      conn
+      |> evaluate("document.querySelector('#drag-source').style.backgroundColor = 'blue'")
+      |> assert_screenshot("selector.png", selector: "h1", snapshot_dir: tmp_dir)
+    end
+
+    @tag :tmp_dir
+    test "masks elements so changes within them don't cause mismatch", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_screenshot(conn, "mask.png", mask: ["h1"], snapshot_dir: tmp_dir)
+
+      # Change the h1 text — masked element differs, but screenshot still matches
+      conn
+      |> evaluate("document.querySelector('h1').textContent = 'changed'")
+      |> assert_screenshot("mask.png", mask: ["h1"], snapshot_dir: tmp_dir)
+    end
+
+    @tag :tmp_dir
+    test "writes diff file when mismatch produces a diff image", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_screenshot(conn, "diff.png", selector: "h1", snapshot_dir: tmp_dir)
+
+      assert_raise ExUnit.AssertionError,
+                   ~r/Screenshot mismatch for diff\.png: \d+ pixels \(ratio \d+(?:\.\d+)? of all image pixels\) are different./,
+                   fn ->
+                     conn
+                     |> evaluate("document.querySelector('h1').style.color = 'red'")
+                     |> assert_screenshot("diff.png", selector: "h1", snapshot_dir: tmp_dir)
+                   end
+
+      assert File.exists?(Path.join([tmp_dir, "__diff__", "diff.png"]))
+    end
+
+    test "raises without writing diff when comparison times out", %{conn: conn} do
+      assert_raise ExUnit.AssertionError, ~r"Timeout 1ms exceeded.", fn ->
+        conn
+        |> visit("/pw/other")
+        |> assert_screenshot("baseline.png", timeout: 1)
+      end
+
+      refute File.exists?("test/snapshots/__diff__/baseline.png")
+    end
+  end
+
   describe "browser dialog handling: accept_dialogs config and with_dialog/3" do
     test "accepts dialog by default", %{conn: conn} do
       conn
