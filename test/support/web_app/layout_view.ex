@@ -9,7 +9,7 @@ defmodule PhoenixTest.WebApp.LayoutView do
   def render("root.html", assigns) do
     ~H"""
     <!DOCTYPE html>
-    <html lang="en" class="[scrollbar-gutter:stable]">
+    <html lang="en">
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
