@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup languages
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4.1.0
       - name: Install dependencies
         run: mix do deps.get, deps.compile
       - name: Check Formatting
@@ -88,7 +88,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup languages
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4.1.0
       - name: Install dependencies
         run: mix do deps.get, deps.compile
       - name: Install JS dependencies, build assets and install browsers
