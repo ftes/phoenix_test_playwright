@@ -424,11 +424,11 @@ defmodule PhoenixTest.Playwright do
         write_file!(snapshot_path, actual_b64)
         conn
 
-      {:error, %{diff: diff, custom_error_message: msg}} when is_binary(diff) ->
+      {:error, {_, %{diff: diff, custom_error_message: msg}}} when is_binary(diff) ->
         write_file!(Path.join([snapshot_dir, "__diff__", name]), diff)
         flunk("Screenshot mismatch for #{name}: #{msg}")
 
-      {:error, %{custom_error_message: msg}} ->
+      {:error, {_, %{custom_error_message: msg}}} ->
         flunk(msg)
     end
   end
