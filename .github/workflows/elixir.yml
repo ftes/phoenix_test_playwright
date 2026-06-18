@@ -37,7 +37,7 @@ jobs:
         run: mix compile --warnings-as-errors
       - name: Restore Dialyzer PLT cache
         id: plt_cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           key: plt-${{ runner.os }}-${{ hashFiles('.tool-versions') }}-${{ hashFiles('**/mix.lock') }}
           restore-keys: plt-${{ runner.os }}-${{ hashFiles('.tool-versions') }}
@@ -47,7 +47,7 @@ jobs:
         run: mix dialyzer --plt
       - name: Save PLT cache
         id: plt_cache_save
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         if: steps.plt_cache.outputs.cache-hit != 'true'
         with:
           key: plt-${{ runner.os }}-${{ hashFiles('.tool-versions') }}-${{ hashFiles('**/mix.lock') }}
