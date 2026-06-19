@@ -5,11 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
-## Unreleased
+## [0.15.0] 2026-06-19
+### Added
+- `assert_screenshot/3`: visual regression testing. Commit [18353cc], [@Wigny], #181
+### Changed
+- Validate keyword options instead of silently ignoring unknown keys. Commit [aacc30c], #180
+- `visit/3`: Accept all supported options for `goto`. Commit [7f126e0], [@s3cur3], #171
+- `assert_has/3`, `refute_has/3`: Honour options `checked`, `selected`. Commit [43c689e], #179
 ### Fixed
-- `assert_has/3` and `refute_has/3` now honor the `checked:` and `selected:` options.
-- Public option-taking APIs now validate supported options instead of silently ignoring unknown keys.
-- `submit/1` no longer relies on pressing Enter, so forms submit consistently when the last interacted element is a select.
+- `submit/1`: submit form properly if last interacted input was a 'select' (don't submit via 'Enter' press due to varying OS behaviour). Commit [d85dfc8], #165
 
 ## [0.14.0] 2026-05-05
 ### Added
@@ -254,3 +258,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [74eb3a7]: https://github.com/ftes/phoenix_test_playwright/commit/74eb3a7
 [281d71a]: https://github.com/ftes/phoenix_test_playwright/commit/281d71a
 [0a8538c]: https://github.com/ftes/phoenix_test_playwright/commit/0a8538c
+[18353cc]: https://github.com/ftes/phoenix_test_playwright/commit/18353cc
+[aacc30c]: https://github.com/ftes/phoenix_test_playwright/commit/aacc30c
+[7f126e0]: https://github.com/ftes/phoenix_test_playwright/commit/7f126e0
+[43c689e]: https://github.com/ftes/phoenix_test_playwright/commit/43c689e
