@@ -727,9 +727,9 @@ defmodule PhoenixTest.Playwright do
       |> Selector.and(Selector.label(opts[:label], exact: true))
       |> Selector.and(checked_selector(opts[:checked]))
       |> selector_has(selected_selector(opts[:selected]))
-      |> Selector.concat("visible=true")
       |> Selector.concat(Selector.text(opts[:text], opts))
       |> Selector.concat(Selector.value(opts[:value]))
+      |> Selector.concat("visible=true")
 
     params =
       case Map.new(opts) do
