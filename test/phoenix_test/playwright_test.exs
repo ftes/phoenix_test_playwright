@@ -222,6 +222,16 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
+  describe "assert_has/3 visibility" do
+    test "finds visible text when a hidden text match appears first", %{conn: conn} do
+      conn
+      |> visit("/pw/live")
+      |> assert_has("#hidden-text-repro .visible", text: "Text to find")
+      |> assert_has("#hidden-text-repro", text: "Text to find")
+      |> assert_has("#hidden-text-repro", text: "Text to find", count: 1)
+    end
+  end
+
   describe "assert_download/2" do
     test "asserts a download triggered by clicking a link", %{conn: conn} do
       conn

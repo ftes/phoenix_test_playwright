@@ -37,6 +37,11 @@ defmodule PhoenixTest.Playwright.Live do
       <div id="drag-source" style="background: yellow;" draggable="true">Drag this</div>
       <div id="drag-target" style="border: 1px dashed black;" ondrop="document.getElementById('drag-status').innerHTML = 'dropped'">Drop here</div>
     </div>
+
+    <div id="hidden-text-repro">
+      <span style="display: none">Text to find</span>
+      <span class="visible">Text to find</span>
+    </div>
     """
   end
 
