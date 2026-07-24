@@ -6,6 +6,7 @@ defmodule PhoenixTest.Playwright.BrowserPool do
 
   Pools are defined up front.
   Browsers are launched lazily.
+  All launched browsers are closed before the pool terminates.
   """
 
   use GenServer
@@ -80,7 +81,7 @@ defmodule PhoenixTest.Playwright.BrowserPool do
     timeout = Config.global(:timeout)
 
     for browser_id <- state.available ++ Map.keys(state.in_use) do
-      spawn(fn -> PlaywrightEx.Browser.close(browser_id, timeout: timeout) end)
+      PlaywrightEx.Browser.close(browser_id, timeout: timeout)
     end
   end
 

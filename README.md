@@ -67,6 +67,10 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
     Application.put_env(:phoenix_test, :base_url, YourAppWeb.Endpoint.url())
     ```
 
+    Graceful ExUnit and application shutdown waits for browser contexts and
+    browsers to close. Abrupt termination such as `SIGKILL` cannot run this
+    cleanup.
+
 5. Use in test
 
     ```elixir
