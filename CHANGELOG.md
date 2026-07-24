@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 ### Fixed
 - Fix for `assert_has(selector, text: ...)` failing when a hidden text match precedes a visible one in DOM order (#194)
+- Wait for browser contexts and browsers to close during graceful ExUnit and application shutdown (#205)
 
 ## [0.15.0] 2026-06-19
 ### Added

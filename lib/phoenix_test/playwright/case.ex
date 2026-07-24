@@ -11,6 +11,9 @@ defmodule PhoenixTest.Playwright.Case do
   - using config opt `browser_context_opts`, which are passed to `PlaywrightEx.Browser.new_context/2`
   - using config opt `browser_page_opts`, which are passed to `PlaywrightEx.BrowserContext.new_page/2`
   - implementing your own `Case` (the setup functions in this module are public for your convenience)
+
+  Browser contexts and non-pooled browsers are closed before their ExUnit
+  teardown callbacks return.
   """
 
   use ExUnit.CaseTemplate
@@ -95,7 +98,8 @@ defmodule PhoenixTest.Playwright.Case do
     timeout = Keyword.fetch!(config, :browser_launch_timeout)
     browser = PhoenixTest.Playwright.Browser.launch_browser!(config)
 
-    on_exit(fn -> spawn(fn -> Browser.close(browser.guid, timeout: timeout) end) end)
+    on_exit(fn -> Browser.close(browser.guid, timeout: timeout) end)
+
     browser.guid
   end
 
@@ -111,7 +115,8 @@ defmodule PhoenixTest.Playwright.Case do
     {:ok, page} = BrowserContext.new_page(browser_context.guid, page_opts)
     {:ok, _} = Page.update_subscription(page.guid, event: :console, enabled: true, timeout: config[:timeout])
     {:ok, _} = Page.update_subscription(page.guid, event: :dialog, enabled: true, timeout: config[:timeout])
-    on_exit(fn -> spawn(fn -> BrowserContext.close(browser_context.guid, timeout: config[:timeout]) end) end)
+
+    on_exit(fn -> BrowserContext.close(browser_context.guid, timeout: config[:timeout]) end)
 
     if config[:trace], do: trace(browser_context.tracing.guid, config, context)
 
