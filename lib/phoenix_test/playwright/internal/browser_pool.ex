@@ -80,9 +80,12 @@ defmodule PhoenixTest.Playwright.BrowserPool do
   def terminate(_reason, state) do
     timeout = Config.global(:timeout)
 
-    for browser_id <- state.available ++ Map.keys(state.in_use) do
-      PlaywrightEx.Browser.close(browser_id, timeout: timeout)
-    end
+    tasks =
+      for browser_id <- state.available ++ Map.keys(state.in_use) do
+        Task.async(fn -> PlaywrightEx.Browser.close(browser_id, timeout: timeout) end)
+      end
+
+    Task.await_many(tasks, :infinity)
   end
 
   @doc false
