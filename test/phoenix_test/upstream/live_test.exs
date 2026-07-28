@@ -802,6 +802,7 @@ defmodule PhoenixTest.LiveTest do
       |> within("#not-a-form", fn session ->
         session
         |> check("Second Breakfast")
+        |> assert_has("#second-breakfast:checked")
         |> uncheck("Second Breakfast")
       end)
       |> refute_has("#form-data", text: "value: second-breakfast")
