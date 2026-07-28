@@ -629,6 +629,7 @@ defmodule PhoenixTest.WebApp.IndexLive do
             id="second-breakfast"
             name="second-breakfast"
             value="second-breakfast"
+            checked={@form_data["value"] == "second-breakfast"}
           />
           <label for="second-breakfast">Second Breakfast</label>
         </div>
