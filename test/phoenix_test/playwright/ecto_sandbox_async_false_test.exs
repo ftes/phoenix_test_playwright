@@ -1,18 +1,20 @@
 defmodule PhoenixTest.Playwright.EctoSandboxAsyncFalseTest do
   use PhoenixTest.Playwright.Case, async: false
 
+  import PhoenixTest.TestHelpers, only: [set_html: 2]
+
   describe "new_session/2" do
     test "can create a second session in the same async: false test", context do
       context.conn
-      |> visit("/pw/live")
-      |> assert_has("h1", text: "Playwright")
+      |> set_html("<h1>First session</h1>")
+      |> assert_has("h1", text: "First session")
 
       config = PhoenixTest.Playwright.Config.validate!(%{})
       conn2 = PhoenixTest.Playwright.Case.new_session(config, context)
 
       conn2
-      |> visit("/pw/other")
-      |> assert_has("h1", text: "Other")
+      |> set_html("<h1>Second session</h1>")
+      |> assert_has("h1", text: "Second session")
     end
   end
 

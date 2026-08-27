@@ -20,8 +20,7 @@ defmodule PhoenixTest.Playwright.BrowserLaunchOptsTest do
 
   test "getUserMedia succeeds with fake media device flags", %{conn: conn} do
     conn
-    |> visit("/pw/live")
-    |> assert_has("h1")
+    |> visit("/pw/blank")
     |> evaluate(
       """
       navigator.mediaDevices.getUserMedia({ audio: true })
@@ -47,8 +46,7 @@ defmodule PhoenixTest.Playwright.BrowserLaunchOptsWithoutFlagsTest do
 
   test "getUserMedia fails without fake media device flags", %{conn: conn} do
     conn
-    |> visit("/pw/live")
-    |> assert_has("h1")
+    |> visit("/pw/blank")
     |> evaluate(
       """
       navigator.mediaDevices.getUserMedia({ audio: true })

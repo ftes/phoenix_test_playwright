@@ -1,14 +1,24 @@
 defmodule PhoenixTest.StepTest do
   use PhoenixTest.Playwright.Case, async: true
 
+  import PhoenixTest.TestHelpers, only: [set_html: 2]
+
   alias PlaywrightEx.Tracing
+
+  @html """
+  <input
+    id="text-input"
+    oninput="document.querySelector('#changed-form-data').textContent = `text: ${this.value}`"
+  />
+  <div id="changed-form-data"></div>
+  """
 
   describe "step/3" do
     test "produces labels that can be seen in the trace viewer", %{conn: conn} do
       start_tracing(conn)
 
       conn
-      |> visit("/pw/live")
+      |> set_html(@html)
       |> step("Fill in form with test data", fn conn ->
         conn
         |> step("Type into text input", fn conn ->
@@ -20,9 +30,9 @@ defmodule PhoenixTest.StepTest do
       end)
 
       trace = stop_tracing(conn)
-      assert trace =~ ~r/Fill in form with test data.*step_test.exs.*"line":12/
-      assert trace =~ ~r/Type into text input.*"line":14/
-      assert trace =~ ~r/Verify form data changed.*"line":17/
+      assert trace =~ ~r/Fill in form with test data.*step_test.exs.*"line":22/
+      assert trace =~ ~r/Type into text input.*step_test.exs.*"line":24/
+      assert trace =~ ~r/Verify form data changed.*step_test.exs.*"line":27/
     end
   end
 

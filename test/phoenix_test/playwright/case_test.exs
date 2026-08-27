@@ -1,11 +1,13 @@
 defmodule PhoenixTest.Playwright.CaseTest do
   use PhoenixTest.Playwright.Case, async: true
 
+  import PhoenixTest.TestHelpers, only: [set_html: 2]
+
   describe "@tag :screenshot" do
     @tag :screenshot
     test "saves screenshot on test exit (for verification in CI)", %{conn: conn} do
       conn
-      |> visit("/pw/live")
+      |> set_html("<h1>Screenshot on exit</h1>")
       |> assert_has("h1")
     end
   end
@@ -14,7 +16,7 @@ defmodule PhoenixTest.Playwright.CaseTest do
     @tag :trace
     test "saves trace on test exit (for verification in CI)", %{conn: conn} do
       conn
-      |> visit("/pw/live")
+      |> set_html("<h1>Trace on exit</h1>")
       |> assert_has("h1")
     end
   end

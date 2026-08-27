@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - Document where Playwright's accessible-name and label-locator semantics intentionally differ from PhoenixTest's HTML parser.
+- Isolate Playwright-specific tests with test-local markup instead of a shared LiveView fixture.
 
 ### Fixed
 - Fix for `assert_has(selector, text: ...)` failing when a hidden text match precedes a visible one in DOM order (#194)
