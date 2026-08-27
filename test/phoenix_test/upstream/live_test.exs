@@ -669,7 +669,7 @@ defmodule PhoenixTest.LiveTest do
       |> assert_has("#form-data", text: "pet: dog")
     end
 
-    @tag skip: "not-implemented"
+    @tag skip: "Playwright selectOption only matches option labels exactly"
     test "can target an option's text with exact_option: false", %{conn: conn} do
       conn
       |> visit("/live/index")

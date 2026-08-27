@@ -625,5 +625,20 @@ defmodule PhoenixTest.PlaywrightTest do
       |> refute_has("input", label: "ARIA Search")
       |> refute_has("input", label: "HTML Search")
     end
+
+    test "honors exact matching for assertion labels", %{conn: conn} do
+      conn =
+        set_html(conn, """
+        <label for="name">Account name <span>*</span></label>
+        <input id="name" value="Frodo" />
+        """)
+
+      assert_has(conn, "input", label: "Account name", value: "Frodo", exact: false)
+      refute_has(conn, "input", label: "Account name", value: "Frodo", exact: true)
+
+      assert_raise ExUnit.AssertionError, fn ->
+        refute_has(conn, "input", label: "Account name", value: "Frodo", exact: false)
+      end
+    end
   end
 end

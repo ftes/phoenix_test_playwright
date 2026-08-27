@@ -627,7 +627,7 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def assert_has(conn, "title") do
-    if not has_title?(conn, text: ""), do: flunk("Page does not have a title")
+    if not has_title_element?(conn), do: flunk("Page does not have a title")
     conn
   end
 
@@ -646,7 +646,10 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def refute_has(conn, "title") do
-    if not has_title?(conn, text: ""), do: flunk("Page has a title")
+    if has_title_element?(conn, is_not: true) do
+      flunk("Expected title not to be present but found: #{inspect(render_page_title(conn))}")
+    end
+
     conn
   end
 
@@ -654,7 +657,11 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def refute_has(conn, "title", opts) do
-    if not has_title?(conn, opts, is_not: true), do: flunk("Page title matches")
+    if has_title?(conn, opts, is_not: true) do
+      expected = opts |> Keyword.fetch!(:text) |> ensure_binary()
+      flunk("Expected title not to be #{inspect(expected)}")
+    end
+
     conn
   end
 
@@ -701,6 +708,7 @@ defmodule PhoenixTest.Playwright do
 
   defp has_title?(conn, opts, params \\ []) do
     {text, opts} = opts |> NimbleOptions.validate!(@title_assertion_opts_schema) |> Keyword.pop!(:text)
+    text = ensure_binary(text)
 
     params =
       Keyword.merge(
@@ -716,15 +724,35 @@ defmodule PhoenixTest.Playwright do
     matches?
   end
 
+  defp has_title_element?(conn, params \\ []) do
+    params =
+      Keyword.merge(
+        [
+          expression: "to.be.attached",
+          selector: Selector.css("title"),
+          timeout: timeout()
+        ],
+        params
+      )
+
+    {:ok, matches?} = Frame.expect(conn.frame_id, params)
+    matches?
+  end
+
   defp found?(conn, selector, opts, other_opts \\ []) do
-    opts = validate_assertion_opts!(opts)
+    opts = opts |> validate_assertion_opts!() |> normalize_assertion_content()
     other_opts = Keyword.validate!(other_opts, is_not: false)
+
+    if opts[:count] && opts[:at] do
+      raise(ArgumentError, message: "Options `count` and `at` can not be used together")
+    end
 
     selector =
       conn
       |> maybe_within()
       |> Selector.concat(Selector.css(selector))
-      |> Selector.and(Selector.label(opts[:label], exact: true))
+      |> Selector.concat(assertion_position(opts[:at]))
+      |> Selector.and(Selector.label(opts[:label], opts))
       |> Selector.and(checked_selector(opts[:checked]))
       |> selector_has(selected_selector(opts[:selected]))
       |> Selector.concat(Selector.text(opts[:text], opts))
@@ -733,14 +761,11 @@ defmodule PhoenixTest.Playwright do
 
     params =
       case Map.new(opts) do
-        %{count: _, at: _} ->
-          raise(ArgumentError, message: "Options `count` and `at` can not be used together")
-
         %{count: count} ->
           [expression: "to.have.count", expected_number: count, selector: Selector.build(selector)]
 
         _ ->
-          selector = Selector.concat(selector, Selector.at(opts[:at] || 0))
+          selector = Selector.concat(selector, if(opts[:at], do: :none, else: Selector.at(0)))
           [expression: "to.be.visible", selector: selector]
       end
 
@@ -773,6 +798,15 @@ defmodule PhoenixTest.Playwright do
     opts
   end
 
+  defp normalize_assertion_content(opts) do
+    Enum.reduce([:text, :value, :selected], opts, fn key, opts ->
+      if Keyword.has_key?(opts, key), do: Keyword.update!(opts, key, &ensure_binary/1), else: opts
+    end)
+  end
+
+  defp assertion_position(nil), do: :none
+  defp assertion_position(at), do: Selector.at(at - 1)
+
   defp checked_selector(nil), do: :none
   defp checked_selector(true), do: Selector.css(":checked")
   defp checked_selector(false), do: Selector.css(":not(:checked)")
@@ -782,7 +816,7 @@ defmodule PhoenixTest.Playwright do
   defp selected_selector(selected) do
     "option:checked"
     |> Selector.css()
-    |> Selector.concat(Selector.text(to_string(selected), exact: true))
+    |> Selector.concat(Selector.text(selected, exact: true))
   end
 
   defp selector_has(selector, :none), do: selector
@@ -1090,6 +1124,9 @@ defmodule PhoenixTest.Playwright do
 
     %{conn | last_input_selector: selector}
   end
+
+  defp ensure_binary(value) when is_binary(value), do: value
+  defp ensure_binary(value), do: value |> Phoenix.HTML.Safe.to_iodata() |> IO.iodata_to_binary()
 
   defp maybe_within(conn) do
     case conn.within do

@@ -137,6 +137,8 @@ parser in a few edge cases:
   after finding a visible-text match.
 - Form actions and `assert_has(label: ...)` use Playwright's label locator. If
   a control has both an HTML `<label>` and an ARIA name, use the ARIA name.
+  Label assertions default to substring matching and honor `exact: true` for a
+  complete-label match.
 - Playwright's label locator matches each `aria-labelledby` reference
   separately; it does not match one string spanning multiple referenced
   elements. Prefer one referenced element containing the complete label, or
@@ -146,6 +148,10 @@ These differences only matter when an element has competing names or an
 `aria-labelledby` value referencing multiple elements. Ordinary HTML labels,
 `aria-label`, and single-reference `aria-labelledby` locators work across
 links, buttons, form actions, and assertions.
+
+Playwright's native option selection matches option labels exactly. Therefore,
+`select(..., exact_option: false)` is not supported; use the option's complete
+label with the default `exact_option: true` behavior.
 
 
 ## Configuration

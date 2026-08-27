@@ -96,7 +96,6 @@ defmodule PhoenixTest.AssertionsTest do
       |> assert_has(".has_extra_space", text: "Has extra space")
     end
 
-    @tag skip: "not-implemented"
     test "succeeds for non-binary text with Phoenix.HTML.Safe implementation", %{
       conn: conn
     } do
@@ -123,7 +122,6 @@ defmodule PhoenixTest.AssertionsTest do
       |> assert_has("input", value: "Frodo")
     end
 
-    @tag skip: "not-implemented"
     test "succeeds when asserting by non-binary value with Phoenix.HTML.Safe implementation", %{conn: conn} do
       conn
       |> visit("/page/by_value")
@@ -513,7 +511,6 @@ defmodule PhoenixTest.AssertionsTest do
       end
     end
 
-    @tag skip: "investigate"
     test "accepts an `at` option to assert on a specific element", %{conn: conn} do
       conn
       |> visit("/page/index")
@@ -562,7 +559,6 @@ defmodule PhoenixTest.AssertionsTest do
       |> refute_has("[data-role='invalid-role']")
     end
 
-    @tag skip: "investigate"
     test "can refute presence of title (Static)", %{conn: conn} do
       conn
       |> visit("/page/index")
@@ -599,7 +595,6 @@ defmodule PhoenixTest.AssertionsTest do
       end
     end
 
-    @tag skip: "investigate"
     test "raises if title is found", %{conn: conn} do
       msg =
         ignore_whitespace("""
@@ -658,7 +653,6 @@ defmodule PhoenixTest.AssertionsTest do
   end
 
   describe "refute_has/3" do
-    @tag skip: "investigate"
     test "can be used to refute on page title (Static)", %{conn: conn} do
       conn
       |> visit("/page/index")
@@ -668,7 +662,6 @@ defmodule PhoenixTest.AssertionsTest do
       |> refute_has("title", "Not this title either")
     end
 
-    @tag skip: "investigate"
     test "can be used to refute on page title (Live)", %{conn: conn} do
       conn
       |> visit("/live/index")
@@ -678,7 +671,6 @@ defmodule PhoenixTest.AssertionsTest do
       |> refute_has("title", "Not this title either")
     end
 
-    @tag skip: "investigate"
     test "can be used to refute page title's exactness", %{conn: conn} do
       conn
       |> visit("/live/index")
@@ -686,7 +678,6 @@ defmodule PhoenixTest.AssertionsTest do
       |> refute_has("title", "PhoenixTest is the", exact: true)
     end
 
-    @tag skip: "investigate"
     test "raises if title matches value (Static)", %{conn: conn} do
       msg =
         ignore_whitespace("""
@@ -706,7 +697,6 @@ defmodule PhoenixTest.AssertionsTest do
       end
     end
 
-    @tag skip: "investigate"
     test "raises if title matches value (Live)", %{conn: conn} do
       msg =
         ignore_whitespace("""
@@ -819,7 +809,6 @@ defmodule PhoenixTest.AssertionsTest do
       end
     end
 
-    @tag skip: "not-implemented"
     test "accepts non-binary text with Phoenix.HTML.Safe implementation", %{conn: conn} do
       conn
       |> visit("/page/index")
@@ -839,18 +828,9 @@ defmodule PhoenixTest.AssertionsTest do
       |> refute_has("#multiple-items li", at: 2, text: "Aragorn")
     end
 
-    @tag skip: "investigate"
     test "raises if it finds element at `at` position", %{conn: conn} do
-      msg =
-        ignore_whitespace("""
-        Expected not to find any elements with selector "#multiple-items li" and text "Legolas" at position 2
-
-        But found 1:
-
-        <li>Legolas</li>
-        """)
-
-      assert_raise AssertionError, msg, fn ->
+      # Playwright reports its locator rather than rendered matching elements.
+      assert_raise AssertionError, ~r/Found element/, fn ->
         conn
         |> visit("/page/index")
         |> refute_has("#multiple-items li", at: 2, text: "Legolas")
@@ -863,7 +843,6 @@ defmodule PhoenixTest.AssertionsTest do
       |> refute_has("input", value: "not-frodo")
     end
 
-    @tag skip: "not-implemented"
     test "can refute by non-binary value with Phoenix.HTML.Safe implementation", %{conn: conn} do
       conn
       |> visit("/page/by_value")

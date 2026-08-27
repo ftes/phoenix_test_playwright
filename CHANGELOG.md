@@ -12,9 +12,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - Document where Playwright's accessible-name and label-locator semantics intentionally differ from PhoenixTest's HTML parser.
+- Document that `select(..., exact_option: false)` is unsupported because Playwright selects option labels exactly.
 - Isolate Playwright-specific tests with test-local markup instead of a shared LiveView fixture.
 
 ### Fixed
+- Match PhoenixTest assertion semantics for label exactness, one-based `at` positions, title refutations, and `Phoenix.HTML.Safe` text and values.
 - Fix for `assert_has(selector, text: ...)` failing when a hidden text match precedes a visible one in DOM order (#194)
 - Make `click(selector, text)` click the selector element containing visible text without hidden duplicate text descendants causing a strictness failure (#220)
 - Wait for browser contexts and browsers to close during graceful ExUnit and application shutdown,
