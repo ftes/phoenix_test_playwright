@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Isolate Playwright-specific tests with test-local markup instead of a shared LiveView fixture.
 
 ### Fixed
+- Eliminate compiler warnings under Elixir 1.20.
 - Match PhoenixTest assertion semantics for label exactness, one-based `at` positions, title refutations, and `Phoenix.HTML.Safe` text and values.
 - Fix for `assert_has(selector, text: ...)` failing when a hidden text match precedes a visible one in DOM order (#194)
 - Make `click(selector, text)` click the selector element containing visible text without hidden duplicate text descendants causing a strictness failure (#220)

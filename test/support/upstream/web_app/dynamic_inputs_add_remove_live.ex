@@ -1,7 +1,6 @@
 defmodule PhoenixTest.WebApp.DynamicInputsAddRemoveLive do
   @moduledoc false
   use Phoenix.LiveView
-  use Phoenix.Component
 
   # Based on the LiveView docs example:
   # https://hexdocs.pm/phoenix_live_view/Phoenix.Component.html#inputs_for/1-dynamically-adding-and-removing-inputs

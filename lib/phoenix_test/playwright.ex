@@ -32,8 +32,6 @@ defmodule PhoenixTest.Playwright do
   alias PlaywrightEx.Selector
   alias PlaywrightEx.Tracing
 
-  require Logger
-
   defstruct [
     :context_id,
     :page_id,

@@ -30,7 +30,6 @@ end
 defmodule PhoenixTest.WebApp.OrdinalInputsLive do
   @moduledoc false
   use Phoenix.LiveView
-  use Phoenix.Component
 
   import PhoenixTest.WebApp.Components
 
