@@ -1022,7 +1022,7 @@ defmodule PhoenixTest.Playwright do
     opts = NimbleOptions.validate!(opts, @fill_in_opts_schema)
     {value, opts} = Keyword.pop!(opts, :with)
     fun = &Frame.fill(conn.frame_id, selector: &1, value: to_string(value), timeout: timeout(opts))
-    input(conn, css_selector, label, opts, fun)
+    input(conn, css_selector || "input:not([type='hidden']),textarea", label, opts, fun, blur: true)
   end
 
   @doc false
@@ -1036,28 +1036,28 @@ defmodule PhoenixTest.Playwright do
     {label, opts} = Keyword.pop!(opts, :from)
     options = option_labels |> List.wrap() |> Enum.map(&%{label: &1})
     fun = &Frame.select_option(conn.frame_id, selector: &1, options: options, timeout: timeout(opts))
-    input(conn, css_selector, label, opts, fun)
+    input(conn, css_selector || "select", label, opts, fun)
   end
 
   @doc false
   def check(conn, css_selector \\ nil, label, opts) do
     opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
     fun = &Frame.check(conn.frame_id, selector: &1, timeout: timeout(opts))
-    input(conn, css_selector, label, opts, fun)
+    input(conn, css_selector || "input[type='checkbox']", label, opts, fun)
   end
 
   @doc false
   def uncheck(conn, css_selector \\ nil, label, opts) do
     opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
     fun = &Frame.uncheck(conn.frame_id, selector: &1, timeout: timeout(opts))
-    input(conn, css_selector, label, opts, fun)
+    input(conn, css_selector || "input[type='checkbox']", label, opts, fun)
   end
 
   @doc false
   def choose(conn, css_selector \\ nil, label, opts) do
     opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
     fun = &Frame.check(conn.frame_id, selector: &1, timeout: timeout(opts))
-    input(conn, css_selector, label, opts, fun)
+    input(conn, css_selector || "input[type='radio']", label, opts, fun)
   end
 
   @doc false
@@ -1065,18 +1065,17 @@ defmodule PhoenixTest.Playwright do
     opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
     paths = paths |> List.wrap() |> Enum.map(&Path.expand/1)
     fun = &Frame.set_input_files(conn.frame_id, selector: &1, local_paths: paths, timeout: timeout(opts))
-    input(conn, css_selector, label, opts, fun)
+    input(conn, css_selector || "input[type='file']", label, opts, fun)
   end
 
-  defp input(conn, css_selector, label, opts, fun) do
+  defp input(conn, css_selector, label, opts, fun, input_opts \\ []) do
     selector =
       conn
       |> maybe_within()
       |> Selector.concat(
-        case css_selector do
-          nil -> Selector.label(label, opts)
-          css -> css |> Selector.css() |> Selector.and(Selector.label(label, opts))
-        end
+        css_selector
+        |> Selector.css()
+        |> Selector.and(Selector.label(label, opts))
       )
       |> Selector.concat("visible=true")
       |> Selector.build()
@@ -1085,8 +1084,9 @@ defmodule PhoenixTest.Playwright do
     |> fun.()
     |> handle_response(selector)
 
-    # trigger phx-change if phx-debounce="blur"
-    Frame.blur(conn.frame_id, selector: selector, timeout: timeout(opts))
+    # Trigger phx-change for text inputs using phx-debounce="blur". Other
+    # controls dispatch their change event as part of the Playwright action.
+    if input_opts[:blur], do: Frame.blur(conn.frame_id, selector: selector, timeout: timeout(opts))
 
     %{conn | last_input_selector: selector}
   end

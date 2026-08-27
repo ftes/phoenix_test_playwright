@@ -6,6 +6,9 @@ defmodule PhoenixTest.WebApp.PageView do
     <h1 id="title" class="title" data-role="title">Main page</h1>
 
     <a href="/page/page_2?foo=bar">Page 2</a>
+    <a href="/page/page_2" aria-label="Go-to-page-2-aria">asdfsda</a>
+    <span id="go-to-page-2-labelledby">Go-to-page-2-labelledby</span>
+    <a href="/page/page_2" aria-labelledby="go-to-page-2-labelledby">asdfsda</a>
 
     <a href="/page/no_page?redirect_to=/page/index">Navigate away and redirect back</a>
 
@@ -47,6 +50,15 @@ defmodule PhoenixTest.WebApp.PageView do
 
     <form action="/page/get_record">
       <button>Get record</button>
+    </form>
+
+    <form action="/page/get_record">
+      <button aria-label="get-me-aria">adfad</button>
+    </form>
+
+    <span id="get-me-labelledby">get-me-labelledby</span>
+    <form action="/page/get_record">
+      <button aria-labelledby="get-me-labelledby">adfad</button>
     </form>
 
     <form action="/page/update_record" method="post">
@@ -140,6 +152,18 @@ defmodule PhoenixTest.WebApp.PageView do
       <label for="level">Level (number)</label>
       <input id="level" type="number" name="level" value="7" />
 
+      <input name="secret_name" aria-label="Secret Name" />
+
+      <input type="hidden" name="aria_enabled" value="off" />
+      <input type="checkbox" name="aria_enabled" value="on" aria-label="Aria Enabled" />
+
+      <select name="aria_choice" aria-label="Aria Choice">
+        <option value="human">Human</option>
+        <option value="elf">Elf</option>
+      </select>
+
+      <input type="radio" name="aria_contact" value="email" aria-label="Aria Email" />
+
       <label for="race">Race</label>
       <select id="race" name="race">
         <option value="human">Human</option>
@@ -194,7 +218,7 @@ defmodule PhoenixTest.WebApp.PageView do
       enctype="multipart/form-data"
     >
       <label for="avatar">Avatar</label>
-      <input id="avatar" name="avatar" type="file" />
+      <input id="avatar" name="avatar" type="file" aria-label="Aria Avatar" />
 
       <label for="nested_avatar">Nested Avatar</label>
       <input id="nested_avatar" name="user[avatar]" type="file" />
@@ -290,6 +314,19 @@ defmodule PhoenixTest.WebApp.PageView do
       <input id="array-item-three" type="checkbox" name="items[]" value="three" />
 
       <button type="submit">Save Array Checkbox Form</button>
+    </form>
+
+    <form id="mixed-array-checkbox-form" method="post" action="/page/create_record">
+      <input type="hidden" name="mixed_items" value="" />
+
+      <label for="mixed-array-item-one">Mixed One</label>
+      <input id="mixed-array-item-one" type="checkbox" name="mixed_items[]" value="one" checked />
+
+      <label for="mixed-array-item-two">Mixed Two</label>
+      <input id="mixed-array-item-two" type="checkbox" name="mixed_items[]" value="two" checked />
+
+      <label for="mixed-array-item-three">Mixed Three</label>
+      <input id="mixed-array-item-three" type="checkbox" name="mixed_items[]" value="three" />
     </form>
 
     <form id="same-labels" action="/page/create_record" method="post">
@@ -434,6 +471,29 @@ defmodule PhoenixTest.WebApp.PageView do
         Merry
       </label>
       <input id="merry-checkbox" class="user" type="checkbox" name="users[]" value="merry" checked />
+
+      <input type="text" name="sword" value="Sting" aria-label="Sword" />
+
+      <span id="steed-label">Steed</span>
+      <input type="text" name="steed" value="Shadowfax" aria-labelledby="steed-label" />
+
+      <span id="realm-label">Middle</span>
+      <span id="realm-label-2">Earth</span>
+      <input type="text" name="realm" value="Mordor" aria-labelledby="realm-label realm-label-2" />
+
+      <select aria-label="Weapon" name="weapon">
+        <option value="axe">Axe</option>
+        <option value="bow" selected>Bow</option>
+      </select>
+
+      <input
+        class="ranger"
+        type="checkbox"
+        name="rangers[]"
+        value="aragorn"
+        aria-label="Aragorn"
+        checked
+      />
     </form>
     """
   end

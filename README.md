@@ -6,6 +6,7 @@
 # PhoenixTestPlaywright
 
 Execute [PhoenixTest](https://hexdocs.pm/phoenix_test) cases in an actual browser via [Playwright](https://playwright.dev/).
+Locator matching follows Playwright's browser-oriented semantics; see [Locator semantics](#locator-semantics).
 
 ```elixir
 defmodule Features.RegisterTest do
@@ -122,6 +123,29 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
 >
 > The last commit adds a feature test for the `phx gen.auth` registration page
 > and runs it in CI (Github Actions).
+
+## Locator semantics
+
+PhoenixTestPlaywright uses Playwright's native label and role locators. This
+keeps browser tests aligned with Playwright's auto-waiting, strictness, and
+accessible-name behavior, but it intentionally differs from PhoenixTest's HTML
+parser in a few edge cases:
+
+- `click_link/2` and `click_button/2` match the computed accessible name. An
+  `aria-labelledby` or `aria-label` therefore overrides visible text, and a
+  substring may match ARIA names that PhoenixTest's HTML driver would ignore
+  after finding a visible-text match.
+- Form actions and `assert_has(label: ...)` use Playwright's label locator. If
+  a control has both an HTML `<label>` and an ARIA name, use the ARIA name.
+- Playwright's label locator matches each `aria-labelledby` reference
+  separately; it does not match one string spanning multiple referenced
+  elements. Prefer one referenced element containing the complete label, or
+  use `aria-label`.
+
+These differences only matter when an element has competing names or an
+`aria-labelledby` value referencing multiple elements. Ordinary HTML labels,
+`aria-label`, and single-reference `aria-labelledby` locators work across
+links, buttons, form actions, and assertions.
 
 
 ## Configuration
@@ -429,7 +453,7 @@ To run the tests locally, you'll need to:
 ### Conventions
 
 - **Follows PhoenixTest API.** Only add new public functions when strictly necessary for browser-specific interaction (e.g., screenshots, JS evaluation).
-- **Do not edit upstream tests.** Files under `test/phoenix_test/upstream/` are mirrored from [phoenix_test](https://github.com/germsvel/phoenix_test) and must not be modified. Playwright-specific tests go in `test/phoenix_test/playwright_test.exs` or other files outside `upstream/`.
+- **Keep upstream tests mirrored.** Files under `test/phoenix_test/upstream/` are mirrored from [phoenix_test](https://github.com/germsvel/phoenix_test). Limit local changes to compatibility skip tags; Playwright-specific behavior tests go in `test/phoenix_test/playwright_test.exs` or other files outside `upstream/`.
 
 ### Playwright internals
 

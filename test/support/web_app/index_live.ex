@@ -10,6 +10,9 @@ defmodule PhoenixTest.WebApp.IndexLive do
     <h1 id="title" class="title" data-role="title">LiveView main page</h1>
 
     <.link navigate="/live/page_2?details=true&foo=bar">Navigate link</.link>
+    <.link navigate="/live/page_2" aria-label="Navigate-me-aria">asdfsda</.link>
+    <span id="navigate-me-labelledby">Navigate-me-labelledby</span>
+    <.link navigate="/live/page_2" aria-labelledby="navigate-me-labelledby">asdfsda</.link>
     <.link patch="/live/index?details=true&foo=bar">Patch link</.link>
     <.link href="/page/index?details=true&foo=bar">Navigate to non-liveview</.link>
     <.link navigate="/page/index">Navigate with navigate to dead view</.link>
@@ -26,9 +29,11 @@ defmodule PhoenixTest.WebApp.IndexLive do
     <div>
       <div class="wibble">
         <button phx-click="do-it">action</button>
+        <.link navigate="/live/page_2">Scoped link</.link>
       </div>
       <div class="wobble">
         <button phx-click="do-it">action</button>
+        <.link navigate="/live/page_2">Scoped link</.link>
       </div>
     </div>
 
@@ -40,6 +45,9 @@ defmodule PhoenixTest.WebApp.IndexLive do
     <button phx-click="change-page-title">Change page title</button>
 
     <button phx-click="show-tab">Show tab</button>
+    <button phx-click="show-tab" aria-label="Show-me-aria">asdfsda</button>
+    <span id="show-me-labelledby">Show-me-labelledby</span>
+    <button phx-click="show-tab" aria-labelledby="show-me-labelledby">asdfsda</button>
 
     <a
       href="/page/delete_record"
@@ -206,6 +214,31 @@ defmodule PhoenixTest.WebApp.IndexLive do
       <label for="level">Level (number)</label>
       <input id="level" type="number" name="level" value="7" />
 
+      <input name="secret_name" aria-label="Secret Name" />
+
+      <%!-- Keep browser control state across the full form's phx-change patch. --%>
+      <input type="hidden" name="aria_enabled" value="off" />
+      <input
+        type="checkbox"
+        name="aria_enabled"
+        value="on"
+        aria-label="Aria Enabled"
+        checked={checked_value?(@form_data, "aria_enabled", "on")}
+      />
+
+      <select name="aria_choice" aria-label="Aria Choice">
+        <option value="human" selected={field_value(@form_data, "aria_choice", "human") == "human"}>Human</option>
+        <option value="elf" selected={field_value(@form_data, "aria_choice", "human") == "elf"}>Elf</option>
+      </select>
+
+      <input
+        type="radio"
+        name="aria_contact"
+        value="email"
+        aria-label="Aria Email"
+        checked={field_value(@form_data, "aria_contact") == "email"}
+      />
+
       <label for="race">Race</label>
       <select id="race" name="race">
         <option value="human" selected={field_value(@form_data, "race", "human") == "human"}>
@@ -303,7 +336,7 @@ defmodule PhoenixTest.WebApp.IndexLive do
       </label>
 
       <label for={@uploads.avatar.ref}>Avatar</label>
-      <.live_file_input upload={@uploads.avatar} />
+      <.live_file_input upload={@uploads.avatar} aria-label="Aria Avatar" />
 
       <button type="submit" name="full_form_button" value="save">Save Full Form</button>
     </form>
@@ -469,6 +502,21 @@ defmodule PhoenixTest.WebApp.IndexLive do
       />
 
       <button type="submit">Save Array Checkbox Form</button>
+    </form>
+
+    <form id="mixed-array-checkbox-form" phx-change="change-form" phx-submit="change-form">
+      <input type="hidden" name="mixed_items" value="" />
+
+      <label for="mixed-array-item-one">Mixed One</label>
+      <input id="mixed-array-item-one" type="checkbox" name="mixed_items[]" value="one" checked />
+
+      <label for="mixed-array-item-two">Mixed Two</label>
+      <input id="mixed-array-item-two" type="checkbox" name="mixed_items[]" value="two" checked />
+
+      <label for="mixed-array-item-three">Mixed Three</label>
+      <input id="mixed-array-item-three" type="checkbox" name="mixed_items[]" value="three" />
+
+      <button type="submit">Save Mixed Array Checkbox Form</button>
     </form>
 
     <form id="same-labels" phx-submit="save-form" phx-change="change-form">

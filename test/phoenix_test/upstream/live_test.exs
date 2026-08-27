@@ -65,11 +65,34 @@ defmodule PhoenixTest.LiveTest do
       |> assert_has("h1", text: "LiveView main page")
     end
 
+    test "finds link by aria label", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> click_link("Navigate-me-aria")
+      |> assert_has("h1", text: "LiveView page 2")
+    end
+
+    test "finds link by aria labelledby", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> click_link("Navigate-me-labelledby")
+      |> assert_has("h1", text: "LiveView page 2")
+    end
+
     test "accepts click_link with selector", %{conn: conn} do
       conn
       |> visit("/live/index")
       |> click_link("a", "Navigate link")
       |> assert_has("h1", text: "LiveView page 2")
+    end
+
+    test "clicks a link within a scoped selector", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> within(".wibble", fn session ->
+        click_link(session, "Scoped link")
+      end)
+      |> assert_path("/live/page_2")
     end
 
     test "handles patches to current view", %{conn: conn} do
@@ -138,10 +161,25 @@ defmodule PhoenixTest.LiveTest do
   end
 
   describe "click_button" do
+    @tag skip: "Playwright matches substrings against computed accessible names"
     test "finds button by substring", %{conn: conn} do
       conn
       |> visit("/live/index")
       |> click_button("Show")
+      |> assert_has("#tab", text: "Tab title")
+    end
+
+    test "finds button by aria label", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> click_button("Show-me-aria")
+      |> assert_has("#tab", text: "Tab title")
+    end
+
+    test "finds button by aria labelledby", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> click_button("Show-me-labelledby")
       |> assert_has("#tab", text: "Tab title")
     end
 
@@ -397,6 +435,14 @@ defmodule PhoenixTest.LiveTest do
       |> assert_has("input", label: "Email", value: "someone@example.com")
     end
 
+    test "fills in a field by aria label", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> fill_in("Secret Name", with: "Aragorn")
+      |> click_button("Save Full Form")
+      |> assert_has("#form-data", text: "secret_name: Aragorn")
+    end
+
     test "can fill input with `nil` to override existing value", %{conn: conn} do
       conn
       |> visit("/live/index")
@@ -536,6 +582,14 @@ defmodule PhoenixTest.LiveTest do
       |> assert_has("#full-form option[value='elf']")
     end
 
+    test "selects an option by aria label", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> select("Aria Choice", option: "Elf")
+      |> click_button("Save Full Form")
+      |> assert_has("#form-data", text: "aria_choice: elf")
+    end
+
     test "allows selecting option if a similar option exists", %{conn: conn} do
       conn
       |> visit("/live/index")
@@ -654,6 +708,14 @@ defmodule PhoenixTest.LiveTest do
       |> assert_has("#form-data", text: "admin: on")
     end
 
+    test "checks a checkbox by aria label", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> check("Aria Enabled")
+      |> click_button("Save Full Form")
+      |> assert_has("#form-data", text: "aria_enabled: on")
+    end
+
     test "can check an unchecked checkbox", %{conn: conn} do
       conn
       |> visit("/live/index")
@@ -677,6 +739,18 @@ defmodule PhoenixTest.LiveTest do
       |> within("#array-checkbox-form", fn session ->
         check(session, "Three")
       end)
+      |> assert_has("#form-data", text: "one")
+      |> assert_has("#form-data", text: "two")
+      |> assert_has("#form-data", text: "three")
+    end
+
+    test "submits checked values for checkbox groups when a hidden input uses the non-array name", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> within("#mixed-array-checkbox-form", fn session ->
+        check(session, "Mixed Three")
+      end)
+      |> assert_has("#form-data", text: "mixed_items: [")
       |> assert_has("#form-data", text: "one")
       |> assert_has("#form-data", text: "two")
       |> assert_has("#form-data", text: "three")
@@ -925,6 +999,14 @@ defmodule PhoenixTest.LiveTest do
       |> assert_has("#form-data", text: "contact: email")
     end
 
+    test "chooses a radio button by aria label", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> choose("Aria Email")
+      |> click_button("Save Full Form")
+      |> assert_has("#form-data", text: "aria_contact: email")
+    end
+
     test "uses the default 'checked' if present", %{conn: conn} do
       conn
       |> visit("/live/index")
@@ -998,12 +1080,24 @@ defmodule PhoenixTest.LiveTest do
   end
 
   describe "upload/4" do
+    @tag skip: "Playwright aria-label overrides the associated HTML label"
     test "uploads an image", %{conn: conn} do
       conn
       |> visit("/live/index")
       |> within("#full-form", fn session ->
         session
         |> upload("Avatar", "test/files/elixir.jpg")
+        |> click_button("Save Full Form")
+      end)
+      |> assert_has("#form-data", text: "avatar: elixir.jpg")
+    end
+
+    test "uploads an image by aria label", %{conn: conn} do
+      conn
+      |> visit("/live/index")
+      |> within("#full-form", fn session ->
+        session
+        |> upload("Aria Avatar", "test/files/elixir.jpg")
         |> click_button("Save Full Form")
       end)
       |> assert_has("#form-data", text: "avatar: elixir.jpg")

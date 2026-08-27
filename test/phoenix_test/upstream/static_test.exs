@@ -55,6 +55,20 @@ defmodule PhoenixTest.StaticTest do
       |> assert_has("h1", text: "Main page")
     end
 
+    test "finds link by aria label", %{conn: conn} do
+      conn
+      |> visit("/page/index")
+      |> click_link("Go-to-page-2-aria")
+      |> assert_has("h1", text: "Page 2")
+    end
+
+    test "finds link by aria labelledby", %{conn: conn} do
+      conn
+      |> visit("/page/index")
+      |> click_link("Go-to-page-2-labelledby")
+      |> assert_has("h1", text: "Page 2")
+    end
+
     test "accepts selector for link", %{conn: conn} do
       conn
       |> visit("/page/index")
@@ -143,10 +157,25 @@ defmodule PhoenixTest.StaticTest do
   end
 
   describe "click_button/2" do
+    @tag skip: "Playwright matches substrings against computed accessible names"
     test "finds button by substring", %{conn: conn} do
       conn
       |> visit("/page/index")
       |> click_button("Get")
+      |> assert_has("h1", text: "Record received")
+    end
+
+    test "finds button by aria label", %{conn: conn} do
+      conn
+      |> visit("/page/index")
+      |> click_button("get-me-aria")
+      |> assert_has("h1", text: "Record received")
+    end
+
+    test "finds button by aria labelledby", %{conn: conn} do
+      conn
+      |> visit("/page/index")
+      |> click_button("get-me-labelledby")
       |> assert_has("h1", text: "Record received")
     end
 
@@ -354,6 +383,14 @@ defmodule PhoenixTest.StaticTest do
       |> assert_has("#form-data", text: "email: someone@example.com")
     end
 
+    test "fills in a field by aria label", %{conn: conn} do
+      conn
+      |> visit("/page/index")
+      |> fill_in("Secret Name", with: "Aragorn")
+      |> click_button("Save Full Form")
+      |> assert_has("#form-data", text: "secret_name: Aragorn")
+    end
+
     test "can fill input with `nil` to override existing value", %{conn: conn} do
       conn
       |> visit("/page/index")
@@ -460,6 +497,14 @@ defmodule PhoenixTest.StaticTest do
       |> assert_has("#form-data", text: "race: human")
     end
 
+    test "selects an option by aria label", %{conn: conn} do
+      conn
+      |> visit("/page/index")
+      |> select("Aria Choice", option: "Elf")
+      |> click_button("Save Full Form")
+      |> assert_has("#form-data", text: "aria_choice: elf")
+    end
+
     test "allows selecting option if a similar option exists", %{conn: conn} do
       conn
       |> visit("/page/index")
@@ -533,6 +578,14 @@ defmodule PhoenixTest.StaticTest do
       |> assert_has("#form-data", text: "admin_boolean: true")
     end
 
+    test "checks a checkbox by aria label", %{conn: conn} do
+      conn
+      |> visit("/page/index")
+      |> check("Aria Enabled")
+      |> click_button("Save Full Form")
+      |> assert_has("#form-data", text: "aria_enabled: on")
+    end
+
     test "sets checkbox value as 'on' by default", %{conn: conn} do
       conn
       |> visit("/page/index")
@@ -558,6 +611,19 @@ defmodule PhoenixTest.StaticTest do
       end)
       |> submit()
       |> assert_has("#form-data", text: "items: [")
+      |> assert_has("#form-data", text: "one")
+      |> assert_has("#form-data", text: "two")
+      |> assert_has("#form-data", text: "three")
+    end
+
+    test "submits checked values for checkbox groups when a hidden input uses the non-array name", %{conn: conn} do
+      conn
+      |> visit("/page/index")
+      |> within("#mixed-array-checkbox-form", fn session ->
+        check(session, "Mixed Three")
+      end)
+      |> submit()
+      |> assert_has("#form-data", text: "mixed_items: [")
       |> assert_has("#form-data", text: "one")
       |> assert_has("#form-data", text: "two")
       |> assert_has("#form-data", text: "three")
@@ -683,6 +749,14 @@ defmodule PhoenixTest.StaticTest do
       |> assert_has("#form-data", text: "contact: email")
     end
 
+    test "chooses a radio button by aria label", %{conn: conn} do
+      conn
+      |> visit("/page/index")
+      |> choose("Aria Email")
+      |> click_button("Save Full Form")
+      |> assert_has("#form-data", text: "aria_contact: email")
+    end
+
     test "uses the default 'checked' if present", %{conn: conn} do
       conn
       |> visit("/page/index")
@@ -713,12 +787,24 @@ defmodule PhoenixTest.StaticTest do
   end
 
   describe "upload/4" do
+    @tag skip: "Playwright aria-label overrides the associated HTML label"
     test "uploads image", %{conn: conn} do
       conn
       |> visit("/page/index")
       |> within("#file-upload-form", fn session ->
         session
         |> upload("Avatar", "test/files/elixir.jpg")
+        |> click_button("Save File upload Form")
+      end)
+      |> assert_has("#form-data", text: "avatar: elixir.jpg")
+    end
+
+    test "uploads an image by aria label", %{conn: conn} do
+      conn
+      |> visit("/page/index")
+      |> within("#file-upload-form", fn session ->
+        session
+        |> upload("Aria Avatar", "test/files/elixir.jpg")
         |> click_button("Save File upload Form")
       end)
       |> assert_has("#form-data", text: "avatar: elixir.jpg")

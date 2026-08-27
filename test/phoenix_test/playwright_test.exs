@@ -535,4 +535,33 @@ defmodule PhoenixTest.PlaywrightTest do
       |> assert_path("/live/page_2", query_params: %{"foo" => "bar"})
     end
   end
+
+  describe "phoenix_test locator semantics" do
+    test "restores the outer scope after a nested within", %{conn: conn} do
+      conn
+      |> visit("/page/index")
+      |> within("#full-form", fn outer ->
+        outer
+        |> within("fieldset", &assert_has(&1, "#email_choice"))
+        |> refute_has("#email-form")
+      end)
+    end
+
+    test "uses Playwright accessible-name precedence for labelled controls", %{conn: conn} do
+      conn
+      |> visit("/page/by_value")
+      |> evaluate("""
+      document.body.insertAdjacentHTML(
+        "beforeend",
+        '<label for="accessible-search">HTML Search</label>' +
+          '<span id="accessible-search-name">ARIA Labelled Search</span>' +
+          '<input id="accessible-search" aria-label="ARIA Search" ' +
+            'aria-labelledby="accessible-search-name" value="accessible-name">'
+      )
+      """)
+      |> assert_has("input", label: "ARIA Labelled Search", value: "accessible-name")
+      |> refute_has("input", label: "ARIA Search")
+      |> refute_has("input", label: "HTML Search")
+    end
+  end
 end
