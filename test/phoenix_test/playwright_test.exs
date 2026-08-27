@@ -232,6 +232,50 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
+  describe "click/3" do
+    test "clicks the selector when it contains duplicate visible and hidden text", %{conn: conn} do
+      conn
+      |> visit("/pw/live")
+      |> evaluate("""
+      document.body.insertAdjacentHTML("beforeend", `
+        <table id="hidden-duplicate-click-repro">
+          <tr>
+            <td onclick="document.getElementById('hidden-duplicate-click-status').textContent = 'clicked'">
+              <div>Changed by production</div>
+              <div hidden><div>Changed by production</div></div>
+            </td>
+          </tr>
+        </table>
+        <div id="hidden-duplicate-click-status">pending</div>
+      `)
+      """)
+      |> click("#hidden-duplicate-click-repro td", "Changed by production")
+      |> assert_has("#hidden-duplicate-click-status", text: "clicked")
+      |> evaluate("document.getElementById('hidden-duplicate-click-status').textContent = 'pending'")
+      |> click("#hidden-duplicate-click-repro td", "Changed by production", exact: true)
+      |> assert_has("#hidden-duplicate-click-status", text: "clicked")
+    end
+
+    test "does not click the selector when matching text is hidden", %{conn: conn} do
+      session =
+        conn
+        |> visit("/pw/live")
+        |> evaluate("""
+        document.body.insertAdjacentHTML("beforeend", `
+          <button id="hidden-only-click-repro" onclick="this.dataset.clicked = 'true'">
+            <span hidden>Delete</span>
+          </button>
+        `)
+        """)
+
+      assert_raise ArgumentError, ~r/Could not find element/, fn ->
+        click(session, "#hidden-only-click-repro", "Delete", timeout: 100)
+      end
+
+      refute_has(session, "#hidden-only-click-repro[data-clicked=true]")
+    end
+  end
+
   describe "assert_download/2" do
     test "asserts a download triggered by clicking a link", %{conn: conn} do
       conn

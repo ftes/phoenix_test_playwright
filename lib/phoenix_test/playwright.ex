@@ -904,8 +904,11 @@ defmodule PhoenixTest.Playwright do
   end
 
   @doc """
-  Click an element that is not a link or button.
+  Click the element matching `selector` that contains visible `text`.
   Otherwise, use `click_link/4` and `click_button/4`.
+
+  The element matching `selector` remains the click target when `text` is nested
+  inside it.
 
   ## Options
   #{NimbleOptions.docs(@exact_opts_schema)}
@@ -924,7 +927,7 @@ defmodule PhoenixTest.Playwright do
       conn
       |> maybe_within()
       |> Selector.concat(selector)
-      |> Selector.concat(Selector.text(text, opts))
+      |> Selector.has(Selector.concat(Selector.text(text, opts), "visible=true"))
 
     conn.frame_id
     |> Frame.click(selector: selector, timeout: timeout(opts))

@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 ### Fixed
 - Fix for `assert_has(selector, text: ...)` failing when a hidden text match precedes a visible one in DOM order (#194)
+- Make `click(selector, text)` click the selector element containing visible text without hidden duplicate text descendants causing a strictness failure (#220)
 - Wait for browser contexts and browsers to close during graceful ExUnit and application shutdown,
   closing pooled browsers concurrently (#205)
 
