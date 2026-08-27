@@ -127,7 +127,7 @@ defmodule PhoenixTest.Playwright.CookieArgs do
 
   defp put_expires_if_max_age(cookie) do
     if max_age = Keyword.get(cookie, :max_age) do
-      expires = DateTime.utc_now() |> DateTime.add(max_age) |> DateTime.to_unix()
+      expires = DateTime.utc_now() |> DateTime.shift(second: max_age) |> DateTime.to_unix()
       Keyword.put(cookie, :expires, expires)
     else
       cookie
