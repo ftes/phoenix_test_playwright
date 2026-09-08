@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
+## [Unreleased]
+### Changed
+- Require the upcoming PlaywrightEx 0.9 (currently pinned to GitHub `main`)
+  and Playwright 1.63 or newer.
+- Use PlaywrightEx's minimum-supported-version API and the Playwright 1.63
+  tracing options.
+
 ## [0.16.0] 2026-08-27
 ### Added
 - Support phoenix_test [v0.12.1](https://hexdocs.pm/phoenix_test/changelog.html#0-12-1):

@@ -62,7 +62,7 @@ schema_opts = [
     type: {:custom, PhoenixTest.Playwright.Config, :__validate_assets_dir__, []},
     doc: """
     The directory where the JS assets are located and the Playwright CLI is installed.
-    Playwright version `#{PlaywrightEx.recommended_min_version()}` or newer is recommended.
+    Playwright version `#{PlaywrightEx.minimum_supported_version()}` or newer is required.
     Alternatively, use `ws_endpoint` to connect to a remote Playwright server instead, in which case no local node and playwright is required and `assets_dir` is ignored.
     """
   ],
