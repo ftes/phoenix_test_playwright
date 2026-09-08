@@ -206,7 +206,7 @@ config :phoenix_test, playwright: [ws_endpoint: System.get_env("PLAYWRIGHT_WS_EN
 
 ```sh
 # Start Playwright server
-docker run -p 3000:3000 --rm --init -it --workdir /home/pwuser --user pwuser mcr.microsoft.com/playwright:v1.58.0-noble /bin/sh -c "npx -y playwright@1.58.0 run-server --port 3000 --host 0.0.0.0"
+docker run -p 3000:3000 --rm --init -it --workdir /home/pwuser --user pwuser mcr.microsoft.com/playwright:v1.63.0-noble /bin/sh -c "npx -y playwright@1.63.0 run-server --port 3000 --host 0.0.0.0"
 ```
 
 The browser type is automatically appended as a query parameter (e.g., `?browser=chromium`).

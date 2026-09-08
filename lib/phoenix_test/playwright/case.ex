@@ -144,7 +144,7 @@ defmodule PhoenixTest.Playwright.Case do
   end
 
   defp trace(tracing_id, config, context) do
-    opts = [screenshots: true, snapshots: true, sources: true, timeout: config[:timeout]]
+    opts = [screenshots: true, snapshots: true, timeout: config[:timeout]]
     {:ok, _} = Tracing.tracing_start(tracing_id, opts)
     {:ok, _} = Tracing.tracing_start_chunk(tracing_id, timeout: config[:timeout])
 
