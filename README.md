@@ -48,8 +48,8 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
 2. Install playwright and browser
 
     ```sh
-    npm --prefix assets i -D playwright
-    npx --prefix assets playwright install chromium --with-deps
+    pnpm --dir assets add --save-dev playwright
+    pnpm --dir assets exec playwright install chromium --with-deps
     ```
 
 3. Config
@@ -206,7 +206,7 @@ config :phoenix_test, playwright: [ws_endpoint: System.get_env("PLAYWRIGHT_WS_EN
 
 ```sh
 # Start Playwright server
-docker run -p 3000:3000 --rm --init -it --workdir /home/pwuser --user pwuser mcr.microsoft.com/playwright:v1.63.0-noble /bin/sh -c "npx -y playwright@1.63.0 run-server --port 3000 --host 0.0.0.0"
+docker run -p 3000:3000 --rm --init -it --workdir /home/pwuser --user pwuser mcr.microsoft.com/playwright:v1.63.0-noble /bin/sh -c "corepack pnpm@11.19.0 dlx playwright@1.63.0 run-server --port 3000 --host 0.0.0.0"
 ```
 
 The browser type is automatically appended as a query parameter (e.g., `?browser=chromium`).
@@ -349,7 +349,7 @@ Each playwright JS version pins a specific browser version.
 Tests are run using `./assets/node_modules/playwright`
 (see `assets_dir` in `PhoenixTest.Playwright.Config`).
 Make sure to use that same playwright JS version to install the browser,
-e.g. via `npx --prefix assets playwright install`.
+e.g. via `pnpm --dir assets exec playwright install`.
 
 
 ## Ecto Sandbox

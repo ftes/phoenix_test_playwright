@@ -38,7 +38,7 @@ phoenix_test-*.tar
 
 !/priv/static/assets/app.css
 !/priv/static/assets/package.json
-!/priv/static/assets/package-lock.json
+!/priv/static/assets/pnpm-lock.yaml
 
 # OS
 .DS_STORE

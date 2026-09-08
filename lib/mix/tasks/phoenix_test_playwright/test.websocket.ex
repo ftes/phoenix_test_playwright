@@ -27,7 +27,7 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
     {:ok, _} = Application.ensure_all_started(:testcontainers)
     {:ok, _} = Testcontainers.start()
 
-    playwright_version = playwright_version_from_lock_file()
+    playwright_version = playwright_version_from_package_file()
     playwright_image = "mcr.microsoft.com/playwright:v#{playwright_version}-noble"
 
     container_config =
@@ -35,7 +35,7 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
       |> Testcontainers.Container.new()
       |> Testcontainers.Container.with_exposed_port(3000)
       |> Testcontainers.Container.with_cmd(
-        ~w(npx -y playwright@#{playwright_version} run-server --port 3000 --host 0.0.0.0)
+        ~w(corepack pnpm@11.19.0 dlx playwright@#{playwright_version} run-server --port 3000 --host 0.0.0.0)
       )
       |> Testcontainers.Container.with_waiting_strategy(Testcontainers.PortWaitStrategy.new("localhost", 3000, 30_000))
 
@@ -61,14 +61,14 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
     Mix.Task.run("test", args ++ ["--exclude", "skip_websocket"])
   end
 
-  defp playwright_version_from_lock_file do
+  defp playwright_version_from_package_file do
     :phoenix_test
     |> Application.fetch_env!(:playwright)
     |> Keyword.fetch!(:assets_dir)
-    |> Path.join("package-lock.json")
+    |> Path.join("package.json")
     |> File.read!()
     |> JSON.decode!()
-    |> get_in(~w(packages node_modules/playwright version))
+    |> get_in(~w(devDependencies playwright))
   end
 
   defp docker_host_address do

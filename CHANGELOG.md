@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 ### Changed
+- Switch JavaScript dependency management and Playwright setup commands from
+  npm to pnpm.
 - Require the upcoming PlaywrightEx 0.9 (currently pinned to GitHub `main`)
   and Playwright 1.63 or newer.
 - Use PlaywrightEx's minimum-supported-version API and the Playwright 1.63
