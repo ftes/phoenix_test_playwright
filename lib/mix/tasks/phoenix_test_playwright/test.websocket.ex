@@ -27,7 +27,7 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
     {:ok, _} = Application.ensure_all_started(:testcontainers)
     {:ok, _} = Testcontainers.start()
 
-    playwright_version = playwright_version_from_package_file()
+    playwright_version = playwright_version_from_installed_package()
     playwright_image = "mcr.microsoft.com/playwright:v#{playwright_version}-noble"
 
     container_config =
@@ -61,14 +61,17 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
     Mix.Task.run("test", args ++ ["--exclude", "skip_websocket"])
   end
 
-  defp playwright_version_from_package_file do
-    :phoenix_test
-    |> Application.fetch_env!(:playwright)
-    |> Keyword.fetch!(:assets_dir)
-    |> Path.join("package.json")
+  defp playwright_version_from_installed_package do
+    assets_dir =
+      :phoenix_test
+      |> Application.fetch_env!(:playwright)
+      |> Keyword.fetch!(:assets_dir)
+
+    [assets_dir, "node_modules", "playwright", "package.json"]
+    |> Path.join()
     |> File.read!()
     |> JSON.decode!()
-    |> get_in(~w(devDependencies playwright))
+    |> Map.fetch!("version")
   end
 
   defp docker_host_address do
