@@ -105,9 +105,9 @@ defmodule PhoenixTestPlaywright.MixProject do
         "esbuild.install --if-missing"
       ],
       "assets.setup.playwright": [
-        "cmd npm install --prefix priv/static/assets",
-        "cmd npx --prefix priv/static/assets playwright install chromium --with-deps --only-shell",
-        "cmd npx --prefix priv/static/assets playwright install firefox --with-deps --only-shell"
+        "cmd pnpm --dir priv/static/assets install --frozen-lockfile",
+        "cmd pnpm --dir priv/static/assets exec playwright install chromium --with-deps --only-shell",
+        "cmd pnpm --dir priv/static/assets exec playwright install firefox --with-deps --only-shell"
       ],
       "assets.build": ["esbuild default"],
       "test.websocket": "phoenix_test_playwright.test.websocket",

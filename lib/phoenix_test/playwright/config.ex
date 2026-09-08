@@ -292,7 +292,7 @@ defmodule PhoenixTest.Playwright.Config do
        Could not find Playwright in `#{assets_dir}`.
 
        To resolve this, either:
-       1. Install Playwright locally: `npm --prefix #{assets_dir} install playwright`
+       1. Install Playwright locally: `pnpm --dir #{assets_dir} add --save-dev playwright`
        2. Or configure a remote Playwright server via `ws_endpoint` option
        """}
     end

@@ -35,7 +35,7 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
       |> Testcontainers.Container.new()
       |> Testcontainers.Container.with_exposed_port(3000)
       |> Testcontainers.Container.with_cmd(
-        ~w(npx -y playwright@#{playwright_version} run-server --port 3000 --host 0.0.0.0)
+        ~w(corepack pnpm@11.19.0 dlx playwright@#{playwright_version} run-server --port 3000 --host 0.0.0.0)
       )
       |> Testcontainers.Container.with_waiting_strategy(Testcontainers.PortWaitStrategy.new("localhost", 3000, 30_000))
 
@@ -62,13 +62,23 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
   end
 
   defp playwright_version_from_lock_file do
-    :phoenix_test
-    |> Application.fetch_env!(:playwright)
-    |> Keyword.fetch!(:assets_dir)
-    |> Path.join("package-lock.json")
-    |> File.read!()
-    |> JSON.decode!()
-    |> get_in(~w(packages node_modules/playwright version))
+    assets_dir =
+      :phoenix_test
+      |> Application.fetch_env!(:playwright)
+      |> Keyword.fetch!(:assets_dir)
+
+    case System.cmd(
+           "pnpm",
+           ["--dir", assets_dir, "list", "playwright", "--lockfile-only", "--json"],
+           stderr_to_stdout: true
+         ) do
+      {output, 0} ->
+        [%{"devDependencies" => %{"playwright" => %{"version" => version}}}] = JSON.decode!(output)
+        version
+
+      {output, status} ->
+        Mix.raise("Could not resolve Playwright from pnpm-lock.yaml (exit #{status}):\n#{output}")
+    end
   end
 
   defp docker_host_address do
