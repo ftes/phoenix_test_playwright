@@ -5,12 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
-## [Unreleased]
+## [0.17.0] 2026-09-08
 ### Changed
 - Switch JavaScript dependency management and Playwright setup commands from
   npm to pnpm.
-- Require the upcoming PlaywrightEx 0.9 (currently pinned to GitHub `main`)
-  and Playwright 1.63 or newer.
+- Require PlaywrightEx 0.9 and Playwright 1.63 or newer.
 - Use PlaywrightEx's minimum-supported-version API and the Playwright 1.63
   tracing options.
 
