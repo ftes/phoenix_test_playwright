@@ -27,7 +27,7 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
     {:ok, _} = Application.ensure_all_started(:testcontainers)
     {:ok, _} = Testcontainers.start()
 
-    playwright_version = playwright_version_from_installed_package()
+    playwright_version = playwright_version_from_lock_file()
     playwright_image = "mcr.microsoft.com/playwright:v#{playwright_version}-noble"
 
     container_config =
@@ -61,17 +61,24 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
     Mix.Task.run("test", args ++ ["--exclude", "skip_websocket"])
   end
 
-  defp playwright_version_from_installed_package do
+  defp playwright_version_from_lock_file do
     assets_dir =
       :phoenix_test
       |> Application.fetch_env!(:playwright)
       |> Keyword.fetch!(:assets_dir)
 
-    [assets_dir, "node_modules", "playwright", "package.json"]
-    |> Path.join()
-    |> File.read!()
-    |> JSON.decode!()
-    |> Map.fetch!("version")
+    case System.cmd(
+           "pnpm",
+           ["--dir", assets_dir, "list", "playwright", "--lockfile-only", "--json"],
+           stderr_to_stdout: true
+         ) do
+      {output, 0} ->
+        [%{"devDependencies" => %{"playwright" => %{"version" => version}}}] = JSON.decode!(output)
+        version
+
+      {output, status} ->
+        Mix.raise("Could not resolve Playwright from pnpm-lock.yaml (exit #{status}):\n#{output}")
+    end
   end
 
   defp docker_host_address do

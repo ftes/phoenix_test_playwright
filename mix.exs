@@ -102,10 +102,10 @@ defmodule PhoenixTestPlaywright.MixProject do
     [
       setup: ["deps.get", "assets.setup", "assets.setup.playwright", "assets.build", "ecto.create"],
       "assets.setup": [
-        "esbuild.install --if-missing",
-        "cmd pnpm --dir priv/static/assets install --frozen-lockfile"
+        "esbuild.install --if-missing"
       ],
       "assets.setup.playwright": [
+        "cmd pnpm --dir priv/static/assets install --frozen-lockfile",
         "cmd pnpm --dir priv/static/assets exec playwright install chromium --with-deps --only-shell",
         "cmd pnpm --dir priv/static/assets exec playwright install firefox --with-deps --only-shell"
       ],
