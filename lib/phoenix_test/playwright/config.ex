@@ -23,7 +23,8 @@ browser_opts = [
   ],
   browser_launch_timeout: [
     default: to_timeout(second: 4),
-    type: :non_neg_integer
+    type: :timeout,
+    doc: "Timeout in milliseconds. `:infinity` disables the timeout; `0` means no waiting."
   ],
   executable_path: [
     type: :string,
@@ -96,7 +97,8 @@ schema_opts = [
   ],
   browser_pool_checkout_timeout: [
     default: to_timeout(minute: 1),
-    type: :non_neg_integer
+    type: :timeout,
+    doc: "Timeout in milliseconds. `:infinity` disables the timeout; `0` means no waiting."
   ],
   browser_pools: [
     required: false,
@@ -164,7 +166,8 @@ schema_opts = [
   ],
   timeout: [
     default: to_timeout(second: 2),
-    type: :non_neg_integer
+    type: :timeout,
+    doc: "Timeout in milliseconds. `:infinity` disables the timeout; `0` means no waiting."
   ],
   trace: [
     default: false,

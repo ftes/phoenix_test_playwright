@@ -171,6 +171,11 @@ config :phoenix_test,
   ]
 ```
 
+Timeouts accept milliseconds or `:infinity` for unlimited waiting. `0` means no
+waiting. This applies to `timeout`, `browser_launch_timeout`, and
+`browser_pool_checkout_timeout`, as well as per-operation `timeout:` options.
+ExUnit's test timeout still applies.
+
 See `PhoenixTest.Playwright.Config` for more details.
 
 You can override some options in your test:

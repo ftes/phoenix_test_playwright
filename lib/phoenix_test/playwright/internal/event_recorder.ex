@@ -2,7 +2,7 @@ defmodule PhoenixTest.Playwright.EventRecorder do
   @moduledoc false
   use GenServer
 
-  defstruct [:filter, events: [], waiter: nil]
+  defstruct [:filter, events: [], waiter: nil, timer: nil]
 
   def pop(name, timeout) do
     GenServer.call(name, {:pop, timeout}, :infinity)
@@ -23,9 +23,13 @@ defmodule PhoenixTest.Playwright.EventRecorder do
     {:reply, {:ok, event}, %{state | events: events}}
   end
 
+  def handle_call({:pop, 0}, _from, %{events: [], waiter: nil} = state) do
+    {:reply, {:error, :timeout}, state}
+  end
+
   def handle_call({:pop, timeout}, from, %{events: [], waiter: nil} = state) do
-    Process.send_after(self(), :pop_timeout, timeout)
-    {:noreply, %{state | waiter: from}}
+    timer = if timeout != :infinity, do: :erlang.start_timer(timeout, self(), :pop)
+    {:noreply, %{state | waiter: from, timer: timer}}
   end
 
   def handle_call({:pop, _timeout}, _from, _state) do
@@ -41,19 +45,20 @@ defmodule PhoenixTest.Playwright.EventRecorder do
     end
   end
 
-  def handle_info(:pop_timeout, %{waiter: nil} = state), do: {:noreply, state}
-
-  def handle_info(:pop_timeout, %{waiter: waiter} = state) do
+  def handle_info({:timeout, timer, :pop}, %{timer: timer, waiter: waiter} = state) do
     GenServer.reply(waiter, {:error, :timeout})
-    {:noreply, %{state | waiter: nil}}
+    {:noreply, %{state | waiter: nil, timer: nil}}
   end
+
+  def handle_info({:timeout, _stale_timer, :pop}, state), do: {:noreply, state}
 
   defp record_event(event, %__MODULE__{waiter: nil, events: events} = state) do
     %{state | events: events ++ [event]}
   end
 
   defp record_event(event, %__MODULE__{waiter: waiter} = state) do
+    if state.timer, do: Process.cancel_timer(state.timer)
     GenServer.reply(waiter, {:ok, event})
-    %{state | waiter: nil}
+    %{state | waiter: nil, timer: nil}
   end
 end
