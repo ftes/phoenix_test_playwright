@@ -48,7 +48,11 @@ defmodule PhoenixTest.Playwright do
   @type playwright_selector :: String.t()
   @type selector :: playwright_selector() | css_selector()
 
-  @timeout_opt [type: :non_neg_integer, doc: "Maximum wait time in milliseconds. Defaults to the configured timeout."]
+  @timeout_opt [
+    type: :timeout,
+    doc:
+      "Maximum wait in milliseconds. `:infinity` disables the timeout; `0` means no waiting. Defaults to the configured timeout."
+  ]
 
   @exact_opt_schema [type: :boolean, default: false, doc: "Exact or substring text match."]
   @exact_opts_schema [exact: @exact_opt_schema, timeout: @timeout_opt]
@@ -89,8 +93,11 @@ defmodule PhoenixTest.Playwright do
   rescue
     ExUnit.AssertionError ->
       Process.sleep(@retry_interval)
-      retry(fun, remaining - @retry_interval)
+      retry(fun, next_retry_timeout(remaining))
   end
+
+  defp next_retry_timeout(:infinity), do: :infinity
+  defp next_retry_timeout(remaining), do: remaining - @retry_interval
 
   @doc """
   Label a step in the Playwright trace.

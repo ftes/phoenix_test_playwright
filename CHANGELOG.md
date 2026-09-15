@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
+## [Unreleased]
+### Added
+- Support `:infinity` for operation, browser-launch, and browser-pool checkout
+  timeouts, including assertion retries and download waits.
+
+### Changed
+- Require PlaywrightEx 0.11 or newer. Its `timeout: 0` means no waiting;
+  replace `timeout: 0` with `timeout: :infinity` where unlimited waiting was intended.
+
+### Fixed
+- Cancel completed download-wait timers and ignore stale timeout messages so an
+  earlier wait cannot interrupt a later wait.
+
 ## [0.17.0] 2026-09-08
 ### Changed
 - Switch JavaScript dependency management and Playwright setup commands from
