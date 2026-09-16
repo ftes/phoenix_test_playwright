@@ -124,8 +124,8 @@ schema_opts = [
   js_logger: [
     default: PhoenixTest.Playwright.JsLogger,
     type: :atom,
-    type_doc: "`module | false`",
-    doc: "`false` to disable, or a module that implements the `PlaywrightEx.JsLogger` behaviour."
+    type_doc: "`module | nil`",
+    doc: "`nil` to disable, or a module that implements the `PlaywrightEx.JsLogger` behaviour."
   ],
   screenshot: [
     default: false,
