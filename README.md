@@ -166,7 +166,7 @@ config :phoenix_test,
       [id: :chromium_pool, browser: :chromium],
       [id: :firefox_pool, browser: :firefox]
     ],
-    js_logger: false,
+    js_logger: nil,
     browser_launch_timeout: 10_000
   ]
 ```
