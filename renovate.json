@@ -64,11 +64,11 @@
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)(?:\\.(?<patch>\\d+))?(?:\\.(?<build>\\d+))?$"
     },
     {
-      "description": "Preserve Mix support ranges; refresh allowed versions through lockfile maintenance",
+      "description": "Preserve existing Mix support and propose wider ranges for new releases",
       "matchManagers": [
         "mix"
       ],
-      "rangeStrategy": "in-range-only"
+      "rangeStrategy": "widen"
     }
   ],
   "constraints": {

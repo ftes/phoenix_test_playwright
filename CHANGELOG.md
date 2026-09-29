@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Changed
+- Propose wider Mix dependency support through Renovate while preserving existing
+  support; use equivalent explicit pre-1.0 ranges to avoid redundant updates.
 - Replace Dependabot version updates with Renovate, including runtime toolchain
   updates, and pin GitHub Actions to full commit SHAs.
 

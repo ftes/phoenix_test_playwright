@@ -38,23 +38,23 @@ defmodule PhoenixTestPlaywright.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:esbuild, "~> 0.9", only: :test, runtime: false},
-      {:ex_doc, "~> 0.37", only: :dev, runtime: false},
+      {:esbuild, ">= 0.9.0 and < 1.0.0", only: :test, runtime: false},
+      {:ex_doc, ">= 0.37.0 and < 1.0.0", only: :dev, runtime: false},
       {:phoenix, "~> 1.7"},
       {:phoenix_live_view, "~> 1.0"},
-      {:phoenix_test, "~> 0.12", runtime: false},
+      {:phoenix_test, ">= 0.12.0 and < 1.0.0", runtime: false},
       {:plug_cowboy, "~> 2.7", only: :test, runtime: false},
       {:phoenix_ecto, "~> 4.5", optional: true},
       {:ecto_sql, "~> 3.10", optional: true},
       {:postgrex, ">= 0.0.0", only: :test},
       {:testcontainers, "~> 2.0", only: :test},
-      {:websockex, "~> 0.4", optional: true},
+      {:websockex, ">= 0.4.0 and < 1.0.0", optional: true},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:styler, "~> 1.3", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:makeup_diff, "~> 0.1", only: :dev},
+      {:makeup_diff, ">= 0.1.0 and < 1.0.0", only: :dev},
       {:nimble_options, "~> 1.1"},
-      {:playwright_ex, "~> 0.11"}
+      {:playwright_ex, ">= 0.11.0 and < 1.0.0"}
     ]
   end
 

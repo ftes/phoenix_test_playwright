@@ -23,11 +23,15 @@ Renovate replaces Dependabot's version-update configuration.
 
 Renovate extends `config:best-practices`, including action/container digest pins,
 development-dependency pins and weekly lockfile maintenance. Mix overrides the
-preset's development-dependency pinning with `in-range-only`: `mix.exs` support
-ranges stay unchanged, while weekly maintenance lets Mix resolve the newest
-allowed versions in `mix.lock`. Out-of-range Mix upgrades require a manual
-constraint change. Other dependency ranges retain `replace`, except where the
-preset pins development dependencies.
+preset's development-dependency pinning with `widen`: weekly maintenance lets Mix
+resolve the newest allowed versions in `mix.lock`, while out-of-range releases
+produce PRs widening `mix.exs` constraints without dropping existing support.
+These compatibility changes require review; automerge remains disabled.
+Two-part `~> 0.x` constraints use equivalent explicit ranges such as
+`>= 0.3.0 and < 1.0.0` to avoid Renovate incorrectly treating later `0.x` releases
+as out of range. Three-part constraints such as `~> 0.3.0` retain their syntax.
+Other dependency ranges retain `replace`, except where the preset pins
+development dependencies.
 
 Renovate generates Mix lockfiles with OTP 29 and Elixir 1.20.4, configured via
 `constraints`. Its Mix worker otherwise defaults to OTP 26, which cannot run
