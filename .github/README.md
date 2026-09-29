@@ -7,7 +7,8 @@ It also updates pnpm wherever configured, grouping its package-manager pin with
 the toolchain updates.
 
 Update PRs are scheduled for Monday 00:00–06:59 Europe/Berlin, with a two-day
-minimum release age where timestamps are available. Patch, minor and major
+minimum release age where timestamps are available (three days for npm via the
+best-practices preset). Patch, minor and major
 updates are eligible; automerge is disabled. GitHub Actions retain full commit
 SHA pins with version comments. CI reads `.tool-versions` directly.
 
@@ -20,8 +21,13 @@ Use the Renovate Dependency Dashboard issue or the
 updates and job logs. Keep GitHub's Dependabot security alerts enabled separately;
 Renovate replaces Dependabot's version-update configuration.
 
-Dependency ranges use Renovate's `replace` strategy: out-of-range updates replace
-the existing range instead of widening support to include both release lines.
+Renovate extends `config:best-practices`, including action/container digest pins,
+development-dependency pins and weekly lockfile maintenance. Mix overrides the
+preset's development-dependency pinning with `in-range-only`: `mix.exs` support
+ranges stay unchanged, while weekly maintenance lets Mix resolve the newest
+allowed versions in `mix.lock`. Out-of-range Mix upgrades require a manual
+constraint change. Other dependency ranges retain `replace`, except where the
+preset pins development dependencies.
 
 Renovate generates Mix lockfiles with OTP 29 and Elixir 1.20.4, configured via
 `constraints`. Its Mix worker otherwise defaults to OTP 26, which cannot run
