@@ -22,3 +22,8 @@ Renovate replaces Dependabot's version-update configuration.
 
 Dependency ranges use Renovate's `replace` strategy: out-of-range updates replace
 the existing range instead of widening support to include both release lines.
+
+Renovate generates Mix lockfiles with OTP 29 and Elixir 1.20.4, configured via
+`constraints`. Its Mix worker otherwise defaults to OTP 26, which cannot run
+Elixir 1.20. These worker constraints do not restrict proposed toolchain updates;
+review them when adopting a newer Elixir/OTP release line.
