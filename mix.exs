@@ -48,7 +48,7 @@ defmodule PhoenixTestPlaywright.MixProject do
       {:ecto_sql, "~> 3.10", optional: true},
       {:postgrex, ">= 0.0.0", only: :test},
       {:testcontainers, "~> 2.0", only: :test},
-      {:websockex, "~> 0.4", optional: true},
+      {:websockex, "~> 0.5", optional: true},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:styler, "~> 1.3", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
