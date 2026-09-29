@@ -24,11 +24,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Setup languages
-        uses: jdx/mise-action@v4.3.0
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       - name: Install dependencies
-        run: mix do deps.get, deps.compile
+        run: mix "do" deps.get, deps.compile
       - name: Check Formatting
         run: mix format --check-formatted
       - name: Check Credo
@@ -37,7 +37,7 @@ jobs:
         run: mix compile --warnings-as-errors
       - name: Restore Dialyzer PLT cache
         id: plt_cache
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           key: plt-${{ runner.os }}-${{ hashFiles('.tool-versions') }}-${{ hashFiles('**/mix.lock') }}
           restore-keys: plt-${{ runner.os }}-${{ hashFiles('.tool-versions') }}
@@ -47,7 +47,7 @@ jobs:
         run: mix dialyzer --plt
       - name: Save PLT cache
         id: plt_cache_save
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         if: steps.plt_cache.outputs.cache-hit != 'true'
         with:
           key: plt-${{ runner.os }}-${{ hashFiles('.tool-versions') }}-${{ hashFiles('**/mix.lock') }}
@@ -86,11 +86,11 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Setup languages
-        uses: jdx/mise-action@v4.3.0
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       - name: Install dependencies
-        run: mix do deps.get, deps.compile
+        run: mix "do" deps.get, deps.compile
       - name: Install JS dependencies, build assets and install browsers
         if: matrix.transport == 'port'
         run: mix setup
@@ -112,14 +112,14 @@ jobs:
             exit 1
           fi
       - name: Upload failure traces
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
         with:
           name: Traces-${{ matrix.transport }}
           path: ./traces
           if-no-files-found: ignore
       - name: Upload verification screenshots
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
         with:
           name: screenshots-${{ matrix.transport }}

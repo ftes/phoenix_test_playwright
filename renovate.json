@@ -1,0 +1,68 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "enabledManagers": [
+    "mix",
+    "npm",
+    "github-actions",
+    "asdf"
+  ],
+  "timezone": "Europe/Berlin",
+  "schedule": [
+    "* 0-6 * * 1"
+  ],
+  "minimumReleaseAge": "2 days",
+  "automerge": false,
+  "rangeStrategy": "replace",
+  "packageRules": [
+    {
+      "description": "Keep runtime updates together, including pnpm's packageManager pin",
+      "matchManagers": [
+        "asdf"
+      ],
+      "groupName": "toolchain"
+    },
+    {
+      "matchManagers": [
+        "npm"
+      ],
+      "matchDepTypes": [
+        "packageManager"
+      ],
+      "groupName": "toolchain"
+    },
+    {
+      "description": "The minimum supported Node version is a compatibility decision",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchDepTypes": [
+        "engines"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Preserve Elixir's OTP build compatibility suffix",
+      "matchManagers": [
+        "asdf"
+      ],
+      "matchDepNames": [
+        "elixir"
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<compatibility>otp-\\d+)$"
+    },
+    {
+      "description": "Support Erlang's additional patch component",
+      "matchManagers": [
+        "asdf"
+      ],
+      "matchDepNames": [
+        "erlang"
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)(?:\\.(?<patch>\\d+))?(?:\\.(?<build>\\d+))?$"
+    }
+  ]
+}

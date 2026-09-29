@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Replace Dependabot version updates with Renovate, including runtime toolchain
+  updates, and pin GitHub Actions to full commit SHAs.
+
 ## [0.18.0] 2026-09-15
 ### Added
 - Support `:infinity` for operation, browser-launch, and browser-pool checkout
