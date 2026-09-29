@@ -39,7 +39,7 @@ defmodule PhoenixTestPlaywright.MixProject do
   defp deps do
     [
       {:esbuild, "~> 0.9", only: :test, runtime: false},
-      {:ex_doc, "~> 0.37", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false},
       {:phoenix, "~> 1.7"},
       {:phoenix_live_view, "~> 1.0"},
       {:phoenix_test, "~> 0.12", runtime: false},
