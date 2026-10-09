@@ -1,5 +1,5 @@
 {
-  "packageManager": "pnpm@12.6.0",
+  "packageManager": "pnpm@12.10.1",
   "devDependencies": {
     "playwright": "1.63.0"
   }
