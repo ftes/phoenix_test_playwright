@@ -7,7 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.19.0] 2026-10-17
 ### Changed
+- Require PlaywrightEx 0.15 and Playwright 1.64 or newer.
 - Pin CI's PostgreSQL image by digest and retain its version tag for readability.
 - Propose wider Mix dependency support through Renovate while preserving existing
   support; use equivalent explicit pre-1.0 ranges to avoid redundant updates.
