@@ -1,5 +1,5 @@
 defmodule PhoenixTest.StepTest do
-  use PhoenixTest.Playwright.Case, async: true
+  use PhoenixTest.Playwright.Case, async: true, trace: false
 
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 
