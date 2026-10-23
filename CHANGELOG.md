@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
 ## [Unreleased]
+### Fixed
+- Embed the built-in selector engine scripts at compile time. They were read
+  from the dependency's source directory at runtime, which fails when the
+  compiled dependency runs without its sources (for example a Nix build).
 
 ## [0.19.0] 2026-10-17
 ### Changed
