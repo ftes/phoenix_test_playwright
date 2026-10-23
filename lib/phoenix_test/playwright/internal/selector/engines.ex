@@ -6,6 +6,7 @@ defmodule PhoenixTest.Playwright.Selector.Engines do
 
   @paths Path.wildcard(Path.join(__DIR__, "engines/*.js"))
   @paths_hash :erlang.md5(@paths)
+  @default Map.new(@paths, &{Path.basename(&1, ".js"), File.read!(&1)})
 
   for path <- @paths do
     @external_resource path
@@ -17,7 +18,6 @@ defmodule PhoenixTest.Playwright.Selector.Engines do
 
   def custom do
     from_config = PhoenixTest.Playwright.Config.global(:selector_engines)
-    default = Map.new(@paths, &{Path.basename(&1, ".js"), File.read!(&1)})
-    Enum.into(from_config, default)
+    Enum.into(from_config, @default)
   end
 end
