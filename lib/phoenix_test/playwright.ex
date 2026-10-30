@@ -60,6 +60,13 @@ defmodule PhoenixTest.Playwright do
   @endpoint Application.compile_env(:phoenix_test, :endpoint)
 
   @doc false
+  @spec build(%{
+          required(:context_id) => PlaywrightEx.guid(),
+          required(:page_id) => PlaywrightEx.guid(),
+          required(:frame_id) => PlaywrightEx.guid(),
+          required(:tracing_id) => PlaywrightEx.guid(),
+          required(:config) => keyword()
+        }) :: t()
   def build(%{context_id: context_id, page_id: page_id, frame_id: frame_id, tracing_id: tracing_id, config: config}) do
     %__MODULE__{
       context_id: context_id,
