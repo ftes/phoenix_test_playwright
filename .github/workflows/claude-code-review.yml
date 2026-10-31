@@ -3,25 +3,23 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-
+    # Bots are refused by the action, and fork PRs get no secrets.
+    if: >-
+      !github.event.pull_request.draft &&
+      github.event.pull_request.user.type != 'Bot' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write
       issues: read
       id-token: write
 
@@ -29,17 +27,40 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Run Claude Code Review
-        id: claude-review
         uses: anthropics/claude-code-action@d70510b174a1244958df0b03166a54912811f3e6 # v1.0.264
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
-          plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
-          claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR: ${{ github.event.pull_request.number }}
+            BASE: origin/${{ github.base_ref }}
 
+            Review this pull request like a senior maintainer of this codebase. The PR is checked
+            out; read whatever you need.
+
+            1. Read AGENTS.md / CLAUDE.md (and the files they reference) for the project's rules.
+               Read the PR description (`gh pr view PR`) and the diff (`git diff BASE...HEAD`).
+            2. For every changed file, read the surrounding code, the callers and the tests, not
+               just the hunks. A bug is usually in how the change meets existing code.
+            3. Look for real defects: wrong behaviour, unhandled cases, broken invariants,
+               authorization or data-exposure holes, races, data loss in migrations, tests that
+               don't test what they claim, and violations of the project's written rules. Use
+               subagents to review large or separate areas in parallel.
+            4. Verify each candidate before reporting: trace the code path and state the concrete
+               input or scenario that fails. Drop anything you cannot substantiate, and skip
+               style, naming and formatting nits.
+            5. Don't repeat findings already posted on this PR
+               (`gh api repos/REPO/pulls/PR/comments`, `gh pr view PR --comments`).
+
+            Post each verified finding as an inline comment on the relevant line
+            (mcp__github_inline_comment__create_inline_comment, confirmed: true), with the failure
+            scenario and a suggested fix. Then post or update one summary comment with
+            `gh pr comment PR --edit-last --create-if-none --body-file <file>`: a few sentences on
+            what you checked and the most important findings, or why you found nothing.
+          claude_args: |
+            --model claude-opus-5-5
+            --max-turns 80
+            --allowedTools "Read,Grep,Glob,Agent,Task,Write,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments:*),mcp__github_inline_comment__create_inline_comment"
