@@ -1,3 +1,4 @@
+# Keep erlang's major in sync with `constraints` in renovate.json, which Renovate builds mix.lock with.
 elixir    1.20.4-otp-29
 erlang    29.1.2
 nodejs    26.13.0
