@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Embed the built-in selector engine scripts at compile time. They were read
   from the dependency's source directory at runtime, which fails when the
   compiled dependency runs without its sources (for example a Nix build).
+- `mix phoenix_test_playwright.test.websocket` and README: start the Playwright server with
+  `npx`, since current Playwright Docker images no longer ship `corepack`.
 
 ## [0.19.0] 2026-10-17
 ### Changed

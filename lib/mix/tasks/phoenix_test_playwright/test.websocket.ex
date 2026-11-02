@@ -35,7 +35,7 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
       |> Testcontainers.Container.new()
       |> Testcontainers.Container.with_exposed_port(3000)
       |> Testcontainers.Container.with_cmd(
-        ~w(corepack pnpm@11.19.0 dlx playwright@#{playwright_version} run-server --port 3000 --host 0.0.0.0)
+        ~w(npx --yes playwright@#{playwright_version} run-server --port 3000 --host 0.0.0.0)
       )
       |> Testcontainers.Container.with_waiting_strategy(Testcontainers.PortWaitStrategy.new("localhost", 3000, 30_000))
 
