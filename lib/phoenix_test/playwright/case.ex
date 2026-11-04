@@ -118,7 +118,7 @@ defmodule PhoenixTest.Playwright.Case do
 
     on_exit(fn -> BrowserContext.close(browser_context.guid, timeout: config[:timeout]) end)
 
-    if config[:trace], do: trace(browser_context.tracing.guid, config, context)
+    if config[:trace], do: start_trace(browser_context.tracing.guid, config, context)
 
     %{
       context_id: browser_context.guid,
@@ -143,7 +143,7 @@ defmodule PhoenixTest.Playwright.Case do
     end
   end
 
-  defp trace(tracing_id, config, context) do
+  defp start_trace(tracing_id, config, context) do
     opts = [screenshots: true, snapshots: true, timeout: config[:timeout]]
     {:ok, _} = Tracing.tracing_start(tracing_id, opts)
     {:ok, _} = Tracing.tracing_start_chunk(tracing_id, timeout: config[:timeout])
