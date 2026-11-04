@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
 ## [Unreleased]
+### Changed
+- Include the runner image in CI's Dialyzer PLT cache key so runner image updates
+  rebuild the PLT instead of reusing a stale one.
+
 ### Fixed
 - Embed the built-in selector engine scripts at compile time. They were read
   from the dependency's source directory at runtime, which fails when the
