@@ -72,7 +72,7 @@
     }
   ],
   "constraints": {
-    "erlang": "^29"
+    "erlang": "29"
   },
   "lockFileMaintenance": {
     "enabled": true,
