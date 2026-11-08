@@ -1,18 +1,20 @@
 defmodule PhoenixTest.Playwright.Supervisor do
   @moduledoc """
-  Supervises the Playwright connection and browser pools.
+  Supervises the Playwright driver and browser pools.
 
-  Supports two transport modes:
-  - **Local** (default): Spawns a local Node.js Playwright driver via Erlang Port
-  - **Remote**: Connects to a remote Playwright server via WebSocket when `ws_endpoint` is configured
+  Runs a local Node.js Playwright driver. Browsers are launched by the driver, or,
+  when `ws_endpoint` is configured, the driver connects to a remote Playwright server.
   """
 
   use Supervisor
 
   alias PhoenixTest.Playwright.Config
 
-  def start_link(config \\ Config.global()) do
-    Supervisor.start_link(__MODULE__, config, name: __MODULE__)
+  # Takes no config. The `[]` is what `child_spec/1` passes.
+  def start_link([] \\ []) do
+    # Host apps usually depend on this library with `runtime: false`, which leaves it to us.
+    {:ok, _} = Application.ensure_all_started(:playwright_ex)
+    Supervisor.start_link(__MODULE__, Config.global(), name: __MODULE__)
   end
 
   @impl true
@@ -21,25 +23,15 @@ defmodule PhoenixTest.Playwright.Supervisor do
 
     children = [
       {PlaywrightEx.Supervisor, playwright_opts(config)},
+      PhoenixTest.Playwright.DriverWatcher,
       PhoenixTest.Playwright.BrowserPoolSupervisor
     ]
 
     Supervisor.init(children, strategy: :rest_for_one)
   end
 
+  # Without an executable, PlaywrightEx uses its own driver, so `assets_dir` isn't needed.
   defp playwright_opts(config) do
-    base = Keyword.take(config, ~w(timeout js_logger)a)
-
-    case config[:ws_endpoint] do
-      nil -> Keyword.put(base, :executable, Config.executable())
-      url -> Keyword.put(base, :ws_endpoint, ws_endpoint_with_browser(url, config))
-    end
-  end
-
-  defp ws_endpoint_with_browser(url, config) do
-    url
-    |> URI.parse()
-    |> URI.append_query("browser=#{config[:browser]}")
-    |> URI.to_string()
+    if config[:ws_endpoint], do: [], else: [executable: Config.executable()]
   end
 end

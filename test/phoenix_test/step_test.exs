@@ -37,15 +37,16 @@ defmodule PhoenixTest.StepTest do
   end
 
   defp start_tracing(conn) do
-    {:ok, _} = Tracing.tracing_start(conn.tracing_id, timeout: timeout())
-    {:ok, _} = Tracing.tracing_start_chunk(conn.tracing_id, timeout: timeout())
+    Tracing.start!(conn.tracing)
+    Tracing.start_chunk!(conn.tracing)
   end
 
   defp stop_tracing(conn) do
-    {:ok, zip_file} = Tracing.tracing_stop_chunk(conn.tracing_id, timeout: timeout())
-    {:ok, _} = Tracing.tracing_stop(conn.tracing_id, timeout: timeout())
+    zip_file = Path.join(System.tmp_dir!(), "step-test-#{System.unique_integer([:positive])}.zip")
+    Tracing.stop_chunk!(conn.tracing, path: zip_file)
+    Tracing.stop!(conn.tracing)
 
-    {:ok, handle} = :zip.zip_open(String.to_charlist(zip_file.absolute_path), [:memory])
+    {:ok, handle} = :zip.zip_open(String.to_charlist(zip_file), [:memory])
     {:ok, {_, trace_contents}} = :zip.zip_get(~c"trace.trace", handle)
     :ok = :zip.zip_close(handle)
 

@@ -1,9 +1,7 @@
 defmodule PhoenixTest.Playwright.FirefoxTest do
   use PhoenixTest.Playwright.Case,
     async: true,
-    browser_pool: :firefox_pool,
-    # Firefox context creation can exceed the default 500ms test timeout under load
-    browser_context_opts: [timeout: 5_000]
+    browser_pool: :firefox_pool
 
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 

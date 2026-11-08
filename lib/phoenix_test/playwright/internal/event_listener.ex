@@ -12,7 +12,7 @@ defmodule PhoenixTest.Playwright.EventListener do
   """
   use GenServer
 
-  defstruct [:filter, :callbacks]
+  defstruct [:callbacks]
 
   # Public API
 
@@ -24,26 +24,33 @@ defmodule PhoenixTest.Playwright.EventListener do
     GenServer.cast(name, :pop_callback)
   end
 
+  @doc """
+  Hands an event to the current callback.
+
+  For use in Playwright listeners, which must not block.
+  """
+  def emit(name, event) do
+    GenServer.cast(name, {:event, event})
+  end
+
   # Internal
 
-  def start_link(%{guid: _, filter: _, callback: _} = args, opts \\ []) do
+  def start_link(%{callback: _} = args, opts \\ []) do
     GenServer.start_link(__MODULE__, args, opts)
   end
 
   @impl GenServer
-  def init(%{guid: guid, filter: filter, callback: callback}) when is_function(callback, 1) do
-    PlaywrightEx.subscribe(guid, pid: self())
-    {:ok, %__MODULE__{filter: filter, callbacks: [callback]}}
+  def init(%{callback: callback}) when is_function(callback, 1) do
+    {:ok, %__MODULE__{callbacks: [callback]}}
   end
 
   @impl GenServer
-  def handle_info({:playwright_msg, event}, %__MODULE__{} = state) do
+  def handle_cast({:event, event}, %__MODULE__{} = state) do
     callback = List.first(state.callbacks)
-    if state.filter.(event) and callback, do: callback.(event)
+    if callback, do: callback.(event)
     {:noreply, state}
   end
 
-  @impl GenServer
   def handle_cast({:push_callback, callback}, %__MODULE__{callbacks: callbacks} = state) do
     {:noreply, %{state | callbacks: [callback | callbacks]}}
   end

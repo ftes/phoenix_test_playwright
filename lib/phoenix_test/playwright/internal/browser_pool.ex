@@ -12,6 +12,7 @@ defmodule PhoenixTest.Playwright.BrowserPool do
   use GenServer
 
   alias __MODULE__, as: State
+  alias PhoenixTest.Playwright.Browser
   alias PhoenixTest.Playwright.Config
 
   defstruct [
@@ -23,11 +24,11 @@ defmodule PhoenixTest.Playwright.BrowserPool do
   ]
 
   @type pool_id :: atom()
-  @type browser_id :: binary()
+  @type browser :: PlaywrightEx.Browser.t()
 
   ## Public
 
-  @spec checkout(pool_id()) :: browser_id()
+  @spec checkout(pool_id()) :: browser()
   def checkout(pool) do
     timeout = Config.global(:browser_pool_checkout_timeout)
     GenServer.call(pool, :checkout, timeout)
@@ -53,14 +54,14 @@ defmodule PhoenixTest.Playwright.BrowserPool do
   def handle_call(:checkout, from, state) do
     cond do
       not Enum.empty?(state.available) ->
-        browser_id = hd(state.available)
-        state = do_checkout(state, from, browser_id)
-        {:reply, browser_id, state}
+        browser = hd(state.available)
+        state = do_checkout(state, from, browser)
+        {:reply, browser, state}
 
       map_size(state.in_use) < state.size ->
         {:ok, browser} = launch(state.config)
-        state = do_checkout(state, from, browser.guid)
-        {:reply, browser.guid, state}
+        state = do_checkout(state, from, browser)
+        {:reply, browser, state}
 
       true ->
         state = Map.update!(state, :waiting, &(&1 ++ [from]))
@@ -70,9 +71,9 @@ defmodule PhoenixTest.Playwright.BrowserPool do
 
   @impl GenServer
   def handle_info({:DOWN, ref, :process, pid, _reason}, state) do
-    case Enum.find_value(state.in_use, fn {browser_id, tracked} -> tracked == {pid, ref} and browser_id end) do
+    case Enum.find_value(state.in_use, fn {browser, tracked} -> tracked == {pid, ref} and browser end) do
       nil -> {:noreply, state}
-      browser_id -> {:noreply, do_checkin(state, browser_id)}
+      browser -> {:noreply, do_checkin(state, browser)}
     end
   end
 
@@ -81,38 +82,42 @@ defmodule PhoenixTest.Playwright.BrowserPool do
     timeout = Config.global(:timeout)
 
     tasks =
-      for browser_id <- state.available ++ Map.keys(state.in_use) do
-        Task.async(fn -> PlaywrightEx.Browser.close(browser_id, timeout: timeout) end)
+      for browser <- state.available ++ Map.keys(state.in_use) do
+        Task.async(fn -> close(browser, timeout) end)
       end
 
     Task.await_many(tasks, :infinity)
   end
 
+  defp close(browser, timeout) do
+    Browser.close_within(timeout, fn -> PlaywrightEx.Browser.close(browser) end)
+  end
+
   @doc false
-  defdelegate launch_browser!(config), to: PhoenixTest.Playwright.Browser
+  defdelegate launch_browser!(config), to: Browser
 
   defp launch(config) do
     config = config |> Config.validate!() |> Keyword.take(Config.setup_all_keys())
     {:ok, launch_browser!(config)}
   end
 
-  defp do_checkout(state, from, browser_id) do
+  defp do_checkout(state, from, browser) do
     {from_pid, _tag} = from
 
     state
-    |> Map.update!(:available, &(&1 -- [browser_id]))
-    |> Map.update!(:in_use, &Map.put(&1, browser_id, {from_pid, Process.monitor(from_pid)}))
+    |> Map.update!(:available, &(&1 -- [browser]))
+    |> Map.update!(:in_use, &Map.put(&1, browser, {from_pid, Process.monitor(from_pid)}))
   end
 
-  defp do_checkin(state, browser_id) do
-    {{_from_pid, ref}, in_use} = Map.pop(state.in_use, browser_id)
+  defp do_checkin(state, browser) do
+    {{_from_pid, ref}, in_use} = Map.pop(state.in_use, browser)
     Process.demonitor(ref, [:flush])
-    state = %{state | in_use: in_use, available: [browser_id | state.available]}
+    state = %{state | in_use: in_use, available: [browser | state.available]}
 
     case state.waiting do
       [from | rest] ->
-        GenServer.reply(from, browser_id)
-        %{do_checkout(state, from, browser_id) | waiting: rest}
+        GenServer.reply(from, browser)
+        %{do_checkout(state, from, browser) | waiting: rest}
 
       _ ->
         state

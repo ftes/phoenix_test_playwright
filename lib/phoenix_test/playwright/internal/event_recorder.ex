@@ -2,20 +2,23 @@ defmodule PhoenixTest.Playwright.EventRecorder do
   @moduledoc false
   use GenServer
 
-  defstruct [:filter, events: [], waiter: nil, timer: nil]
+  defstruct events: [], waiter: nil, timer: nil
 
   def pop(name, timeout) do
     GenServer.call(name, {:pop, timeout}, :infinity)
   end
 
-  def start_link(%{guid: _, filter: _} = args, opts \\ []) do
+  def push(name, event) do
+    GenServer.cast(name, {:push, event})
+  end
+
+  def start_link(args \\ %{}, opts \\ []) do
     GenServer.start_link(__MODULE__, args, opts)
   end
 
   @impl GenServer
-  def init(%{guid: guid, filter: filter}) when is_function(filter, 1) do
-    PlaywrightEx.subscribe(guid, pid: self())
-    {:ok, %__MODULE__{filter: filter}}
+  def init(_args) do
+    {:ok, %__MODULE__{}}
   end
 
   @impl GenServer
@@ -37,14 +40,11 @@ defmodule PhoenixTest.Playwright.EventRecorder do
   end
 
   @impl GenServer
-  def handle_info({:playwright_msg, event}, %__MODULE__{} = state) do
-    if state.filter.(event) do
-      {:noreply, record_event(event, state)}
-    else
-      {:noreply, state}
-    end
+  def handle_cast({:push, event}, %__MODULE__{} = state) do
+    {:noreply, record_event(event, state)}
   end
 
+  @impl GenServer
   def handle_info({:timeout, timer, :pop}, %{timer: timer, waiter: waiter} = state) do
     GenServer.reply(waiter, {:error, :timeout})
     {:noreply, %{state | waiter: nil, timer: nil}}

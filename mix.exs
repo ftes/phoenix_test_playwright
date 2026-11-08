@@ -24,7 +24,8 @@ defmodule PhoenixTestPlaywright.MixProject do
       name: "PhoenixTestPlaywright",
       source_url: @source_url,
       docs: docs(),
-      aliases: aliases()
+      aliases: aliases(),
+      usage_rules: usage_rules()
     ]
   end
 
@@ -48,13 +49,13 @@ defmodule PhoenixTestPlaywright.MixProject do
       {:ecto_sql, "~> 3.10", optional: true},
       {:postgrex, ">= 0.0.0", only: :test},
       {:testcontainers, "~> 2.0", only: :test},
-      {:websockex, ">= 0.4.0 and < 1.0.0", optional: true},
+      {:usage_rules, "~> 1.3", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:styler, "~> 1.3", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:makeup_diff, ">= 0.1.0 and < 1.0.0", only: :dev},
       {:nimble_options, "~> 1.1"},
-      {:playwright_ex, "~> 0.15"}
+      {:playwright_ex, "~> 0.17.0-rc.4"}
     ]
   end
 
@@ -95,6 +96,17 @@ defmodule PhoenixTestPlaywright.MixProject do
       ],
       nest_modules_by_prefix: [PhoenixTest.Playwright],
       filter_modules: fn _, metadata -> not String.contains?(to_string(metadata.source_path), "/internal/") end
+    ]
+  end
+
+  # `mix usage_rules.sync --yes` rewrites the managed block of AGENTS.md from this list.
+  defp usage_rules do
+    [
+      file: "AGENTS.md",
+      usage_rules: [
+        {:usage_rules, sub_rules: []},
+        {:playwright_ex, link: :markdown}
+      ]
     ]
   end
 

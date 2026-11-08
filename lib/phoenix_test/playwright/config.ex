@@ -3,7 +3,7 @@ screenshot_opts_schema = [
   omit_background: [type: :boolean, default: false]
 ]
 
-browsers = ~w(android chromium electron firefox webkit)a
+browsers = ~w(chromium firefox webkit)a
 
 # styler:sort
 browser_opts = [
@@ -63,8 +63,8 @@ schema_opts = [
     type: {:custom, PhoenixTest.Playwright.Config, :__validate_assets_dir__, []},
     doc: """
     The directory where the JS assets are located and the Playwright CLI is installed.
-    Playwright version `#{PlaywrightEx.minimum_supported_version()}` or newer is required.
-    Alternatively, use `ws_endpoint` to connect to a remote Playwright server instead, in which case no local node and playwright is required and `assets_dir` is ignored.
+    Playwright version `#{PlaywrightEx.Driver.version()}` is required.
+    Alternatively, use `ws_endpoint` to connect to a remote Playwright server instead, in which case `assets_dir` is ignored.
     """
   ],
   browser: browser_opts[:browser],
@@ -78,14 +78,6 @@ schema_opts = [
   ],
   browser_launch_opts: browser_opts[:browser_launch_opts],
   browser_launch_timeout: browser_opts[:browser_launch_timeout],
-  browser_page_opts: [
-    default: [],
-    type: {:or, [:map, :keyword_list]},
-    doc: """
-    Additional arguments passed to Playwright [Browser.newPage](https://playwright.dev/docs/api/class-browser#browser-new-page).
-    (E.g. `[accept_downloads: false]`.
-    """
-  ],
   browser_pool: [
     default: :default_pool,
     type: {:or, [:atom, {:in, [false, nil]}]},
@@ -125,7 +117,7 @@ schema_opts = [
     default: PhoenixTest.Playwright.JsLogger,
     type: :atom,
     type_doc: "`module | nil`",
-    doc: "`nil` to disable, or a module that implements the `PlaywrightEx.JsLogger` behaviour."
+    doc: "`nil` to disable, or a module that implements the `PhoenixTest.Playwright.JsLogger` behaviour."
   ],
   screenshot: [
     default: false,
@@ -182,14 +174,14 @@ schema_opts = [
     type: :string,
     doc: """
     WebSocket endpoint URL for connecting to a remote Playwright server.
-    If provided, uses WebSocket transport instead of spawning a local Node.js process.
+    If provided, browsers run on that server instead of being launched locally.
+    The connection goes through a local Playwright driver that PlaywrightEx downloads on first use.
     Example: "ws://localhost:3000/ws"
 
-    The remote server provides a single pre-launched browser, so `browser_pool` should
-    be set to `false` (pooling has no effect with a remote server).
+    `browser_pool` should be set to `false`.
 
     This is useful for:
-    - Alpine Linux containers (glibc issues with local Playwright driver)
+    - Containers without browser system dependencies
     - Containerized CI environments with a separate Playwright server
     - Connecting to remote/shared Playwright instances
     """
@@ -199,7 +191,7 @@ schema_opts = [
 schema = NimbleOptions.new!(schema_opts)
 
 setup_all_keys = ~w(browser_pool browser browser_launch_opts browser_launch_timeout executable_path headless slow_mo)a
-setup_keys = ~w(accept_dialogs ecto_sandbox_stop_owner_delay screenshot trace browser_context_opts browser_page_opts)a
+setup_keys = ~w(accept_dialogs ecto_sandbox_stop_owner_delay screenshot trace browser_context_opts)a
 merge_global_into_browser_pool_keys = ~w(browser browser_launch_opts browser_launch_timeout headless slow_mo)a
 
 defmodule PhoenixTest.Playwright.Config do
@@ -233,6 +225,16 @@ defmodule PhoenixTest.Playwright.Config do
   def executable do
     [global()[:assets_dir], "node_modules", "playwright", "cli.js"] |> Path.join() |> Path.expand()
   end
+
+  @doc false
+  # A timeout of 0 means "don't wait" here, but "wait forever" to Playwright.
+  def driver_timeout(0), do: 1
+  def driver_timeout(timeout), do: timeout
+
+  @doc false
+  # Playwright calls that take no timeout are bounded by the caller, with grace for a busy driver.
+  def client_timeout(:infinity), do: :infinity
+  def client_timeout(timeout), do: max(to_timeout(second: 1), round(timeout * 1.5))
 
   @doc false
   def validate!(config) when is_map(config), do: config |> Keyword.new() |> validate!()

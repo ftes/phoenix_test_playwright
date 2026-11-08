@@ -31,5 +31,17 @@ defmodule PhoenixTest.Playwright.CaseTest do
       |> visit("/pw/headers")
       |> assert_has("#headers", text: "accept-language: de")
     end
+
+    @tag browser_context_opts: [extra_http_headers: [%{name: "x-custom", value: 1}]]
+    test "accepts extra_http_headers as a list of maps", %{conn: conn} do
+      conn
+      |> visit("/pw/headers")
+      |> assert_has("#headers", text: "x-custom: 1")
+    end
+
+    @tag browser_context_opts: [viewport: nil]
+    test "viewport: nil disables the default viewport", %{conn: conn} do
+      refute is_map(PlaywrightEx.Page.viewport_size(conn.page))
+    end
   end
 end

@@ -20,23 +20,28 @@ defmodule PhoenixTest.Playwright do
 
   alias PhoenixTest.Assertions
   alias PhoenixTest.OpenBrowser
+  alias PhoenixTest.Playwright.Browser
   alias PhoenixTest.Playwright.Config
   alias PhoenixTest.Playwright.CookieArgs
   alias PhoenixTest.Playwright.EventListener
   alias PhoenixTest.Playwright.EventRecorder
-  alias PlaywrightEx.Artifact
+  alias PhoenixTest.Playwright.Selector
   alias PlaywrightEx.BrowserContext
   alias PlaywrightEx.Dialog
-  alias PlaywrightEx.Frame
+  alias PlaywrightEx.Download
+  alias PlaywrightEx.Expect
+  alias PlaywrightEx.ExpectError
+  alias PlaywrightEx.Locator
   alias PlaywrightEx.Page
-  alias PlaywrightEx.Selector
+  alias PlaywrightEx.PlaywrightError
+  alias PlaywrightEx.TimeoutError
   alias PlaywrightEx.Tracing
 
   defstruct [
-    :context_id,
-    :page_id,
-    :frame_id,
-    :tracing_id,
+    :context,
+    :page,
+    :frame,
+    :tracing,
     :dialog_listener_pid,
     :download_recorder_pid,
     :last_input_selector,
@@ -61,34 +66,35 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   @spec build(%{
-          required(:context_id) => PlaywrightEx.guid(),
-          required(:page_id) => PlaywrightEx.guid(),
-          required(:frame_id) => PlaywrightEx.guid(),
-          required(:tracing_id) => PlaywrightEx.guid(),
+          required(:context) => BrowserContext.t(),
+          required(:page) => Page.t(),
+          required(:frame) => PlaywrightEx.Frame.t(),
+          required(:tracing) => Tracing.t(),
           required(:config) => keyword()
         }) :: t()
-  def build(%{context_id: context_id, page_id: page_id, frame_id: frame_id, tracing_id: tracing_id, config: config}) do
+  def build(%{context: context, page: page, frame: frame, tracing: tracing, config: config}) do
     %__MODULE__{
-      context_id: context_id,
-      page_id: page_id,
-      frame_id: frame_id,
-      tracing_id: tracing_id,
-      dialog_listener_pid: start_dialog_listener(page_id, config[:accept_dialogs]),
-      download_recorder_pid: start_download_recorder(page_id)
+      context: context,
+      page: page,
+      frame: frame,
+      tracing: tracing,
+      dialog_listener_pid: start_dialog_listener(page, config[:accept_dialogs]),
+      download_recorder_pid: start_download_recorder(page)
     }
   end
 
-  defp start_dialog_listener(page_id, auto_accept?) do
-    filter = &match?(%{method: :__create__, params: %{type: "Dialog"}}, &1)
-    callback = &if(auto_accept?, do: {:ok, _} = Dialog.accept(&1.params.guid, timeout: timeout()))
-    args = %{guid: page_id, filter: filter, callback: callback}
-    ExUnit.Callbacks.start_supervised!({EventListener, args}, id: "#{page_id}-dialog-listener")
+  defp start_dialog_listener(page, auto_accept?) do
+    callback = &if(auto_accept?, do: :ok = Dialog.accept(&1))
+    id = {:dialog_listener, make_ref()}
+    pid = ExUnit.Callbacks.start_supervised!({EventListener, %{callback: callback}}, id: id)
+    Page.on(page, :dialog, &EventListener.emit(pid, &1))
+    pid
   end
 
-  defp start_download_recorder(page_id) do
-    filter = &match?(%{method: :download}, &1)
-    args = %{guid: page_id, filter: filter}
-    ExUnit.Callbacks.start_supervised!({EventRecorder, args}, id: "#{page_id}-download-recorder")
+  defp start_download_recorder(page) do
+    pid = ExUnit.Callbacks.start_supervised!(EventRecorder, id: {:download_recorder, make_ref()})
+    Page.on(page, :download, &EventRecorder.push(pid, &1))
+    pid
   end
 
   @retry_interval to_timeout(millisecond: 10)
@@ -150,15 +156,13 @@ defmodule PhoenixTest.Playwright do
     caller_location = [file: Path.absname(__CALLER__.file), line: __CALLER__.line]
 
     quote bind_quoted: [conn: conn, title: title, fun: fun, caller_location: caller_location] do
-      Tracing.group(
-        conn.tracing_id,
-        [
-          name: title,
-          location: caller_location,
-          timeout: Config.global(:timeout)
-        ],
-        fn -> fun.(conn) end
-      )
+      Tracing.group!(conn.tracing, title, location: Map.new(caller_location))
+
+      try do
+        fun.(conn)
+      after
+        Tracing.group_end!(conn.tracing)
+      end
 
       conn
     end
@@ -195,15 +199,14 @@ defmodule PhoenixTest.Playwright do
   """
   @spec visit(t(), String.t(), [unquote(NimbleOptions.option_typespec(@visit_opts_schema))]) :: t()
   def visit(conn, path, opts) do
-    opts = NimbleOptions.validate!(opts, @visit_opts_schema)
+    opts = opts |> NimbleOptions.validate!(@visit_opts_schema) |> ensure_timeout()
 
-    tap(
-      conn,
-      &case Frame.goto(&1.frame_id, opts |> ensure_timeout() |> Keyword.put(:url, path)) do
-        {:ok, _} -> :ok
-        {:error, %{error: %{message: "Download is starting"}}} -> :ok
-      end
-    )
+    with {:error, error} <- Page.goto(conn.page, path, opts),
+         false <- error.message =~ "Download is starting" do
+      raise error
+    end
+
+    conn
   end
 
   @reload_page_opts_schema [timeout: @timeout_opt]
@@ -211,7 +214,7 @@ defmodule PhoenixTest.Playwright do
   @doc false
   def reload_page(conn, opts \\ []) do
     opts = NimbleOptions.validate!(opts, @reload_page_opts_schema)
-    tap(conn, &({:ok, _} = Page.reload(&1.page_id, ensure_timeout(opts))))
+    tap(conn, &Page.reload!(&1.page, ensure_timeout(opts)))
   end
 
   @doc """
@@ -251,7 +254,8 @@ defmodule PhoenixTest.Playwright do
   """
   def add_cookies(conn, cookies) do
     cookies = Enum.map(cookies, &CookieArgs.from_cookie/1)
-    tap(conn, &({:ok, _} = BrowserContext.add_cookies(&1.context_id, cookies: cookies, timeout: timeout())))
+    bounded!(timeout(), "browserContext.addCookies", fn -> BrowserContext.add_cookies(conn.context, cookies) end)
+    conn
   end
 
   @clear_cookies_opts_schema [timeout: @timeout_opt]
@@ -265,7 +269,8 @@ defmodule PhoenixTest.Playwright do
   @spec clear_cookies(t(), [unquote(NimbleOptions.option_typespec(@clear_cookies_opts_schema))]) :: t()
   def clear_cookies(conn, opts \\ []) do
     opts = NimbleOptions.validate!(opts, @clear_cookies_opts_schema)
-    tap(conn, &({:ok, _} = BrowserContext.clear_cookies(&1.context_id, ensure_timeout(opts))))
+    bounded!(timeout(opts), "browserContext.clearCookies", fn -> BrowserContext.clear_cookies(conn.context) end)
+    conn
   end
 
   @doc """
@@ -288,7 +293,8 @@ defmodule PhoenixTest.Playwright do
   """
   def add_session_cookie(conn, cookie, session_options) do
     cookie = CookieArgs.from_session_options(cookie, session_options)
-    tap(conn, &({:ok, _} = BrowserContext.add_cookies(&1.context_id, cookies: [cookie], timeout: timeout())))
+    bounded!(timeout(), "browserContext.addCookies", fn -> BrowserContext.add_cookies(conn.context, [cookie]) end)
+    conn
   end
 
   @screenshot_opts_schema [
@@ -327,8 +333,7 @@ defmodule PhoenixTest.Playwright do
     File.mkdir_p!(dir)
 
     path = Path.join(dir, file_path)
-    {:ok, binary_img} = Page.screenshot(conn.page_id, ensure_timeout(opts))
-    File.write!(path, Base.decode64!(binary_img))
+    File.write!(path, Page.screenshot!(conn.page, ensure_timeout(opts)))
 
     conn
   end
@@ -397,14 +402,18 @@ defmodule PhoenixTest.Playwright do
   Visual regression assertion: compares a screenshot of the current page against a stored baseline.
 
   `name` is a relative path within `:snapshot_dir` (see `PhoenixTest.Playwright.Config`), including
-  the file extension — for example `"home.png"` or `"auth/login.png"`. Subdirectories are created
-  automatically.
+  the file extension, which must be `.png` or `.webp` — for example `"home.png"` or `"auth/login.png"`.
+  Subdirectories are created automatically.
 
-  On first run (no baseline exists), the screenshot is saved as the new baseline and the test passes.
+  On first run (no baseline exists), the screenshot is saved as the new baseline, a notice is printed
+  and the test passes.
   On subsequent runs, the live screenshot is compared pixel-by-pixel against the baseline.
   On mismatch, a diff image is saved to `<snapshot_dir>/__diff__/<name>` and the test fails.
 
   To update a baseline, delete the snapshot file and re-run the test.
+
+  Playwright writes its comparison output next to the snapshot, so don't name baselines
+  `<name>-actual`, `<name>-expected`, `<name>-previous` or `<name>-diff`.
 
   ## Options
   #{NimbleOptions.docs(@assert_screenshot_opts_schema)}
@@ -420,60 +429,83 @@ defmodule PhoenixTest.Playwright do
     opts = NimbleOptions.validate!(opts, @assert_screenshot_opts_schema)
     {snapshot_dir, opts} = Keyword.pop(opts, :snapshot_dir, Config.global(:snapshot_dir))
     snapshot_path = Path.join(snapshot_dir, name)
+    {selector, opts} = Keyword.pop(opts, :selector)
+    target = if selector, do: locator(conn, selector), else: conn.page
 
     opts =
       opts
-      |> maybe_add_expected(snapshot_path)
       |> ensure_timeout()
-      |> maybe_convert_selector(conn.frame_id)
-      |> maybe_convert_mask(conn.frame_id)
+      |> atomize_enums(~w(animations caret scale)a)
+      |> maybe_convert_mask(conn)
+      |> Keyword.put(:path, snapshot_path)
 
-    case Page.expect_screenshot(conn.page_id, opts) do
-      {:ok, nil} ->
+    actual_existed? = snapshot_path |> snapshot_output_path("-actual") |> File.exists?()
+    result = Expect.to_have_screenshot(target, opts)
+    output_files = snapshot_output_files(result, actual_existed?, snapshot_path)
+    diff_written? = keep_only_diff_file(output_files, snapshot_path, Path.join([snapshot_dir, "__diff__", name]))
+
+    case result do
+      :ok ->
         conn
 
-      {:ok, actual_b64} when is_binary(actual_b64) ->
-        write_file!(snapshot_path, actual_b64)
-        conn
+      {:error, %ExpectError{message: msg}} when diff_written? ->
+        flunk("Screenshot mismatch for #{name}: #{screenshot_diff_summary(msg)}")
 
-      {:error, {_, %{diff: diff, custom_error_message: msg}}} when is_binary(diff) ->
-        write_file!(Path.join([snapshot_dir, "__diff__", name]), diff)
-        flunk("Screenshot mismatch for #{name}: #{msg}")
-
-      {:error, {_, %{custom_error_message: msg}}} ->
+      {:error, %ExpectError{message: msg}} ->
         flunk(msg)
+
+      {:error, error} ->
+        raise error
     end
   end
 
-  defp maybe_add_expected(opts, snapshot_path) do
-    if File.exists?(snapshot_path) do
-      Keyword.put(opts, :expected, snapshot_path |> File.read!() |> Base.encode64())
-    else
-      opts
+  defp screenshot_diff_summary(message) do
+    case Regex.run(~r/^\s*(.+ are different\.)\s*$/m, message) do
+      [_, summary] -> summary
+      nil -> message
     end
   end
 
-  defp maybe_convert_selector(opts, frame_id) do
-    case Keyword.pop(opts, :selector) do
-      {nil, opts} -> opts
-      {s, opts} -> Keyword.put(opts, :locator, %{frame: %{guid: frame_id}, selector: s})
-    end
-  end
-
-  defp maybe_convert_mask(opts, frame_id) do
+  defp maybe_convert_mask(opts, conn) do
     case Keyword.pop(opts, :mask) do
-      {nil, opts} ->
-        opts
-
-      {selectors, opts} ->
-        masks = Enum.map(selectors, &%{frame: %{guid: frame_id}, selector: &1})
-        Keyword.put(opts, :mask, masks)
+      {nil, opts} -> opts
+      {selectors, opts} -> Keyword.put(opts, :mask, Enum.map(selectors, &locator(conn, &1)))
     end
   end
 
-  defp write_file!(path, base64) do
-    File.mkdir_p!(Path.dirname(path))
-    File.write!(path, Base.decode64!(base64))
+  # The files Playwright wrote next to the snapshot: `-actual` when it writes a baseline, the attachments on failure.
+  defp snapshot_output_files(:ok, true = _actual_existed?, _snapshot_path), do: []
+
+  defp snapshot_output_files(:ok, false = _actual_existed?, snapshot_path) do
+    [snapshot_output_path(snapshot_path, "-actual")]
+  end
+
+  defp snapshot_output_files(
+         {:error, %ExpectError{matcherResult: %{attachments: attachments}}},
+         _actual_existed?,
+         snapshot_path
+       ) do
+    Enum.map(attachments, &Path.join(Path.dirname(snapshot_path), &1.name))
+  end
+
+  defp snapshot_output_files(_result, _actual_existed?, _snapshot_path), do: []
+
+  # Only the diff is of interest, and it goes in a directory that can be gitignored.
+  defp keep_only_diff_file(output_files, snapshot_path, diff_path) do
+    playwright_diff_path = snapshot_output_path(snapshot_path, "-diff")
+    for file <- output_files -- [playwright_diff_path], do: File.rm(file)
+
+    if playwright_diff_path in output_files do
+      File.mkdir_p!(Path.dirname(diff_path))
+      File.rename!(playwright_diff_path, diff_path)
+      true
+    else
+      false
+    end
+  end
+
+  defp snapshot_output_path(snapshot_path, suffix) do
+    Path.rootname(snapshot_path) <> suffix <> Path.extname(snapshot_path)
   end
 
   @type_opts_schema [
@@ -500,14 +532,12 @@ defmodule PhoenixTest.Playwright do
           unquote(NimbleOptions.option_typespec(@type_opts_schema))
         ]) :: t()
   def type(conn, selector, text, opts \\ []) when is_binary(text) do
-    opts =
-      opts
-      |> NimbleOptions.validate!(@type_opts_schema)
-      |> Keyword.merge(selector: selector, text: text)
-      |> ensure_timeout()
+    opts = opts |> NimbleOptions.validate!(@type_opts_schema) |> ensure_timeout()
 
-    conn.frame_id
-    |> Frame.type(opts)
+    conn
+    |> locator(selector)
+    |> Locator.first()
+    |> Locator.press_sequentially(text, opts)
     |> handle_response(selector)
 
     conn
@@ -546,14 +576,12 @@ defmodule PhoenixTest.Playwright do
           unquote(NimbleOptions.option_typespec(@press_opts_schema))
         ]) :: t()
   def press(conn, selector, key, opts \\ []) when is_binary(key) do
-    opts =
-      opts
-      |> NimbleOptions.validate!(@press_opts_schema)
-      |> Keyword.merge(selector: selector, key: key)
-      |> ensure_timeout()
+    opts = opts |> NimbleOptions.validate!(@press_opts_schema) |> ensure_timeout()
 
-    conn.frame_id
-    |> Frame.press(opts)
+    conn
+    |> locator(selector)
+    |> Locator.first()
+    |> Locator.press(key, opts)
     |> handle_response(selector)
 
     conn
@@ -569,8 +597,7 @@ defmodule PhoenixTest.Playwright do
     playwright: [
       type: :keyword_list,
       default: [],
-      doc:
-        "Additional options passed to [frame.dragAndDrop](https://playwright.dev/docs/api/class-frame#frame-drag-and-drop)."
+      doc: "Additional options passed to [locator.dragTo](https://playwright.dev/docs/api/class-locator#locator-drag-to)."
     ],
     timeout: @timeout_opt
   ]
@@ -594,14 +621,11 @@ defmodule PhoenixTest.Playwright do
     source_selector = conn |> maybe_within() |> Selector.concat(source_selector)
     target_selector = conn |> maybe_within() |> Selector.concat(target_selector)
 
-    opts =
-      Keyword.merge(
-        [source: source_selector, target: target_selector, timeout: timeout(opts)],
-        Keyword.fetch!(opts, :playwright)
-      )
+    opts = Keyword.merge([timeout: timeout(opts)], Keyword.fetch!(opts, :playwright))
 
-    conn.frame_id
-    |> Frame.drag_and_drop(opts)
+    conn
+    |> locator(source_selector)
+    |> Locator.drag_to(locator(conn, target_selector), opts)
     |> handle_response(source_selector)
 
     conn
@@ -718,37 +742,18 @@ defmodule PhoenixTest.Playwright do
   ]
   @content_assertion_opts [:text, :value, :selected, :checked]
 
-  defp has_title?(conn, opts, params \\ []) do
+  defp has_title?(conn, opts, other_opts \\ []) do
     {text, opts} = opts |> NimbleOptions.validate!(@title_assertion_opts_schema) |> Keyword.pop!(:text)
     text = ensure_binary(text)
+    expected = if opts[:exact], do: text, else: ~r/#{Regex.escape(text)}/
 
-    params =
-      Keyword.merge(
-        [
-          expression: "to.have.title",
-          expected_text: [%{string: text, match_substring: not opts[:exact]}],
-          timeout: timeout(opts)
-        ],
-        params
-      )
-
-    {:ok, matches?} = Frame.expect(conn.frame_id, params)
-    matches?
+    expect_matches?(conn.page, other_opts[:is_not], &Expect.to_have_title(&1, expected, timeout: timeout(opts)))
   end
 
-  defp has_title_element?(conn, params \\ []) do
-    params =
-      Keyword.merge(
-        [
-          expression: "to.be.attached",
-          selector: Selector.css("title"),
-          timeout: timeout()
-        ],
-        params
-      )
-
-    {:ok, matches?} = Frame.expect(conn.frame_id, params)
-    matches?
+  defp has_title_element?(conn, other_opts \\ []) do
+    conn
+    |> locator(Selector.css("title"))
+    |> expect_matches?(other_opts[:is_not], &Expect.to_be_attached(&1, timeout: timeout()))
   end
 
   defp found?(conn, selector, opts, other_opts \\ []) do
@@ -771,19 +776,27 @@ defmodule PhoenixTest.Playwright do
       |> Selector.concat(Selector.value(opts[:value]))
       |> Selector.concat("visible=true")
 
-    params =
-      case Map.new(opts) do
-        %{count: count} ->
-          [expression: "to.have.count", expected_number: count, selector: Selector.build(selector)]
+    case Map.new(opts) do
+      %{count: count} ->
+        conn
+        |> locator(Selector.build(selector))
+        |> expect_matches?(other_opts[:is_not], &Expect.to_have_count(&1, count, timeout: timeout(opts)))
 
-        _ ->
-          selector = Selector.concat(selector, if(opts[:at], do: :none, else: Selector.at(0)))
-          [expression: "to.be.visible", selector: selector]
-      end
+      _ ->
+        conn
+        |> locator(Selector.concat(selector, if(opts[:at], do: :none, else: Selector.at(0))))
+        |> expect_matches?(other_opts[:is_not], &Expect.to_be_visible(&1, timeout: timeout(opts)))
+    end
+  end
 
-    params = [timeout: timeout(opts)] |> Keyword.merge(other_opts) |> Keyword.merge(params)
-    {:ok, found?} = Frame.expect(conn.frame_id, params)
-    found?
+  # Whether the positive assertion holds, after waiting for the expected outcome.
+  # Only a timed out expectation is a boolean result. Other failures, such as strict mode violations, must raise.
+  defp expect_matches?(actual, is_not, matcher) do
+    case matcher.(if(is_not, do: Expect.not_(actual), else: actual)) do
+      :ok -> !is_not
+      {:error, %ExpectError{matcherResult: %{timeout: _}}} -> !!is_not
+      {:error, error} -> raise error
+    end
   end
 
   defp validate_assertion_opts!(opts) do
@@ -837,12 +850,13 @@ defmodule PhoenixTest.Playwright do
   def assert_download(conn, filename_or_fun) do
     download =
       case EventRecorder.pop(conn.download_recorder_pid, timeout()) do
-        {:ok, %{params: params}} ->
-          path = download_artifact(params.artifact.guid)
+        {:ok, download} ->
+          path = download_artifact(download)
+          filename = Download.suggested_filename(download)
 
           %PhoenixTest.FileDownload{
-            mime_type: MIME.from_path(params.suggested_filename),
-            name: params.suggested_filename,
+            mime_type: MIME.from_path(filename),
+            name: filename,
             content: File.read!(path)
           }
 
@@ -858,20 +872,14 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
-  defp download_artifact(artifact_guid) do
+  defp download_artifact(download) do
     path = Path.join(System.tmp_dir!(), "phoenix-test-download-#{System.unique_integer([:positive])}")
 
-    case Artifact.save_as(artifact_guid, path, timeout: timeout()) do
-      :ok ->
-        path
-
-      {:error, error} ->
-        raise ExUnit.AssertionError, message: "Download failed: #{download_error_message(error)}"
+    case bounded(timeout(), "download.saveAs", fn -> Download.save_as(download, path) end) do
+      :ok -> path
+      {:error, error} -> raise ExUnit.AssertionError, message: "Download failed: #{Exception.message(error)}"
     end
   end
-
-  defp download_error_message(%{message: message}), do: message
-  defp download_error_message(error), do: inspect(error)
 
   @doc """
   Handle browser dialogs (`alert()`, `confirm()`, `prompt()`) while executing the inner function.
@@ -906,13 +914,13 @@ defmodule PhoenixTest.Playwright do
       end
   """
   def with_dialog(session, callback, fun) when is_function(callback, 1) and is_function(fun, 1) do
-    event_callback = fn %{params: %{guid: guid, initializer: %{message: message}}} ->
-      {:ok, _} =
-        case callback.(%{guid: guid, message: message}) do
-          :accept -> Dialog.accept(guid, timeout: timeout())
-          {:accept, prompt_text} -> Dialog.accept(guid, prompt_text: prompt_text, timeout: timeout())
-          :dismiss -> Dialog.dismiss(guid, timeout: timeout())
-          _ -> {:ok, :ignore}
+    event_callback = fn dialog ->
+      :ok =
+        case callback.(%{dialog: dialog, message: Dialog.message(dialog)}) do
+          :accept -> Dialog.accept(dialog)
+          {:accept, prompt_text} -> Dialog.accept(dialog, prompt_text)
+          :dismiss -> Dialog.dismiss(dialog)
+          _ -> :ok
         end
     end
 
@@ -924,16 +932,16 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def render_page_title(conn) do
-    case Frame.title(conn.frame_id, timeout: timeout()) do
-      {:ok, ""} -> nil
-      {:ok, title} -> title
+    case bounded!(timeout(), "page.title", fn -> Page.title(conn.page) end) do
+      "" -> nil
+      title -> title
     end
   end
 
   @doc false
   def render_html(conn) do
     selector = conn |> maybe_within() |> Selector.build()
-    {:ok, html} = Frame.inner_html(conn.frame_id, selector: selector, timeout: timeout())
+    html = conn |> locator(selector) |> Locator.first() |> Locator.inner_html!(timeout: timeout())
     LazyHTML.from_document(html)
   end
 
@@ -942,8 +950,9 @@ defmodule PhoenixTest.Playwright do
   """
   @spec click(t(), selector()) :: t()
   def click(conn, selector) do
-    conn.frame_id
-    |> Frame.click(selector: selector, timeout: timeout())
+    conn
+    |> locator(selector)
+    |> Locator.click(timeout: timeout())
     |> handle_response(selector)
 
     conn
@@ -975,8 +984,9 @@ defmodule PhoenixTest.Playwright do
       |> Selector.concat(selector)
       |> Selector.has(Selector.concat(Selector.text(text, opts), "visible=true"))
 
-    conn.frame_id
-    |> Frame.click(selector: selector, timeout: timeout(opts))
+    conn
+    |> locator(selector)
+    |> Locator.click(timeout: timeout(opts))
     |> handle_response(selector)
 
     conn
@@ -1002,8 +1012,9 @@ defmodule PhoenixTest.Playwright do
       )
       |> Selector.build()
 
-    conn.frame_id
-    |> Frame.click(selector: selector, timeout: timeout(opts))
+    conn
+    |> locator(selector)
+    |> Locator.click(timeout: timeout(opts))
     |> handle_response(selector)
 
     conn
@@ -1029,8 +1040,9 @@ defmodule PhoenixTest.Playwright do
       )
       |> Selector.build()
 
-    conn.frame_id
-    |> Frame.click(selector: selector, timeout: timeout(opts))
+    conn
+    |> locator(selector)
+    |> Locator.click(timeout: timeout(opts))
     |> handle_response(selector)
 
     conn
@@ -1067,7 +1079,7 @@ defmodule PhoenixTest.Playwright do
   def fill_in(conn, css_selector \\ nil, label, opts) do
     opts = NimbleOptions.validate!(opts, @fill_in_opts_schema)
     {value, opts} = Keyword.pop!(opts, :with)
-    fun = &Frame.fill(conn.frame_id, selector: &1, value: to_string(value), timeout: timeout(opts))
+    fun = &Locator.fill(&1, to_string(value), timeout: timeout(opts))
     input(conn, css_selector || "input:not([type='hidden']),textarea", label, opts, fun, blur: true)
   end
 
@@ -1081,28 +1093,28 @@ defmodule PhoenixTest.Playwright do
 
     {label, opts} = Keyword.pop!(opts, :from)
     options = option_labels |> List.wrap() |> Enum.map(&%{label: &1})
-    fun = &Frame.select_option(conn.frame_id, selector: &1, options: options, timeout: timeout(opts))
+    fun = &Locator.select_option(&1, options, timeout: timeout(opts))
     input(conn, css_selector || "select", label, opts, fun)
   end
 
   @doc false
   def check(conn, css_selector \\ nil, label, opts) do
     opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
-    fun = &Frame.check(conn.frame_id, selector: &1, timeout: timeout(opts))
+    fun = &Locator.check(&1, timeout: timeout(opts))
     input(conn, css_selector || "input[type='checkbox']", label, opts, fun)
   end
 
   @doc false
   def uncheck(conn, css_selector \\ nil, label, opts) do
     opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
-    fun = &Frame.uncheck(conn.frame_id, selector: &1, timeout: timeout(opts))
+    fun = &Locator.uncheck(&1, timeout: timeout(opts))
     input(conn, css_selector || "input[type='checkbox']", label, opts, fun)
   end
 
   @doc false
   def choose(conn, css_selector \\ nil, label, opts) do
     opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
-    fun = &Frame.check(conn.frame_id, selector: &1, timeout: timeout(opts))
+    fun = &Locator.check(&1, timeout: timeout(opts))
     input(conn, css_selector || "input[type='radio']", label, opts, fun)
   end
 
@@ -1110,7 +1122,7 @@ defmodule PhoenixTest.Playwright do
   def upload(conn, css_selector \\ nil, label, paths, opts) do
     opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
     paths = paths |> List.wrap() |> Enum.map(&Path.expand/1)
-    fun = &Frame.set_input_files(conn.frame_id, selector: &1, local_paths: paths, timeout: timeout(opts))
+    fun = &Locator.set_input_files(&1, paths, timeout: timeout(opts))
     input(conn, css_selector || "input[type='file']", label, opts, fun)
   end
 
@@ -1126,13 +1138,14 @@ defmodule PhoenixTest.Playwright do
       |> Selector.concat("visible=true")
       |> Selector.build()
 
-    selector
+    conn
+    |> locator(selector)
     |> fun.()
     |> handle_response(selector)
 
     # Trigger phx-change for text inputs using phx-debounce="blur". Other
     # controls dispatch their change event as part of the Playwright action.
-    if input_opts[:blur], do: Frame.blur(conn.frame_id, selector: selector, timeout: timeout(opts))
+    if input_opts[:blur], do: conn |> locator(selector) |> Locator.blur(timeout: timeout(opts))
 
     %{conn | last_input_selector: selector}
   end
@@ -1147,50 +1160,56 @@ defmodule PhoenixTest.Playwright do
     end
   end
 
-  defp handle_response(result, debug_selector) do
-    checkbox_msg = "Clicking the checkbox did not change its state"
+  defp locator(conn, selector), do: Page.locator(conn.page, selector)
 
+  defp handle_response(result, debug_selector) do
     case result do
-      {:error, %{error: %{name: "TimeoutError"}} = error} ->
+      {:error, %TimeoutError{} = error} ->
         raise ArgumentError,
               "Could not find element with selector \"#{debug_selector}\"#{timeout_suffix(error)}\n" <>
                 more_info(error)
 
-      {:error, %{error: %{message: "Error: strict mode violation: " <> _ = message}}} ->
-        short_message = String.replace(message, "Error: strict mode violation: ", "")
+      {:error, %PlaywrightError{message: message} = error} ->
+        handle_playwright_error(error, message, debug_selector)
 
-        raise ArgumentError, "Found more than one element matching selector \"#{debug_selector}\":\n#{short_message}"
+      {:error, error} ->
+        raise error
 
-      {:error, %{error: %{name: "Error", message: ^checkbox_msg}}} ->
-        :ok
-
-      {:ok, result} ->
+      result ->
         result
     end
   end
 
+  defp handle_playwright_error(error, message, debug_selector) do
+    case String.split(message, "strict mode violation: ", parts: 2) do
+      [_, short_message] ->
+        raise ArgumentError, "Found more than one element matching selector \"#{debug_selector}\":\n#{short_message}"
+
+      _ ->
+        if not (message =~ "Clicking the checkbox did not change its state"), do: raise(error)
+    end
+  end
+
   defp timeout_suffix(error) do
-    case Regex.scan(~r/Timeout (\d+)ms exceeded./, error.error[:message] || "") do
+    case Regex.scan(~r/Timeout (\d+)ms exceeded./, error.message) do
       [[_, timeout]] -> " within #{String.to_integer(timeout)}ms"
       _ -> ""
     end
   end
 
-  defp more_info(error) do
-    case error[:log] do
-      log when is_list(log) -> "Playwright log:\n" <> Enum.join(log, "\n")
-      _ -> inspect(error, pretty: true)
-    end
-  end
+  defp more_info(%{log: [_ | _] = log}), do: "Playwright log:\n" <> Enum.join(log, "\n")
+  defp more_info(error), do: Exception.message(error)
 
   @doc false
   def submit(conn) do
-    conn.frame_id
-    |> Frame.focus(selector: conn.last_input_selector, timeout: timeout())
+    conn
+    |> locator(conn.last_input_selector)
+    |> Locator.focus(timeout: timeout())
     |> handle_response(conn.last_input_selector)
 
-    case Frame.evaluate(conn.frame_id,
-           expression: """
+    case evaluate_within(
+           conn,
+           """
            () => {
              const element = document.activeElement;
              const form = element && element.form;
@@ -1206,8 +1225,8 @@ defmodule PhoenixTest.Playwright do
              form.requestSubmit(submitter || undefined);
            }
            """,
-           is_function: true,
-           timeout: timeout()
+           nil,
+           timeout()
          ) do
       {:ok, _} ->
         :ok
@@ -1226,7 +1245,7 @@ defmodule PhoenixTest.Playwright do
 
     # Await any pending navigation
     Process.sleep(100)
-    {:ok, raw_html} = Frame.content(conn.frame_id, timeout: timeout())
+    raw_html = bounded!(timeout(), "page.content", fn -> Page.content(conn.page) end)
 
     fixed_html =
       raw_html
@@ -1243,11 +1262,6 @@ defmodule PhoenixTest.Playwright do
 
   @evaluate_opts_schema [
     timeout: @timeout_opt,
-    is_function: [
-      type: :boolean,
-      default: false,
-      doc: "Whether the expression is a function."
-    ],
     arg: [
       type: :any,
       default: nil,
@@ -1261,6 +1275,9 @@ defmodule PhoenixTest.Playwright do
   When a callback function is given, it receives the JavaScript result. This
   is useful for assertions or side effects without breaking the pipe chain.
 
+  Evaluation can't be interrupted, so `:timeout` only limits how long to wait for
+  the result, and at least one second is always allowed.
+
   ## Options
   #{NimbleOptions.docs(@evaluate_opts_schema)}
 
@@ -1269,7 +1286,7 @@ defmodule PhoenixTest.Playwright do
       |> evaluate("window.scrollTo(0, document.body.scrollHeight)")
 
       conn
-      |> evaluate("selectors => selectors.forEach(s => document.querySelector(s).remove())", is_function: true, arg: ["h1"])
+      |> evaluate("selectors => selectors.forEach(s => document.querySelector(s).remove())", arg: ["h1"])
 
       conn
       |> evaluate("document.title", & assert &1 =~ "Dashboard")
@@ -1284,16 +1301,12 @@ defmodule PhoenixTest.Playwright do
   def evaluate(conn, expression, opts) when is_list(opts), do: evaluate(conn, expression, opts, & &1)
 
   def evaluate(conn, expression, opts, fun) when is_list(opts) and is_function(fun, 1) do
-    args =
-      opts
-      |> NimbleOptions.validate!(@evaluate_opts_schema)
-      |> ensure_timeout()
-      |> Keyword.put(:expression, expression)
+    opts = NimbleOptions.validate!(opts, @evaluate_opts_schema)
 
     tap(conn, fn conn ->
-      case Frame.evaluate(conn.frame_id, args) do
+      case evaluate_within(conn, expression, opts[:arg], timeout(opts)) do
         {:ok, value} ->
-          fun.(value)
+          fun.(null_to_nil(value))
 
         {:error, error} ->
           raise ExUnit.AssertionError,
@@ -1305,26 +1318,22 @@ defmodule PhoenixTest.Playwright do
   @doc """
   See `PhoenixTest.unwrap/2`.
 
-  Invokes `fun` with various Playwright IDs.
-  These can be used to interact with the Playwright
+  Invokes `fun` with the Playwright
   [`BrowserContext`](`PlaywrightEx.BrowserContext`),
   [`Page`](`PlaywrightEx.Page`) and
   [`Frame`](`PlaywrightEx.Frame`).
 
   ## Examples
-      |> unwrap(fn %{page_id: page_id} -> PlaywrightEx.subscribe(page_id) end)
+      |> unwrap(fn %{page: page} -> PlaywrightEx.Page.bring_to_front!(page) end)
   """
-  @spec unwrap(t(), (%{context_id: any(), page_id: any(), frame_id: any()} -> any())) :: t()
+  @spec unwrap(t(), (%{context: any(), page: any(), frame: any()} -> any())) :: t()
   def unwrap(conn, fun) do
-    tap(conn, &fun.(Map.take(&1, ~w(context_id page_id frame_id)a)))
+    tap(conn, &fun.(Map.take(&1, ~w(context page frame)a)))
   end
 
   @doc false
   def current_path(conn) do
-    case Frame.evaluate(conn.frame_id,
-           expression: "window.location.pathname + window.location.search",
-           timeout: timeout()
-         ) do
+    case evaluate_within(conn, "window.location.pathname + window.location.search", nil, timeout()) do
       {:ok, path} ->
         path
 
@@ -1333,9 +1342,41 @@ defmodule PhoenixTest.Playwright do
     end
   end
 
-  defp timeout, do: Config.global(:timeout)
-  defp timeout(opts), do: Keyword.get_lazy(opts, :timeout, &timeout/0)
-  defp ensure_timeout(opts), do: Keyword.put_new_lazy(opts, :timeout, &timeout/0)
+  # `Page.evaluate/3` has no timeout, so it is bounded here.
+  defp evaluate_within(conn, expression, arg, timeout) do
+    bounded(timeout, "page.evaluate", fn -> Page.evaluate(conn.page, expression, arg) end)
+  end
+
+  defp null_to_nil(:null), do: nil
+  defp null_to_nil(list) when is_list(list), do: Enum.map(list, &null_to_nil/1)
+  defp null_to_nil(map) when is_non_struct_map(map), do: Map.new(map, fn {k, v} -> {k, null_to_nil(v)} end)
+  defp null_to_nil(value), do: value
+
+  defp atomize_enums(opts, keys) do
+    Enum.reduce(keys, opts, fn key, opts ->
+      if Keyword.has_key?(opts, key), do: Keyword.update!(opts, key, &String.to_atom/1), else: opts
+    end)
+  end
+
+  # For calls that take no timeout. `fun` must not raise: the task is linked to the caller.
+  defp bounded!(timeout, title, fun) do
+    case bounded(timeout, title, fun) do
+      :ok -> :ok
+      {:ok, result} -> result
+      {:error, error} -> raise error
+    end
+  end
+
+  defp bounded(timeout, title, fun) do
+    case Browser.within(timeout, fun) do
+      {:ok, result} -> result
+      :timeout -> {:error, %TimeoutError{message: "#{title}: Timeout #{Config.client_timeout(timeout)}ms exceeded."}}
+    end
+  end
+
+  defp timeout, do: Config.driver_timeout(Config.global(:timeout))
+  defp timeout(opts), do: opts |> Keyword.get(:timeout, Config.global(:timeout)) |> Config.driver_timeout()
+  defp ensure_timeout(opts), do: Keyword.put(opts, :timeout, timeout(opts))
 end
 
 defimpl PhoenixTest.Driver, for: PhoenixTest.Playwright do

@@ -9,7 +9,7 @@ defmodule PhoenixTest.PlaywrightTest do
   import ExUnit.CaptureLog, only: [capture_log: 1]
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 
-  alias PlaywrightEx.Selector
+  alias PhoenixTest.Playwright.Selector
 
   @long_page_html "<h1>Longer than viewport</h1>" <> String.duplicate("<div>Lorem ipsum</div>", 100)
 
@@ -131,6 +131,33 @@ defmodule PhoenixTest.PlaywrightTest do
       assert File.exists?(Path.join([tmp_dir, "__diff__", "diff.png"]))
     end
 
+    @tag :tmp_dir
+    test "leaves only the baseline next to a new snapshot", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_screenshot(conn, "only.png", snapshot_dir: tmp_dir)
+
+      assert File.ls!(tmp_dir) == ["only.png"]
+    end
+
+    @tag :tmp_dir
+    test "keeps other files next to a matching snapshot", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_screenshot(conn, "kept.png", snapshot_dir: tmp_dir)
+      siblings = Enum.map(~w(kept-previous.png kept-actual.png), &Path.join(tmp_dir, &1))
+      Enum.each(siblings, &File.write!(&1, "unrelated"))
+
+      assert_screenshot(conn, "kept.png", snapshot_dir: tmp_dir)
+
+      assert Enum.map(siblings, &File.read!/1) == ["unrelated", "unrelated"]
+    end
+
+    @tag :tmp_dir
+    test "rejects invalid option values", %{conn: conn, tmp_dir: tmp_dir} do
+      for opt <- [animations: false, caret: "bogus", full_page: "yes", threshold: "0.1"] do
+        assert_raise NimbleOptions.ValidationError, fn ->
+          assert_screenshot(conn, "invalid.png", [snapshot_dir: tmp_dir] ++ [opt])
+        end
+      end
+    end
+
     test "raises without writing diff when comparison times out", %{conn: conn} do
       assert_raise ExUnit.AssertionError, ~r"Timeout 1ms exceeded.", fn ->
         conn
@@ -204,6 +231,13 @@ defmodule PhoenixTest.PlaywrightTest do
   end
 
   describe "assertion option validation" do
+    test "raises the underlying error for an invalid selector", %{conn: conn} do
+      session = set_html(conn, "<h1>Playwright</h1>")
+
+      assert_raise PlaywrightEx.ExpectError, fn -> assert_has(session, "h1[") end
+      assert_raise PlaywrightEx.ExpectError, fn -> refute_has(session, "h1[") end
+    end
+
     test "raises for unsupported assert_has/refute_has options", %{conn: conn} do
       session = set_html(conn, "<h1>Playwright</h1>")
 
@@ -328,11 +362,14 @@ defmodule PhoenixTest.PlaywrightTest do
     test "accepts function with arg", %{conn: conn} do
       conn
       |> set_html("<h1>Other</h1>")
-      |> evaluate("selectors => selectors.forEach(s => document.querySelector(s).remove())",
-        is_function: true,
-        arg: ["h1"]
-      )
+      |> evaluate("selectors => selectors.forEach(s => document.querySelector(s).remove())", arg: ["h1"])
       |> refute_has("h1")
+    end
+
+    test "rejects the removed is_function option", %{conn: conn} do
+      assert_raise NimbleOptions.ValidationError, ~r/unknown.*:is_function/, fn ->
+        evaluate(conn, "1 + 2", is_function: true)
+      end
     end
 
     test "raises on JavaScript error", %{conn: conn} do
@@ -361,11 +398,23 @@ defmodule PhoenixTest.PlaywrightTest do
 
       conn
       |> set_html("<h1>Other</h1>")
+      |> evaluate("({ a: null, b: [null] })", fn result -> assert result == %{"a" => nil, "b" => [nil]} end)
+      |> evaluate("null", fn result -> assert result == nil end)
       |> evaluate("1 + 2", [timeout: 5000], fn result ->
         send(test_pid, {:result, result})
       end)
 
       assert_receive {:result, 3}
+    end
+  end
+
+  describe "timeout: 0" do
+    test "fails immediately instead of waiting forever", %{conn: conn} do
+      assert_raise ExUnit.AssertionError, fn ->
+        conn
+        |> set_html("<h1>Hello</h1>")
+        |> assert_has("h2", timeout: 0)
+      end
     end
   end
 
@@ -376,15 +425,23 @@ defmodule PhoenixTest.PlaywrightTest do
       <a href="#other">Navigate</a>
       <h1 id="other">Other</h1>
       """)
-      |> unwrap(fn %{frame_id: frame_id} ->
+      |> unwrap(fn %{page: page} ->
         selector = Selector.role("link", "Navigate", exact: true)
-        {:ok, _} = PlaywrightEx.Frame.click(frame_id, selector: selector, timeout: timeout())
+        page |> PlaywrightEx.Page.locator(selector) |> PlaywrightEx.Locator.click!(timeout: timeout())
       end)
       |> assert_has("#other:target", text: "Other")
     end
   end
 
   describe "type/3" do
+    test "acts on the first match", %{conn: conn} do
+      conn
+      |> set_html(~s(<input id="first" /><input id="second" />))
+      |> type("input", "My text")
+      |> assert_has("#first", value: "My text")
+      |> refute_has("#second", value: "My text")
+    end
+
     test "fills in a single text field based on the label", %{conn: conn} do
       conn
       |> set_html("""
@@ -400,6 +457,14 @@ defmodule PhoenixTest.PlaywrightTest do
   end
 
   describe "press/3" do
+    test "acts on the first match", %{conn: conn} do
+      conn
+      |> set_html(~s(<input id="first" /><input id="second" />))
+      |> press("input", "a")
+      |> assert_has("#first", value: "a")
+      |> refute_has("#second", value: "a")
+    end
+
     test "submits a form via Enter key", %{conn: conn} do
       conn
       |> set_html("""
@@ -540,7 +605,7 @@ defmodule PhoenixTest.PlaywrightTest do
         capture_log(fn ->
           conn
           |> set_html("<h1>Console log fixture</h1>")
-          |> tap(&PlaywrightEx.Frame.evaluate(&1.frame_id, expression: "console.error('TESTME 42')", timeout: timeout()))
+          |> tap(&PlaywrightEx.Page.evaluate(&1.page, "console.error('TESTME 42')"))
         end)
 
       assert log =~ "TESTME 42"

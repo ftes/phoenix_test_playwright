@@ -29,8 +29,8 @@ defmodule PhoenixTest.Playwright.CookieArgsTest do
                value: "42",
                url: "#{Application.get_env(:phoenix_test, :base_url)}/path",
                secure: true,
-               http_only: true,
-               same_site: "Lax"
+               httpOnly: true,
+               sameSite: "Lax"
              }
     end
   end

@@ -19,7 +19,7 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
   use Mix.Task
 
   # `:test`-only deps not available when running `mix docs` in `:dev` env
-  @compile {:no_warn_undefined, [Testcontainers, Testcontainers.Container, Testcontainers.PortWaitStrategy]}
+  @compile {:no_warn_undefined, [Testcontainers, Testcontainers.Container, Testcontainers.LogWaitStrategy]}
 
   @impl Mix.Task
   def run(args) do
@@ -37,7 +37,8 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
       |> Testcontainers.Container.with_cmd(
         ~w(npx --yes playwright@#{playwright_version} run-server --port 3000 --host 0.0.0.0)
       )
-      |> Testcontainers.Container.with_waiting_strategy(Testcontainers.PortWaitStrategy.new("localhost", 3000, 30_000))
+      # Docker's port forward accepts connections before the server listens, and `connect` doesn't retry.
+      |> Testcontainers.Container.with_waiting_strategy(Testcontainers.LogWaitStrategy.new(~r/Listening on/, 60_000))
 
     {:ok, container} = Testcontainers.start_container(container_config)
 
