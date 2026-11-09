@@ -10,7 +10,8 @@ browser_opts = [
   browser: [
     default: :chromium,
     type: {:in, browsers},
-    type_doc: "`#{Enum.map_join(browsers, " | ", &":#{&1}")}`"
+    type_doc: "`#{Enum.map_join(browsers, " | ", &":#{&1}")}`",
+    doc: "Browser to run the tests in."
   ],
   browser_launch_opts: [
     default: [],
@@ -24,7 +25,10 @@ browser_opts = [
   browser_launch_timeout: [
     default: to_timeout(second: 4),
     type: :timeout,
-    doc: "Timeout in milliseconds. `:infinity` disables the timeout; `0` means no waiting."
+    doc: """
+    Maximum time to launch a browser, or to connect to the remote one (`ws_endpoint`).
+    Also bounds closing a non-pooled browser after its tests. See [Timeouts](#module-timeouts).
+    """
   ],
   executable_path: [
     type: :string,
@@ -35,11 +39,13 @@ browser_opts = [
   ],
   headless: [
     default: true,
-    type: :boolean
+    type: :boolean,
+    doc: "Run the browser without a visible window. Set to `false` to watch tests run."
   ],
   slow_mo: [
     default: to_timeout(second: 0),
-    type: :non_neg_integer
+    type: :non_neg_integer,
+    doc: "Pause in milliseconds between browser operations."
   ]
 ]
 
@@ -79,7 +85,10 @@ schema_opts = [
   browser_pool_checkout_timeout: [
     default: to_timeout(minute: 1),
     type: :timeout,
-    doc: "Timeout in milliseconds. `:infinity` disables the timeout; `0` means no waiting."
+    doc: """
+    Maximum time a test module waits in `setup_all` for a browser from its pool,
+    including launching one if needed. See [Timeouts](#module-timeouts).
+    """
   ],
   browser_pools: [
     required: false,
@@ -111,7 +120,7 @@ schema_opts = [
   screenshot: [
     default: false,
     type: {:or, [:boolean, non_empty_keyword_list: screenshot_opts_schema]},
-    type_doc: "`boolean/0 | Keyword.t/0`",
+    type_doc: "`boolean | keyword`",
     doc: """
     Either a boolean or a keyword list:
 
@@ -148,16 +157,23 @@ schema_opts = [
   timeout: [
     default: to_timeout(second: 2),
     type: :timeout,
-    doc: "Timeout in milliseconds. `:infinity` disables the timeout; `0` means no waiting."
+    doc: """
+    Default maximum time for a single browser operation, such as an action, assertion or navigation.
+    Many operations accept a `timeout:` option to override it.
+    Also bounds closing browser contexts and pooled browsers. See [Timeouts](#module-timeouts).
+    """
   ],
   trace: [
     default: false,
     type: {:in, [false, true, :open]},
-    type_doc: "`boolean/0 | :open`"
+    type_doc: "`boolean | :open`",
+    doc:
+      "`true` records a [trace](https://playwright.dev/docs/trace-viewer) of each test, `:open` also opens it in the viewer."
   ],
   trace_dir: [
     default: "traces",
-    type: :string
+    type: :string,
+    doc: "Directory where traces are saved."
   ],
   ws_endpoint: [
     type: :string,
@@ -165,7 +181,7 @@ schema_opts = [
     WebSocket endpoint URL for connecting to a remote Playwright server.
     If provided, browsers run on that server instead of being launched locally.
     The connection goes through a local Playwright driver that PlaywrightEx downloads on first use.
-    Example: "ws://localhost:3000/ws"
+    Example: "ws://localhost:3000"
 
     `browser_pool` should be set to `false`.
 
@@ -187,17 +203,23 @@ defmodule PhoenixTest.Playwright.Config do
   @moduledoc """
   Configuration options for the Playwright driver.
 
-  Most should be set globally in `config/tests.exs`.
+  Most should be set globally in `config/test.exs`.
   Some can be overridden per test.
 
   All options:
   #{NimbleOptions.docs(schema)}
 
-  Options that be overridden per test module via the `use PhoenixTest.Playwright.Case` opts:
+  Options that can be overridden per test module via the `use PhoenixTest.Playwright.Case` opts:
   #{Enum.map_join(setup_all_keys, "\n", &"- `:#{&1}`")}
 
-  Options that be overridden per test via ExUnit `@tag`:
+  Options that can be overridden per test via ExUnit `@tag`:
   #{Enum.map_join(setup_keys, "\n", &"- `:#{&1}`")}
+
+  ## Timeouts
+
+  Timeouts are in milliseconds, or `:infinity` to disable them. `0` means no waiting.
+  This applies to the config options above and to the `timeout:` option of individual operations.
+  ExUnit's own test timeout (see `ExUnit.configure/1`) still applies.
   """
 
   @schema schema

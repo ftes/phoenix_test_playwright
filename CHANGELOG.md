@@ -5,40 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
-## [0.20.0-rc.0] 2026-11-09
+## [Unreleased]
 ### Changed
-- Require PlaywrightEx 0.17 (rc), which pins Playwright 1.65.
-- **Breaking:** require Elixir 1.18 or newer.
-- Breaking: remove the `assets_dir` option. PlaywrightEx now downloads its own driver, so delete `assets_dir` from your
+- Correct and reorganise the docs: README setup examples, `with_dialog/3`, `PhoenixTest.Playwright.Selector`, `PhoenixTest.Playwright.Config`.
+- `PhoenixTest.Playwright.Supervisor` is now in the API docs.
+- Hide the `test.websocket` mix task from the docs.
+
+## [0.20.0-rc.0] 2026-11-09
+### Breaking
+- Require Elixir 1.18 or newer.
+- Remove the `assets_dir` option. PlaywrightEx now downloads its own driver, so delete `assets_dir` from your
   config and install browsers with `MIX_ENV=test mix playwright_ex.install -- chromium --with-deps`. The `playwright`
   npm package is no longer used; set `PLAYWRIGHT_EX_EXECUTABLE` to keep using your own.
-- Breaking, if internals were used: `conn` holds PlaywrightEx handles (`context`, `page`) and `unwrap/2` also passes `frame`,
+- If you used internals: `conn` holds PlaywrightEx handles (`context`, `page`) and `unwrap/2` also passes `frame`,
   instead of guids (`context_id`, ...). Derive the rest with `Page.main_frame(conn.page)` and
   `BrowserContext.tracing(conn.context)`. The ExUnit context holds `playwright_browser` instead of `browser_id`.
   `PlaywrightEx.Selector` is now `PhoenixTest.Playwright.Selector`.
   A `with_dialog/3` callback receives `dialog` instead of `guid`.
+- Custom `js_logger` modules: `log/3` receives a `PlaywrightEx.ConsoleMessage` or `PlaywrightEx.WebError`
+  as its third argument, instead of a message map.
+- `PhoenixTest.Playwright.Supervisor.start_link/0` no longer takes a config: it reads the global `config :phoenix_test, :playwright`.
+- Options passed through to Playwright follow PlaywrightEx 0.17, and unknown ones raise, for example
+  `ignore_all_default_args` in `browser_launch_opts`.
+- `assert_screenshot/3` baselines must be `.png` or `.webp`, and the documented defaults `animations: "disabled"`
+  and `scale: "css"` now apply. Regenerate baselines captured with running animations or a device scale factor above 1.
+- `evaluate/2,3,4` callbacks receive PlaywrightEx's values directly: JS `null` is
+  `:null` (previously `nil`), `undefined` is `nil`.
+
+### Changed
+- Require PlaywrightEx 0.17 (rc), which pins Playwright 1.65.
 - Remove the internal `PhoenixTest.Playwright.EventListener`: dialogs are handled by `Page.on/3` listeners directly.
 - `ws_endpoint` connects through a local driver that PlaywrightEx downloads, and no longer needs `websockex`.
 - `assert_screenshot/3` prints a notice when it writes a missing baseline.
 - Sync usage rules into `AGENTS.md` with `usage_rules`. The README's setup now includes PlaywrightEx's rules.
 - Custom `js_logger` modules implement `PhoenixTest.Playwright.JsLogger`, which replaces `PlaywrightEx.JsLogger`.
-- Breaking for custom `js_logger` modules: `log/3` receives a `PlaywrightEx.ConsoleMessage` or `PlaywrightEx.WebError`
-  as its third argument, instead of a message map.
 - `browser_context_opts` no longer accepts `timeout`. The `browser_page_opts` config option and the `is_function` option
   of `evaluate/3` are removed and now raise, except that `browser_page_opts` set through `@tag` or `use` is dropped like any
   unknown tag. The `:android` and `:electron` browsers are removed.
-- **Breaking:** `PhoenixTest.Playwright.Supervisor.start_link/0` no longer takes a config: it reads the global `config :phoenix_test, :playwright`.
-- **Breaking:** options passed through to Playwright follow PlaywrightEx 0.17, and unknown ones raise, for example
-  `ignore_all_default_args` in `browser_launch_opts`.
-- **Breaking:** `assert_screenshot/3` baselines must be `.png` or `.webp`, and the documented defaults `animations: "disabled"`
-  and `scale: "css"` now apply. Regenerate baselines captured with running animations or a device scale factor above 1.
 - `assert_download/2` must run in the process that built the `conn` (normally the test process).
-- Include the runner image in CI's Dialyzer PLT cache key so runner image updates
-  rebuild the PLT instead of reusing a stale one.
 - `submit/1` targets the last interacted element directly instead of focusing it first, and `current_path` reads the
   client's URL instead of evaluating JavaScript in the page.
-- **Breaking:** `evaluate/2,3,4` callbacks receive PlaywrightEx's values directly: JS `null` is
-  `:null` (previously `nil`), `undefined` is `nil`.
 - `assert_screenshot/3` takes its options from PlaywrightEx: `:style_path` is new, and enum options also accept atoms.
   Options such as `:clip` and `:mask_color`, and out-of-range values such as a negative `:max_diff_pixels`, are validated by PlaywrightEx,
   so invalid ones raise its errors instead of `NimbleOptions.ValidationError`.
@@ -48,7 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Embed the built-in selector engine scripts at compile time. They were read
   from the dependency's source directory at runtime, which fails when the
   compiled dependency runs without its sources (for example a Nix build).
-- `mix phoenix_test_playwright.test.websocket` and README: start the Playwright server with
+- `mix test.websocket` and README: start the Playwright server with
   `npx`, since current Playwright Docker images no longer ship `corepack`.
 - `screenshot/3`: infer the image type from the file extension as documented. `.jpg` paths
   contained PNG bytes. Unsupported extensions now raise, and `omit_background` is ignored for `.jpg` and `.jpeg`.
@@ -58,11 +64,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [0.19.0] 2026-10-17
 ### Changed
 - Require PlaywrightEx 0.15 and Playwright 1.64 or newer.
-- Pin CI's PostgreSQL image by digest and retain its version tag for readability.
-- Propose wider Mix dependency support through Renovate while preserving existing
-  support; use equivalent explicit pre-1.0 ranges to avoid redundant updates.
-- Replace Dependabot version updates with Renovate, including runtime toolchain
-  updates, and pin GitHub Actions to full commit SHAs.
 
 ## [0.18.0] 2026-09-15
 ### Added

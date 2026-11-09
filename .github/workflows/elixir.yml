@@ -62,6 +62,23 @@ jobs:
       - name: Run Dialyzer
         run: mix dialyzer --format github --format dialyxir
 
+  docs:
+    name: Docs
+    if: github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size
+    runs-on: ubuntu-latest
+    env:
+      # `ex_doc` is a dev-only dependency.
+      MIX_ENV: dev
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Setup languages
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - name: Install dependencies
+        run: mix "do" deps.get, deps.compile
+      - name: Build docs without warnings
+        run: mix docs --warnings-as-errors
+
   test:
     name: Test (${{ matrix.transport }})
     runs-on: ubuntu-latest

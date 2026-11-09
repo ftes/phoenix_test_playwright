@@ -13,8 +13,8 @@ defmodule Features.RegisterTest do
   use PhoenixTest.Playwright.Case,
     async: true,                         # async with Ecto sandbox
     parameterize: [                      # run in multiple browsers in parallel
-      %{browser_pool: :chromium},
-      %{browser_pool: :firefox}
+      %{browser_pool: :chromium_pool},   # pools defined in config, see Configuration
+      %{browser_pool: :firefox_pool}
     ]
 
   @tag trace: :open                      # replay in interactive viewer
@@ -42,7 +42,7 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
 
     ```elixir
     # mix.exs
-    {:phoenix_test_playwright, "~> 0.14", only: :test, runtime: false}
+    {:phoenix_test_playwright, "~> 0.20.0-rc.0", only: :test, runtime: false}
     ```
 
 2. Install the Playwright driver and browser (no Node.js or npm needed, see [Playwright driver](#playwright-driver))
@@ -123,6 +123,67 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
 > The last commit adds a feature test for the `phx gen.auth` registration page
 > and runs it in CI (Github Actions).
 
+## Ecto Sandbox
+
+Make sure you have followed the advanced set up instructions for `Phoenix.Ecto.SQL.Sandbox`
+- [with LiveViews](https://hexdocs.pm/phoenix_ecto/Phoenix.Ecto.SQL.Sandbox.html#module-acceptance-tests-with-liveviews)
+- [with Channels](https://hexdocs.pm/phoenix_ecto/Phoenix.Ecto.SQL.Sandbox.html#module-acceptance-tests-with-channels)
+- [with Ash authentication](https://hexdocs.pm/ash_authentication_phoenix/AshAuthentication.Phoenix.LiveSession.html#ash_authentication_live_session/3): use `on_mount_prepend`
+
+`PhoenixTest.Playwright.Case` takes care of the rest. It starts the
+sandbox under a separate process than your test and uses
+`ExUnit.Callbacks.on_exit/1` to ensure the sandbox is shut down afterward. It
+also sends a `User-Agent` header with the
+`Phoenix.Ecto.SQL.Sandbox` metadata for your Ecto repos. This allows
+the sandbox to be shared with the LiveView and other processes which need to
+use the database inside the same transaction as the test. It also allows for
+[concurrent browser tests](https://hexdocs.pm/phoenix_ecto/main.html#concurrent-browser-tests).
+
+```elixir
+defmodule MyTest do
+  use PhoenixTest.Playwright.Case, async: true
+end
+```
+
+### Ownership errors with LiveViews
+
+Unlike `Phoenix.LiveViewTest`, which controls the lifecycle of LiveView
+processes being tested, Playwright tests may end while such processes are
+still using the sandbox.
+
+In that case, you may encounter ownership errors like:
+
+```
+** (DBConnection.OwnershipError) cannot find owner for ...
+```
+
+To prevent this, the `ecto_sandbox_stop_owner_delay` option allows you to delay the
+sandbox owner's shutdown, giving LiveViews and other processes time to close
+their database connections. The delay happens during
+`ExUnit.Callbacks.on_exit/1`, which blocks the running of the next test, so
+it affects test runtime as if it were a `Process.sleep/1` at the end of your
+test.
+
+So you probably want to use **as small a delay as you can**, and only for the
+tests that need it, using `@tag` (or `@describetag` or `@moduletag`) like:
+
+```elixir
+@tag ecto_sandbox_stop_owner_delay: 100 # 100ms
+test "does something" do
+  # ...
+end
+```
+
+If you want to set a global default, you can:
+
+```elixir
+# config/test.exs
+config :phoenix_test, playwright: [
+  ecto_sandbox_stop_owner_delay: 50  # 50ms
+]
+```
+
+
 ## Locator semantics
 
 PhoenixTestPlaywright uses Playwright's native label and role locators. This
@@ -170,12 +231,7 @@ config :phoenix_test,
   ]
 ```
 
-Timeouts accept milliseconds or `:infinity` for unlimited waiting. `0` means no
-waiting. This applies to `timeout`, `browser_launch_timeout`, and
-`browser_pool_checkout_timeout`, as well as per-operation `timeout:` options.
-ExUnit's test timeout still applies.
-
-See `PhoenixTest.Playwright.Config` for more details.
+See `PhoenixTest.Playwright.Config` for more details, including timeout semantics.
 
 You can override some options in your test:
 
@@ -256,37 +312,10 @@ Traces can be explored in an interactive viewer for debugging purposes.
 test "record a trace and open it automatically in the viewer" do
 ```
 
-### Automatically for failed tests in CI
-
-```elixir
-# config/test.exs
-config :phoenix_test, playwright: [trace: System.get_env("PW_TRACE", "false") in ~w(t true)]
-```
-
-```yaml
-# .github/workflows/elixir.yml
-run: "mix test || if [[ $? = 2 ]]; then PW_TRACE=true mix test --failed; else false; fi"
-```
-
 ### Step annotations
 
-Playwright traces support [grouping labelled test steps](https://playwright.dev/docs/api/class-tracing#tracing-group) and
-assigning them source code locations. This makes it easier to see what a test
-is doing and where. These groups are visible in the Playwright trace viewer.
-
-```elixir
-test "user registration", %{conn: conn} do
-  conn
-  |> visit(~p"/")
-  |> step("Submit registration form", fn conn ->
-    conn
-    |> fill_in("Email", with: "user@example.com")
-    |> fill_in("Password", with: "secret")
-    |> click_button("Sign up")
-  end)
-  |> assert_has(".flash", text: "Welcome!")
-end
-```
+Use `PhoenixTest.Playwright.step/3` to [group labelled test steps](https://playwright.dev/docs/api/class-tracing#tracing-group)
+with their source code locations. The groups are visible in the Playwright trace viewer.
 
 ## Screenshots
 
@@ -297,16 +326,21 @@ end
 |> screenshot("home.png")    # captures entire page by default, not just viewport
 ```
 
-### Automatically for failed tests in CI
+
+## Traces and screenshots for failed tests in CI
 
 ```elixir
 # config/test.exs
-config :phoenix_test, playwright: [screenshot: System.get_env("PW_SCREENSHOT", "false") in ~w(t true)]
+config :phoenix_test,
+  playwright: [
+    trace: System.get_env("PW_TRACE", "false") in ~w(t true),
+    screenshot: System.get_env("PW_SCREENSHOT", "false") in ~w(t true)
+  ]
 ```
 
 ```yaml
 # .github/workflows/elixir.yml
-run: "mix test || if [[ $? = 2 ]]; then PW_SCREENSHOT=true mix test --failed; else false; fi"
+run: "mix test || if [[ $? = 2 ]]; then PW_TRACE=true PW_SCREENSHOT=true mix test --failed; else false; fi"
 ```
 
 
@@ -320,6 +354,17 @@ conn
 |> fill_in("Email", with: "user@example.com")
 |> fill_in("Password", with: "password123")
 |> click_button("Sign in")
+```
+
+To skip the login form, for example in tests that aren't about logging in, add a session cookie with `PhoenixTest.Playwright.add_session_cookie/3`:
+
+```elixir
+conn
+|> add_session_cookie(
+  [value: %{user_token: Accounts.generate_user_session_token(user)}],
+  MyAppWeb.Endpoint.session_options()
+)
+|> visit(~p"/")
 ```
 
 For magic link / passwordless login, see the [Emails](#emails) section below.
@@ -347,7 +392,7 @@ end)
 
 ### Test failure in CI (timeout)
 
-- Limit concurrency: `config :phoenix_test, playwright: [browser_pools: [[size: 1]]]` or `mix test --max-cases 1` for GitHub CI shared runners
+- Limit concurrency: `config :phoenix_test, playwright: [browser_pools: [[id: :default_pool, size: 1]]]` or `mix test --max-cases 1` for GitHub CI shared runners
 - Increase timeout: `config :phoenix_test, playwright: [timeout: :timer.seconds(4)]`
 - More compute power: e.g. `x64 8-core` [GitHub runner](https://docs.github.com/en/enterprise-cloud@latest/actions/using-github-hosted-runners/using-larger-runners/about-larger-runners#machine-sizes-for-larger-runners)
 
@@ -387,67 +432,6 @@ Make sure to use that same driver to install the browser,
 e.g. via `MIX_ENV=test mix playwright_ex.install -- chromium`.
 
 
-## Ecto Sandbox
-
-Make sure you have followed the advanced set up instructions for `Phoenix.Ecto.SQL.Sandbox`
-- [with LiveViews](`Phoenix.Ecto.SQL.Sandbox#module-acceptance-tests-with-liveviews`)
-- [with Channels](`Phoenix.Ecto.SQL.Sandbox#module-acceptance-tests-with-channels`)
-- [with Ash authentication](https://hexdocs.pm/ash_authentication_phoenix/AshAuthentication.Phoenix.LiveSession.html#ash_authentication_live_session/3): use `on_mount_prepend`
-
-`PhoenixTest.Playwright.Case` takes care of the rest. It starts the
-sandbox under a separate process than your test and uses
-`ExUnit.Callbacks.on_exit/1` to ensure the sandbox is shut down afterward. It
-also sends a `User-Agent` header with the
-`Phoenix.Ecto.SQL.Sandbox` metadata for your Ecto repos. This allows
-the sandbox to be shared with the LiveView and other processes which need to
-use the database inside the same transaction as the test. It also allows for
-[concurrent browser tests](`e:phoenix_ecto:main#concurrent-browser-tests`).
-
-```elixir
-defmodule MyTest do
-  use PhoenixTest.Playwright.Case, async: true
-end
-```
-
-### Ownership errors with LiveViews
-
-Unlike `Phoenix.LiveViewTest`, which controls the lifecycle of LiveView
-processes being tested, Playwright tests may end while such processes are
-still using the sandbox.
-
-In that case, you may encounter ownership errors like:
-
-```
-** (DBConnection.OwnershipError) cannot find owner for ...
-```
-
-To prevent this, the `ecto_sandbox_stop_owner_delay` option allows you to delay the
-sandbox owner's shutdown, giving LiveViews and other processes time to close
-their database connections. The delay happens during
-`ExUnit.Callbacks.on_exit/1`, which blocks the running of the next test, so
-it affects test runtime as if it were a `Process.sleep/1` at the end of your
-test.
-
-So you probably want to use **as small a delay as you can**, and only for the
-tests that need it, using `@tag` (or `@describetag` or `@moduletag`) like:
-
-```elixir
-@tag ecto_sandbox_stop_owner_delay: 100 # 100ms
-test "does something" do
-  # ...
-end
-```
-
-If you want to set a global default, you can:
-
-```elixir
-# config/test.exs
-config :phoenix_test, playwright: [
-  ecto_sandbox_stop_owner_delay: 50  # 50ms
-]
-```
-
-
 ## Missing Playwright features
 
 This library adds functions beyond the standard PhoenixTest API (e.g. `screenshot/3`, `evaluate/2`, `click_link/4`),
@@ -484,18 +468,4 @@ end
 
 ## Contributing
 
-To run the tests locally, you'll need to:
-
-1. Check out the repo
-2. Run `mix setup`. This will take care of setting up your dependencies, installing the Playwright driver and browsers, and compiling the assets.
-3. Run `mix test` or, for a more thorough check that matches what we test in CI, run `mix check`
-4. Run `mix test.websocket` to run all tests against a 'remote' playwright server via websocket. Docker needs to be installed. A container is started via `testcontainers`.
-
-### Conventions
-
-- **Follows PhoenixTest API.** Only add new public functions when strictly necessary for browser-specific interaction (e.g., screenshots, JS evaluation).
-- **Keep upstream tests mirrored.** Files under `test/phoenix_test/upstream/` are mirrored from [phoenix_test](https://github.com/germsvel/phoenix_test). Limit local changes to compatibility skip tags; Playwright-specific behavior tests go in `test/phoenix_test/playwright_test.exs` or other files outside `upstream/`.
-
-### Playwright internals
-
-Playwright's implementation is split between a **client** (Node.js API) and a **server** (browser protocol layer). The [Playwright docs](https://playwright.dev/docs/intro) describe the public API but don't reflect this split. When reading Playwright source code, it can help to look at the TypeScript sources directly: [client](https://github.com/microsoft/playwright/tree/main/packages/playwright-core/src/client) and [server](https://github.com/microsoft/playwright/tree/main/packages/playwright-core/src/server) (locally under `package/lib/` in `PlaywrightEx.Driver.install_dir/0`).
+See [CONTRIBUTING.md](https://github.com/ftes/phoenix_test_playwright/blob/main/CONTRIBUTING.md).

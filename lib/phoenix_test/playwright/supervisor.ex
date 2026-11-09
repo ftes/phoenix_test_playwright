@@ -4,12 +4,19 @@ defmodule PhoenixTest.Playwright.Supervisor do
 
   Runs a local Node.js Playwright driver. Browsers are launched by the driver, or,
   when `ws_endpoint` is configured, the driver connects to a remote Playwright server.
+
+  Start it in `test/test_helper.exs`:
+
+      {:ok, _} = PhoenixTest.Playwright.Supervisor.start_link()
   """
 
   use Supervisor
 
   alias PhoenixTest.Playwright.Config
 
+  @doc """
+  Starts the supervisor with the global `config :phoenix_test, :playwright`, and raises if that is invalid.
+  """
   # Takes no config. The `[]` is what `child_spec/1` passes.
   def start_link([] \\ []) do
     # Host apps usually depend on this library with `runtime: false`, which leaves it to us.

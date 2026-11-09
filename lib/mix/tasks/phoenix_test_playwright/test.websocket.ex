@@ -1,20 +1,15 @@
 defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
-  @shortdoc "Runs tests using a containerized Playwright server via websocket"
-  @moduledoc """
-  Runs the test suite against a Playwright server running in a Docker container,
-  connected via websocket transport.
+  @moduledoc false
 
-  This is useful for testing the websocket transport path without requiring
-  locally installed browsers.
-
-  ## Usage
-
-      mix phoenix_test_playwright.test.websocket
-      mix phoenix_test_playwright.test.websocket --warnings-as-errors
-      mix phoenix_test_playwright.test.websocket test/specific_test.exs
-
-  All arguments are passed through to `mix test`.
-  """
+  # Contributor-only: runs the test suite against a Playwright server running in a Docker
+  # container, connected via websocket transport. This tests the websocket transport path
+  # without requiring locally installed browsers.
+  #
+  #     mix phoenix_test_playwright.test.websocket
+  #     mix phoenix_test_playwright.test.websocket --warnings-as-errors
+  #     mix phoenix_test_playwright.test.websocket test/specific_test.exs
+  #
+  # All arguments are passed through to `mix test`.
 
   use Mix.Task
 
