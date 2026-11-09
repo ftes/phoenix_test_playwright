@@ -9,7 +9,6 @@ defmodule PhoenixTest.Playwright.Case do
 
   If the default setup behaviour and order does not suit you, consider
   - using config opt `browser_context_opts`, which are passed to `PlaywrightEx.Browser.new_context/2`
-  - using config opt `browser_page_opts`, which are passed to `PlaywrightEx.BrowserContext.new_page/2`
   - implementing your own `Case` (the setup functions in this module are public for your convenience)
 
   Browser contexts and non-pooled browsers are closed before their ExUnit
@@ -22,6 +21,7 @@ defmodule PhoenixTest.Playwright.Case do
   alias Phoenix.Ecto.SQL.Sandbox, as: PhoenixSandbox
   alias PhoenixTest.Playwright
   alias PhoenixTest.Playwright.BrowserPool
+  alias PhoenixTest.Playwright.JsLogger
   alias PlaywrightEx.Browser
   alias PlaywrightEx.BrowserContext
   alias PlaywrightEx.Page
@@ -71,16 +71,16 @@ defmodule PhoenixTest.Playwright.Case do
   @doc """
   Merges the ExUnit context with `PhoenixTest.Playwright.Config` opts.
   Uses the result to launch the browser.
-  Adds `:browser_id` to the context.
+  Adds `:playwright_browser` to the context.
   """
   def do_setup_all(context) do
     keys = Playwright.Config.setup_all_keys()
     config = context |> Map.take(keys) |> Playwright.Config.validate!() |> Keyword.take(keys)
 
     if pool = config[:browser_pool] do
-      [browser_id: BrowserPool.checkout(pool)]
+      [playwright_browser: BrowserPool.checkout(pool)]
     else
-      [browser_id: config |> Keyword.delete(:browser_pool) |> launch_browser()]
+      [playwright_browser: config |> Keyword.delete(:browser_pool) |> launch_browser()]
     end
   end
 
@@ -98,33 +98,33 @@ defmodule PhoenixTest.Playwright.Case do
     timeout = Keyword.fetch!(config, :browser_launch_timeout)
     browser = PhoenixTest.Playwright.Browser.launch_browser!(config)
 
-    on_exit(fn -> Browser.close(browser.guid, timeout: timeout) end)
+    on_exit(fn -> Playwright.Browser.close_within(timeout, fn -> Browser.close(browser) end) end)
 
-    browser.guid
+    browser
   end
 
   def new_session(config, context) do
     user_agent = checkout_ecto_repos(config, context)
     base_url = Application.fetch_env!(:phoenix_test, :base_url)
-    context_opts_defaults = [base_url: base_url, locale: "en", user_agent: user_agent, timeout: config[:timeout]]
-    context_opts = Keyword.merge(context_opts_defaults, config[:browser_context_opts])
-    {:ok, browser_context} = Browser.new_context(context.browser_id, context_opts)
-    register_selector_engines!(browser_context.guid, config)
+    context_opts_defaults = [base_url: base_url, locale: "en", user_agent: user_agent]
+    context_opts = context_opts_defaults |> Keyword.merge(config[:browser_context_opts]) |> normalize_context_opts()
+    browser_context = Browser.new_context!(context.playwright_browser, context_opts)
+    JsLogger.attach(browser_context, Playwright.Config.global(:js_logger))
 
-    page_opts = Keyword.merge([timeout: config[:timeout]], config[:browser_page_opts])
-    {:ok, page} = BrowserContext.new_page(browser_context.guid, page_opts)
-    {:ok, _} = Page.update_subscription(page.guid, event: :console, enabled: true, timeout: config[:timeout])
-    {:ok, _} = Page.update_subscription(page.guid, event: :dialog, enabled: true, timeout: config[:timeout])
+    page = BrowserContext.new_page!(browser_context)
 
-    on_exit(fn -> BrowserContext.close(browser_context.guid, timeout: config[:timeout]) end)
+    on_exit(fn ->
+      Playwright.Browser.close_within(config[:timeout], fn -> BrowserContext.close(browser_context) end)
+    end)
 
-    if config[:trace], do: start_trace(browser_context.tracing.guid, config, context)
+    tracing = BrowserContext.tracing(browser_context)
+    if config[:trace], do: start_trace(tracing, config, context)
 
     %{
-      context_id: browser_context.guid,
-      page_id: page.guid,
-      frame_id: page.main_frame.guid,
-      tracing_id: browser_context.tracing.guid,
+      context: browser_context,
+      page: page,
+      frame: Page.main_frame(page),
+      tracing: tracing,
       config: config
     }
     |> Playwright.build()
@@ -133,29 +133,27 @@ defmodule PhoenixTest.Playwright.Case do
     end)
   end
 
-  defp register_selector_engines!(browser_context_id, config) do
-    for {name, source} <- PhoenixTest.Playwright.Selector.Engines.custom() do
-      {:ok, _} =
-        BrowserContext.register_selector_engine(browser_context_id,
-          selector_engine: [name: to_string(name), source: source],
-          timeout: config[:timeout]
-        )
-    end
+  # Forms that PlaywrightEx 0.15 accepted and 0.17 would silently ignore.
+  defp normalize_context_opts(opts) do
+    Enum.map(opts, fn
+      {:viewport, nil} -> {:viewport, :null}
+      {:extra_http_headers, headers} -> {:extra_http_headers, Map.new(headers, &normalize_header/1)}
+      opt -> opt
+    end)
   end
 
-  defp start_trace(tracing_id, config, context) do
-    opts = [screenshots: true, snapshots: true, timeout: config[:timeout]]
-    {:ok, _} = Tracing.tracing_start(tracing_id, opts)
-    {:ok, _} = Tracing.tracing_start_chunk(tracing_id, timeout: config[:timeout])
+  defp normalize_header(%{name: name, value: value}), do: {to_string(name), to_string(value)}
+  defp normalize_header({name, value}), do: {to_string(name), to_string(value)}
+
+  defp start_trace(tracing, config, context) do
+    Tracing.start!(tracing, screenshots: true, snapshots: true)
 
     File.mkdir_p!(config[:trace_dir])
     file = Path.join(config[:trace_dir], file_name("_#{System.unique_integer([:positive, :monotonic])}.zip", context))
 
     on_exit(fn ->
-      {:ok, zip_file} = Tracing.tracing_stop_chunk(tracing_id, timeout: config[:timeout])
-      {:ok, _} = Tracing.tracing_stop(tracing_id, timeout: config[:timeout])
+      Tracing.stop!(tracing, path: file)
 
-      File.cp!(zip_file.absolute_path, file)
       maybe_open_trace(config[:trace], file)
     end)
   end

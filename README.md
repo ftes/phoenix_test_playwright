@@ -105,11 +105,11 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
       [
         # Option A: inline into a rules file
         file: "AGENTS.md", # or "CLAUDE.md"
-        usage_rules: [~r/^phoenix/],
+        usage_rules: [~r/^phoenix/, :playwright_ex],
         # Option B: generate as skill (can be used instead of or in addition to file)
         skills: [
           location: ".agents/skills", # or ".claude/skills"
-          deps: [:phoenix_test_playwright]
+          deps: [:phoenix_test_playwright, :playwright_ex]
         ]
       ]
     end
@@ -195,13 +195,15 @@ end
 
 ## Remote Playwright Server
 
-Connect to a remote Playwright server via WebSocket instead of spawning a local
-Node.js driver. Useful for Alpine Linux containers (glibc issues) or containerized CI.
+Run browsers on a remote Playwright server instead of launching them locally.
+Useful for containerized CI.
+
+The connection goes through a local Playwright driver, which PlaywrightEx downloads on
+first use. Its Node.js binary needs glibc: on Alpine Linux, install `nodejs` and set
+`PLAYWRIGHT_NODEJS_PATH` to it. The server must run the same Playwright version and
+be listening before tests start, as connecting is not retried.
 
 ```elixir
-# mix.exs
-{:websockex, "~> 0.4", only: :test}
-
 # config/test.exs
 config :phoenix_test, playwright: [ws_endpoint: "ws://localhost:3000", browser_pool: false]
 
@@ -211,10 +213,10 @@ config :phoenix_test, playwright: [ws_endpoint: System.get_env("PLAYWRIGHT_WS_EN
 
 ```sh
 # Start Playwright server
-docker run -p 3000:3000 --rm --init -it --workdir /home/pwuser --user pwuser mcr.microsoft.com/playwright:v1.64.0-noble /bin/sh -c "npx --yes playwright@1.64.0 run-server --port 3000 --host 0.0.0.0"
+docker run -p 3000:3000 --rm --init -it --workdir /home/pwuser --user pwuser mcr.microsoft.com/playwright:v1.65.0-noble /bin/sh -c "npx --yes playwright@1.65.0 run-server --port 3000 --host 0.0.0.0"
 ```
 
-The browser type is automatically appended as a query parameter (e.g., `?browser=chromium`).
+The browser type is sent in the `x-playwright-browser` header when connecting.
 
 
 ## Traces
@@ -428,8 +430,8 @@ This library adds functions beyond the standard PhoenixTest API (e.g. `screensho
 but it does not wrap the entire Playwright API.
 
 You can add any missing functionality yourself using `unwrap/2` with
-[PlaywrightEx](https://hexdocs.pm/playwright_ex) modules (`Frame`, `Selector`, `Page`, `BrowserContext`),
-and the [Playwright source](https://github.com/microsoft/playwright/blob/main/packages/playwright-core/src/client/frame.ts).
+[PlaywrightEx](https://hexdocs.pm/playwright_ex) modules (`Page`, `Locator`, `Frame`, `BrowserContext`),
+which follow the [Playwright docs](https://playwright.dev/docs/api/class-playwright).
 
 If you think others might benefit, please [open a PR](https://github.com/ftes/phoenix_test_playwright/pulls).
 
@@ -438,16 +440,16 @@ Here is some inspiration:
 ```elixir
 def choose_styled_radio_with_hidden_input_button(conn, label, opts \\ []) do
   opts = Keyword.validate!(opts, exact: true)
-  PhoenixTest.Playwright.click(conn, PlaywrightEx.Selector.text(label, opts))
+  PhoenixTest.Playwright.click(conn, PhoenixTest.Playwright.Selector.text(label, opts))
 end
 
 def assert_a11y(conn) do
-  PlaywrightEx.Frame.evaluate(conn.frame_id, expression: A11yAudit.JS.axe_core(), timeout: timeout())
-  {:ok, json} = PlaywrightEx.Frame.evaluate(conn.frame_id, expression: "axe.run()", timeout: timeout())
-  results = A11yAudit.Results.from_json(json)
-  A11yAudit.Assertions.assert_no_violations(results)
-
   conn
+  |> evaluate(A11yAudit.JS.axe_core())
+  |> evaluate("axe.run()", fn json ->
+    results = A11yAudit.Results.from_json(json)
+    A11yAudit.Assertions.assert_no_violations(results)
+  end)
 end
 
 def within_iframe(conn, selector \\ "iframe", fun) when is_function(fun, 1) do

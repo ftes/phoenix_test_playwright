@@ -36,13 +36,15 @@ end
 
 This library adds browser-specific functions (e.g. `screenshot/2`, `evaluate/2`, `type/3`, `press/3`, `drag/3`). See the [docs](https://hexdocs.pm/phoenix_test_playwright/PhoenixTest.Playwright.md) for the full list.
 
-For anything the library doesn't cover, use `unwrap/2` to access `PlaywrightEx` modules (`Frame`, `Selector`, `Page`, `BrowserContext`) directly, or `evaluate/2` for simple JavaScript (see [Missing Playwright features](https://hexdocs.pm/phoenix_test_playwright/readme.md#missing-playwright-features)):
+For anything the library doesn't cover, use `unwrap/2` to access `PlaywrightEx` modules (`Page`, `Locator`, `Frame`, `BrowserContext`) directly, or `evaluate/2` for simple JavaScript (see [Missing Playwright features](https://hexdocs.pm/phoenix_test_playwright/readme.md#missing-playwright-features)):
 
 ```elixir
-# Subscribe to page-level events (e.g. downloads)
+# Listen to page-level events (e.g. console messages)
 conn
-|> unwrap(fn %{page_id: page_id} -> PlaywrightEx.subscribe(page_id) end)
+|> unwrap(fn %{page: page} -> PlaywrightEx.Page.on(page, :console, &IO.inspect/1) end)
 ```
+
+When calling `PlaywrightEx` directly, follow its [usage rules](deps/playwright_ex/usage-rules.md).
 
 ## Debugging
 

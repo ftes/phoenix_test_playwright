@@ -24,9 +24,6 @@ defmodule PhoenixTest.TestHelpers do
   def set_html(conn, html) do
     conn
     |> Playwright.visit("about:blank")
-    |> Playwright.evaluate("html => { document.body.innerHTML = html }",
-      is_function: true,
-      arg: html
-    )
+    |> Playwright.evaluate("html => { document.body.innerHTML = html }", arg: html)
   end
 end

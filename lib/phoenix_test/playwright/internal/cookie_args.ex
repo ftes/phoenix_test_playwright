@@ -23,10 +23,10 @@ defmodule PhoenixTest.Playwright.CookieArgs do
           :value => binary(),
           optional(:domain) => binary(),
           optional(:expires) => integer(),
-          optional(:http_only) => binary(),
+          optional(:httpOnly) => boolean(),
           optional(:path) => binary(),
-          optional(:same_site) => binary(),
-          optional(:secure) => binary(),
+          optional(:sameSite) => binary(),
+          optional(:secure) => boolean(),
           optional(:url) => binary()
         }
 
@@ -122,8 +122,17 @@ defmodule PhoenixTest.Playwright.CookieArgs do
     cookie
     |> put_expires_if_max_age()
     |> Keyword.take(@playwright_cookie_fields)
-    |> Map.new()
+    |> Map.new(&playwright_cookie_field/1)
   end
+
+  defp playwright_cookie_field({:http_only, value}), do: {:httpOnly, value}
+  defp playwright_cookie_field({:same_site, value}), do: {:sameSite, normalize_same_site(value)}
+  defp playwright_cookie_field(field), do: field
+
+  defp normalize_same_site(value) when value in [:strict, "strict"], do: "Strict"
+  defp normalize_same_site(value) when value in [:lax, "lax"], do: "Lax"
+  defp normalize_same_site(value) when value in [:none, "none"], do: "None"
+  defp normalize_same_site(value), do: value
 
   defp put_expires_if_max_age(cookie) do
     if max_age = Keyword.get(cookie, :max_age) do

@@ -7,6 +7,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 ### Changed
+- Require PlaywrightEx 0.17 (rc) and Playwright 1.65. Install the matching `playwright` package and browsers.
+- Breaking, if internals were used: `conn` and `unwrap/2` hold PlaywrightEx handles (`context`, `page`, `frame`)
+  instead of guids (`context_id`, ...), and the ExUnit context holds `playwright_browser` instead of `browser_id`.
+  `PlaywrightEx.Selector` is now `PhoenixTest.Playwright.Selector`.
+  A `with_dialog/3` callback receives `dialog` instead of `guid`.
+- `ws_endpoint` connects through a local driver that PlaywrightEx downloads, and no longer needs `websockex`.
+- `assert_screenshot/3` prints a notice when it writes a missing baseline.
+- Sync usage rules into `AGENTS.md` with `usage_rules`. The README's setup now includes PlaywrightEx's rules.
+- Custom `js_logger` modules implement `PhoenixTest.Playwright.JsLogger`, which replaces `PlaywrightEx.JsLogger`.
+- `browser_context_opts` no longer accepts `timeout`. The `browser_page_opts` config option and the `is_function` option
+  of `evaluate/3` are removed and now raise, except that `browser_page_opts` set through `@tag` or `use` is dropped like any
+  unknown tag. The `:android` and `:electron` browsers are removed.
+- **Breaking:** `PhoenixTest.Playwright.Supervisor.start_link/0` no longer takes a config: it reads the global `config :phoenix_test, :playwright`.
+- **Breaking:** options passed through to Playwright follow PlaywrightEx 0.17, and unknown ones raise, for example
+  `ignore_all_default_args` in `browser_launch_opts`.
+- **Breaking:** `assert_screenshot/3` baselines must be `.png` or `.webp`, and the documented defaults `animations: "disabled"`
+  and `scale: "css"` now apply. Regenerate baselines captured with running animations or a device scale factor above 1.
 - Include the runner image in CI's Dialyzer PLT cache key so runner image updates
   rebuild the PLT instead of reusing a stale one.
 
