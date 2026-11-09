@@ -713,6 +713,27 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
+  describe "text with quotes and backslashes" do
+    @name ~S(Say "hi" \o/)
+
+    test "is matched by assert_has, click_link, click_button and fill_in", %{conn: conn} do
+      conn
+      |> set_html("""
+      <p id="text">#{@name}</p>
+      <a href="#">#{@name}</a>
+      <button onclick="document.querySelector('#out').textContent = 'clicked'">#{@name}</button>
+      <label for="field">#{@name}</label><input id="field" />
+      <p id="out"></p>
+      """)
+      |> assert_has("#text", text: @name)
+      |> click_link(@name)
+      |> click_button(@name)
+      |> assert_has("#out", text: "clicked")
+      |> fill_in(@name, with: "filled")
+      |> evaluate("document.querySelector('#field').value", fn value -> assert value == "filled" end)
+    end
+  end
+
   describe "add_session_cookie/3" do
     test "puts a signed, encrypted cookie on the Conn", %{conn: conn} do
       cookie = [value: %{secret: "monty_python"}]

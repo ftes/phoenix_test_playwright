@@ -63,13 +63,13 @@ defmodule PhoenixTest.Playwright.Selector do
   @spec text(nil | String.t(), exact_opts) :: t()
   def text(text, opts \\ [])
   def text(nil, _opts), do: :none
-  def text(text, opts), do: "internal:text=\"#{text}\"#{exact_suffix(opts)}"
+  def text(text, opts), do: "internal:text=#{escape_text(text)}#{exact_suffix(opts)}"
 
   @spec label(nil | String.t()) :: t()
   @spec label(nil | String.t(), exact_opts) :: t()
   def label(label, opts \\ [])
   def label(nil, _opts), do: :none
-  def label(label, opts), do: "internal:label=\"#{label}\"#{exact_suffix(opts)}"
+  def label(label, opts), do: "internal:label=#{escape_text(label)}#{exact_suffix(opts)}"
 
   @spec at(nil | integer()) :: t()
   def at(nil), do: :none
@@ -89,7 +89,7 @@ defmodule PhoenixTest.Playwright.Selector do
 
   @spec role(String.t(), String.t()) :: built()
   @spec role(String.t(), String.t(), exact_opts) :: built()
-  def role(role, text, opts \\ []), do: "internal:role=#{role}[name=\"#{text}\"#{exact_suffix(opts)}]"
+  def role(role, text, opts \\ []), do: "internal:role=#{role}[name=#{escape_attribute(text)}#{exact_suffix(opts)}]"
 
   @spec css(nil | String.t() | [String.t()]) :: t()
   def css(nil), do: :none
@@ -101,6 +101,11 @@ defmodule PhoenixTest.Playwright.Selector do
   @spec value(nil | any()) :: t()
   def value(nil), do: :none
   def value(value), do: "phoenix_test_value='#{value}'"
+
+  # Playwright parses the quoted text of `internal:text` and `internal:label` with `JSON.parse`.
+  defp escape_text(text), do: text |> to_string() |> JSON.encode!()
+
+  defp escape_attribute(value), do: ~s("#{value |> String.replace("\\", "\\\\") |> String.replace(~s("), ~s(\\"))}")
 
   defp exact_suffix(opts) when is_list(opts), do: opts |> Keyword.get(:exact, false) |> exact_suffix()
 
