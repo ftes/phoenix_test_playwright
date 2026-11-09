@@ -1,8 +1,25 @@
 defmodule PhoenixTest.Playwright.Case do
   @moduledoc """
   ExUnit case module to assist with browser based tests.
-  `PhoenixTest.Playwright` and `PhoenixTest.Playwright.Config` explain
-  how to use and configure this module.
+  See the [README](README.md#getting-started) to get started and
+  `PhoenixTest.Playwright.Config` for all options.
+
+      defmodule MyAppWeb.RegisterTest do
+        use PhoenixTest.Playwright.Case,
+          async: true,
+          # These pools must be defined in the `browser_pools` config.
+          parameterize: [%{browser_pool: :chromium_pool}, %{browser_pool: :firefox_pool}]
+
+        test "register", %{conn: conn} do
+          conn
+          |> visit("/register")
+          |> assert_has("h1", text: "Register")
+        end
+      end
+
+  Options other than `:async` become module tags, so they can override config per module,
+  e.g. `browser_pool: false`. `:parameterize` is the `ExUnit.Case` option:
+  it runs the module once per map, and the maps can set config too.
 
   If the default setup behaviour and order does not suit you, consider
   - using config opt `browser_context_opts`, which are passed to `PlaywrightEx.Browser.new_context/2`
@@ -99,6 +116,20 @@ defmodule PhoenixTest.Playwright.Case do
     browser
   end
 
+  @doc """
+  Creates a fresh browser context and page, and returns a `conn` for them.
+
+  `config` is a validated config, `context` is the ExUnit test context (with `:playwright_browser`).
+  The browser context is closed when the test exits.
+
+  For another session within the same test, e.g. a second user, `do_setup/1` calls this
+  with the test's own config:
+
+      test "two users chat", context do
+        [conn: other_conn] = PhoenixTest.Playwright.Case.do_setup(context)
+        # ...
+      end
+  """
   def new_session(config, context) do
     user_agent = checkout_ecto_repos(config, context)
     base_url = Application.fetch_env!(:phoenix_test, :base_url)

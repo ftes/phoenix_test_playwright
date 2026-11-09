@@ -7,13 +7,10 @@ defmodule PhoenixTest.Playwright do
   struct holding the Playwright session state (page, browser context, etc.).
 
   It also provides browser-specific functions beyond the standard PhoenixTest API,
-  such as `screenshot/3`, `evaluate/2`, `type/3`, `press/3`, and `drag/3`.
+  such as `screenshot/3`, `evaluate/2`, `type/4`, `press/4`, and `drag/3`.
 
-  See the [README](README.md) for getting started, configuration, and troubleshooting.
-
-  ## Missing Playwright features
-
-  See the [README](README.md#missing-playwright-features).
+  See the [README](README.md) for getting started, configuration, troubleshooting,
+  and adding missing Playwright features.
   """
 
   import ExUnit.Assertions
@@ -43,15 +40,19 @@ defmodule PhoenixTest.Playwright do
     within: :none
   ]
 
+  @typedoc "A Playwright session, passed through tests as `conn`."
   @opaque t :: %__MODULE__{}
+  @typedoc "A CSS selector string."
   @type css_selector :: String.t()
+  @typedoc "A Playwright selector, typically built with `PhoenixTest.Playwright.Selector`."
   @type playwright_selector :: String.t()
+  @typedoc "A CSS string, or a Playwright selector typically built with `PhoenixTest.Playwright.Selector`."
   @type selector :: playwright_selector() | css_selector()
 
   @timeout_opt [
     type: :timeout,
     doc:
-      "Maximum wait in milliseconds. `:infinity` disables the timeout; `0` means no waiting. Defaults to the configured timeout."
+      "Maximum wait in milliseconds. Defaults to the configured timeout. See [Timeouts](`PhoenixTest.Playwright.Config#module-timeouts`)."
   ]
 
   @exact_opt_schema [type: :boolean, default: false, doc: "Exact or substring text match."]
@@ -101,6 +102,7 @@ defmodule PhoenixTest.Playwright do
   defp next_retry_timeout(:infinity), do: :infinity
   defp next_retry_timeout(remaining), do: remaining - @retry_interval
 
+  @doc group: "Debugging & escape hatches"
   @doc """
   Label a step in the Playwright trace.
 
@@ -181,8 +183,9 @@ defmodule PhoenixTest.Playwright do
     ]
   ]
 
+  @doc group: "Actions"
   @doc """
-  Like `PhoenixTest.visit/2`, but with a custom `timeout`.
+  Like `PhoenixTest.visit/2`, but with additional options.
 
   ## Options
   #{NimbleOptions.docs(@visit_opts_schema)}
@@ -207,14 +210,15 @@ defmodule PhoenixTest.Playwright do
     tap(conn, &Page.reload!(&1.page, ensure_timeout(opts)))
   end
 
+  @doc group: "Cookies"
   @doc """
-  Add cookies to the browser context, using `Plug.Conn.put_resp_cookie/3`
+  Add cookies to the browser context, using `Plug.Conn.put_resp_cookie/4`.
 
   Note that for signed cookies the signing salt is **not** configurable.
   As such, this function is not appropriate for signed `Plug.Session` cookies.
-  For signed session cookies, use `add_session_cookie/3`
+  For signed session cookies, use `add_session_cookie/3`.
 
-    A cookie's value must be a binary unless the cookie is signed/encrypted
+  A cookie's value must be a binary unless the cookie is signed/encrypted.
 
   ## Cookie fields
 
@@ -225,7 +229,7 @@ defmodule PhoenixTest.Playwright do
   | `:url`       | `binary()`  | *(optional)* either url or domain / path are required |
   | `:domain`    | `binary()`  | *(optional)* either url or domain / path are required |
   | `:path`      | `binary()`  | *(optional)* either url or domain / path are required |
-  | `:max_age`   | `float()`   | *(optional)* The cookie max age, in seconds. |
+  | `:max_age`   | `integer()` | *(optional)* The cookie max age, in seconds. |
   | `:http_only` | `boolean()` | *(optional)* |
   | `:secure`    | `boolean()` | *(optional)* |
   | `:encrypt`   | `boolean()` | *(optional)* |
@@ -242,6 +246,7 @@ defmodule PhoenixTest.Playwright do
 
   See https://playwright.dev/docs/api/class-browsercontext#browser-context-add-cookies
   """
+  @spec add_cookies(t(), [keyword()]) :: t()
   def add_cookies(conn, cookies) do
     cookies = Enum.map(cookies, &CookieArgs.from_cookie/1)
     bounded!(timeout(), "browserContext.addCookies", fn -> BrowserContext.add_cookies(conn.context, cookies) end)
@@ -250,6 +255,7 @@ defmodule PhoenixTest.Playwright do
 
   @clear_cookies_opts_schema [timeout: @timeout_opt]
 
+  @doc group: "Cookies"
   @doc """
   Removes all cookies from the context.
 
@@ -263,17 +269,20 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
+  @doc group: "Cookies"
   @doc """
   Add a `Plug.Session` cookie to the browser context.
 
   This is useful for emulating a logged-in user.
 
-  Note that that the cookie `:value` must be a map, since we are using
+  Note that the cookie `:value` must be a map, since we are using
   `Plug.Conn.put_session/3` to write each of value's key-value pairs
   to the cookie.
 
   The `session_options` are exactly the same as the opts used when
   writing `plug Plug.Session` in your router/endpoint module.
+  A generated Phoenix endpoint only has a `@session_options` attribute, so expose it
+  with `def session_options, do: @session_options` to call it as below.
 
   ## Examples
       |> add_session_cookie(
@@ -281,6 +290,7 @@ defmodule PhoenixTest.Playwright do
         MyAppWeb.Endpoint.session_options()
       )
   """
+  @spec add_session_cookie(t(), keyword(), keyword()) :: t()
   def add_session_cookie(conn, cookie, session_options) do
     cookie = CookieArgs.from_session_options(cookie, session_options)
     bounded!(timeout(), "browserContext.addCookies", fn -> BrowserContext.add_cookies(conn.context, [cookie]) end)
@@ -300,6 +310,7 @@ defmodule PhoenixTest.Playwright do
     timeout: @timeout_opt
   ]
 
+  @doc group: "Assertions & screenshots"
   @doc """
   Takes a screenshot of the current page and saves it to the given file path.
 
@@ -386,6 +397,7 @@ defmodule PhoenixTest.Playwright do
                                    timeout: @timeout_opt
                                  )
 
+  @doc group: "Assertions & screenshots"
   @doc """
   Visual regression assertion: compares a screenshot of the current page against a stored baseline.
 
@@ -503,6 +515,7 @@ defmodule PhoenixTest.Playwright do
     ],
     timeout: @timeout_opt
   ]
+  @doc group: "Actions"
   @doc """
   Focuses the matching element and simulates user typing.
 
@@ -538,6 +551,7 @@ defmodule PhoenixTest.Playwright do
     ],
     timeout: @timeout_opt
   ]
+  @doc group: "Actions"
   @doc """
   Focuses the matching element and presses a combination of the keyboard keys.
 
@@ -589,6 +603,7 @@ defmodule PhoenixTest.Playwright do
     timeout: @timeout_opt
   ]
 
+  @doc group: "Actions"
   @doc """
   Drag and drop a source element to a target element.
 
@@ -825,6 +840,7 @@ defmodule PhoenixTest.Playwright do
   defp selector_has(selector, :none), do: selector
   defp selector_has(selector, has_selector), do: Selector.has(selector, has_selector)
 
+  @doc false
   def assert_download(%{page: page} = conn, filename_or_fun) do
     download =
       receive do
@@ -858,23 +874,23 @@ defmodule PhoenixTest.Playwright do
     end
   end
 
+  @doc group: "Actions"
   @doc """
   Handle browser dialogs (`alert()`, `confirm()`, `prompt()`) while executing the inner function.
 
-  *Note:* Add `@tag accept_dialogs: false` before tests that call this function.
-  Otherwise, all dialogs are accepted by default.
+  For the duration of `fun`, `callback` takes over from the `accept_dialogs` behaviour.
 
   ## Callback return values
-  The callback may return one of these values:
+  The callback receives a map with `:message` (the dialog text) and `:dialog`
+  (a `t:PlaywrightEx.Dialog.t/0`), and may return one of these values:
   - `:accept` -> accepts confirmation dialog
   - `{:accept, prompt_text}` -> accepts prompt dialog with text
   - `:dismiss` -> dismisses dialog
   - Any other value will ignore the dialog
 
   ## Examples
-      @tag accept_dialogs: false
       test "conditionally handle dialog", %{conn: conn} do
-      conn
+        conn
         |> visit("/")
         |> with_dialog(
           fn
@@ -887,9 +903,10 @@ defmodule PhoenixTest.Playwright do
             |> click_button("Delete")
             |> assert_has(".flash", text: "Deleted")
           end
-        end)
+        )
       end
   """
+  @spec with_dialog(t(), (%{dialog: Dialog.t(), message: String.t()} -> any()), (t() -> t())) :: t()
   def with_dialog(session, callback, fun) when is_function(callback, 1) and is_function(fun, 1) do
     listener = fn dialog ->
       :ok =
@@ -932,8 +949,11 @@ defmodule PhoenixTest.Playwright do
     LazyHTML.from_document(html)
   end
 
+  @doc group: "Actions"
   @doc """
-  See `click/4`.
+  Click the element matching `selector`.
+
+  See `click/4` to also match on text.
   """
   @spec click(t(), selector()) :: t()
   def click(conn, selector) do
@@ -945,9 +965,11 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
+  @doc group: "Actions"
   @doc """
   Click the element matching `selector` that contains visible `text`.
-  Otherwise, use `click_link/4` and `click_button/4`.
+
+  Prefer `click_link/4` and `click_button/4` for links and buttons.
 
   The element matching `selector` remains the click target when `text` is nested
   inside it.
@@ -978,22 +1000,30 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
+  @doc group: "Actions"
   @doc """
   Like `PhoenixTest.click_link/3`, but allows exact text match.
 
   ## Options
   #{NimbleOptions.docs(@exact_opts_schema)}
   """
+  @spec click_link(t(), css_selector() | nil, String.t(), [
+          unquote(NimbleOptions.option_typespec(@exact_opts_schema))
+        ]) :: t()
   def click_link(conn, selector \\ nil, text, opts \\ []) do
     click_role(conn, selector, text, opts, &Selector.link/2)
   end
 
+  @doc group: "Actions"
   @doc """
   Like `PhoenixTest.click_button/3`, but allows exact text match.
 
   ## Options
   #{NimbleOptions.docs(@exact_opts_schema)}
   """
+  @spec click_button(t(), css_selector() | nil, String.t(), [
+          unquote(NimbleOptions.option_typespec(@exact_opts_schema))
+        ]) :: t()
   def click_button(conn, selector \\ nil, text, opts \\ []) do
     click_role(conn, selector, text, opts, &Selector.button/2)
   end
@@ -1230,6 +1260,7 @@ defmodule PhoenixTest.Playwright do
     ]
   ]
 
+  @doc group: "Debugging & escape hatches"
   @doc """
   Evaluates a JavaScript expression in the page context.
 
@@ -1255,14 +1286,19 @@ defmodule PhoenixTest.Playwright do
       |> evaluate("document.title", & assert &1 =~ "Dashboard")
   """
   @spec evaluate(t(), String.t()) :: t()
+  def evaluate(conn, expression), do: evaluate(conn, expression, [], & &1)
+
+  @doc group: "Debugging & escape hatches"
+  @doc "See `evaluate/2`."
   @spec evaluate(t(), String.t(), [unquote(NimbleOptions.option_typespec(@evaluate_opts_schema))] | (any() -> any())) ::
           t()
-  @spec evaluate(t(), String.t(), [unquote(NimbleOptions.option_typespec(@evaluate_opts_schema))], (any() -> any())) ::
-          t()
-  def evaluate(conn, expression), do: evaluate(conn, expression, [], & &1)
   def evaluate(conn, expression, fun) when is_function(fun, 1), do: evaluate(conn, expression, [], fun)
   def evaluate(conn, expression, opts) when is_list(opts), do: evaluate(conn, expression, opts, & &1)
 
+  @doc group: "Debugging & escape hatches"
+  @doc "See `evaluate/2`."
+  @spec evaluate(t(), String.t(), [unquote(NimbleOptions.option_typespec(@evaluate_opts_schema))], (any() -> any())) ::
+          t()
   def evaluate(conn, expression, opts, fun) when is_list(opts) and is_function(fun, 1) do
     opts = NimbleOptions.validate!(opts, @evaluate_opts_schema)
 
@@ -1278,6 +1314,7 @@ defmodule PhoenixTest.Playwright do
     end)
   end
 
+  @doc group: "Debugging & escape hatches"
   @doc """
   See `PhoenixTest.unwrap/2`.
 

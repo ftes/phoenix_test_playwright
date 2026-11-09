@@ -4,6 +4,19 @@ defmodule PhoenixTest.Playwright.JsLogger do
 
   `c:log/3` receives the PlaywrightEx object as its third argument: a `PlaywrightEx.ConsoleMessage`
   for console messages, or a `PlaywrightEx.WebError` for uncaught errors.
+
+  ## Custom logger
+
+      # config/test.exs
+      config :phoenix_test, playwright: [js_logger: MyApp.MyLogger]
+
+      defmodule MyApp.MyLogger do
+        @behaviour PhoenixTest.Playwright.JsLogger
+
+        @impl true
+        def log(:error, text, _message), do: IO.puts(:stderr, text)
+        def log(_level, _text, _message), do: :ok
+      end
   """
   alias PlaywrightEx.BrowserContext
   alias PlaywrightEx.ConsoleMessage
@@ -11,12 +24,23 @@ defmodule PhoenixTest.Playwright.JsLogger do
 
   require Logger
 
+  @typedoc "`:error` for error messages and uncaught errors, `:debug` for debug messages, otherwise `:info`."
   @type level :: Logger.level()
+
+  @typedoc "The console message text, or the error message."
   @type text :: binary()
+
+  @typedoc "The underlying PlaywrightEx object."
   @type message :: ConsoleMessage.t() | WebError.t()
 
+  @doc """
+  Called for every browser console message and uncaught page error. The return value is ignored.
+  """
   @callback log(level(), text(), message()) :: any()
 
+  @doc """
+  Logs `text` with `Logger` at `level`, followed by the source location of console messages.
+  """
   def log(level, text, message) do
     location = location(message)
     Logger.log(level, if(location, do: "#{text} (#{location})", else: text))
