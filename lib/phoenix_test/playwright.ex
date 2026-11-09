@@ -1272,6 +1272,8 @@ defmodule PhoenixTest.Playwright do
 
   When a callback function is given, it receives the JavaScript result. This
   is useful for assertions or side effects without breaking the pipe chain.
+  JavaScript `null` is received as `:null` and `undefined` as `nil`, also when
+  nested in objects and arrays.
 
   Evaluation can't be interrupted, so `:timeout` only limits how long to wait for
   the result, and at least one second is always allowed.
@@ -1304,7 +1306,7 @@ defmodule PhoenixTest.Playwright do
     tap(conn, fn conn ->
       case evaluate_within(conn, expression, opts[:arg], timeout(opts)) do
         {:ok, value} ->
-          fun.(null_to_nil(value))
+          fun.(value)
 
         {:error, error} ->
           raise ExUnit.AssertionError,
@@ -1340,11 +1342,6 @@ defmodule PhoenixTest.Playwright do
   defp evaluate_within(conn, expression, arg, timeout) do
     bounded(timeout, "page.evaluate", fn -> Page.evaluate(conn.page, expression, arg) end)
   end
-
-  defp null_to_nil(:null), do: nil
-  defp null_to_nil(list) when is_list(list), do: Enum.map(list, &null_to_nil/1)
-  defp null_to_nil(map) when is_non_struct_map(map), do: Map.new(map, fn {k, v} -> {k, null_to_nil(v)} end)
-  defp null_to_nil(value), do: value
 
   defp atomize_enums(opts, keys) do
     Enum.reduce(keys, opts, fn key, opts ->
