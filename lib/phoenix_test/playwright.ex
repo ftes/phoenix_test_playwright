@@ -1207,40 +1207,40 @@ defmodule PhoenixTest.Playwright do
   def submit(conn) do
     conn
     |> locator(conn.last_input_selector)
-    |> Locator.focus(timeout: timeout())
-    |> handle_response(conn.last_input_selector)
+    |> Locator.evaluate(
+      """
+      element => {
+        const form = element.form;
 
-    case evaluate_within(
-           conn,
-           """
-           () => {
-             const element = document.activeElement;
-             const form = element && element.form;
+        if (!form) {
+          throw new Error("Last interacted element is not associated with a form");
+        }
 
-             if (!form) {
-               throw new Error("Last interacted element is not associated with a form");
-             }
+        const submitter = form.querySelector(
+          'button:not([type]):not(:disabled), button[type="submit"]:not(:disabled), input[type="submit"]:not(:disabled), input[type="image"]:not(:disabled)'
+        );
 
-             const submitter = form.querySelector(
-               'button:not([type]):not(:disabled), button[type="submit"]:not(:disabled), input[type="submit"]:not(:disabled), input[type="image"]:not(:disabled)'
-             );
-
-             form.requestSubmit(submitter || undefined);
-           }
-           """,
-           nil,
-           timeout()
-         ) do
+        form.requestSubmit(submitter || undefined);
+      }
+      """,
+      nil,
+      timeout: timeout()
+    )
+    |> case do
       {:ok, _} ->
-        :ok
+        conn
 
-      {:error, error} ->
+      {:error, error} = result ->
+        if element_not_resolved?(error), do: handle_response(result, conn.last_input_selector)
+
         raise ExUnit.AssertionError,
           message: "Could not submit form for selector \"#{conn.last_input_selector}\":\n#{more_info(error)}"
     end
-
-    conn
   end
+
+  defp element_not_resolved?(%TimeoutError{}), do: true
+  defp element_not_resolved?(%PlaywrightError{message: message}), do: message =~ "strict mode violation: "
+  defp element_not_resolved?(_error), do: false
 
   @doc false
   def open_browser(conn, open_fun \\ &OpenBrowser.open_with_system_cmd/1) do
@@ -1336,13 +1336,9 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def current_path(conn) do
-    case evaluate_within(conn, "window.location.pathname + window.location.search", nil, timeout()) do
-      {:ok, path} ->
-        path
+    uri = conn.page |> Page.url() |> URI.parse()
 
-      {:error, _} ->
-        raise ExUnit.AssertionError, message: "Could not read current path (page may be navigating)"
-    end
+    if uri.query in [nil, ""], do: uri.path, else: "#{uri.path}?#{uri.query}"
   end
 
   # `Page.evaluate/3` has no timeout, so it is bounded here.

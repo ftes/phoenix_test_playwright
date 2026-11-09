@@ -31,6 +31,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `assert_download/2` must run in the process that built the `conn` (normally the test process).
 - Include the runner image in CI's Dialyzer PLT cache key so runner image updates
   rebuild the PLT instead of reusing a stale one.
+- `submit/1` targets the last interacted element directly instead of focusing it first, and `current_path` reads the
+  client's URL instead of evaluating JavaScript in the page.
 
 ### Fixed
 - Embed the built-in selector engine scripts at compile time. They were read

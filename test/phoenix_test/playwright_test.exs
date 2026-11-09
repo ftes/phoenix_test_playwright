@@ -570,6 +570,48 @@ defmodule PhoenixTest.PlaywrightTest do
       |> submit()
       |> assert_has("#submitted-form-data", text: "select: two")
     end
+
+    test "raises when the last interacted input is not associated with a form", %{conn: conn} do
+      conn =
+        conn
+        |> set_html(~s(<label for="text-input">Text</label><input id="text-input" />))
+        |> fill_in("Text", with: "value")
+
+      assert_raise ExUnit.AssertionError, ~r/Could not submit form.*not associated with a form/s, fn ->
+        submit(conn)
+      end
+    end
+
+    test "raises when the last interacted input no longer exists", %{conn: conn} do
+      conn =
+        conn
+        |> set_html(~s(<form><label for="text-input">Text</label><input id="text-input" /></form>))
+        |> fill_in("Text", with: "value")
+        |> evaluate("document.querySelector('form').remove()")
+
+      assert_raise ArgumentError, ~r/Could not find element/, fn -> submit(conn) end
+    end
+
+    test "raises when the last interacted input became ambiguous", %{conn: conn} do
+      conn =
+        conn
+        |> set_html(~s(<form><label>Text <input /></label></form>))
+        |> fill_in("Text", with: "value")
+        |> evaluate("document.querySelector('form').insertAdjacentHTML('beforeend', '<label>Text <input /></label>')")
+
+      assert_raise ArgumentError, ~r/more than one element/, fn -> submit(conn) end
+    end
+  end
+
+  describe "current_path" do
+    test "returns the path and query without the fragment", %{conn: conn} do
+      assert conn |> visit("/page/index?foo=bar&baz=a%20b#section") |> PhoenixTest.Driver.current_path() ==
+               "/page/index?foo=bar&baz=a%20b"
+    end
+
+    test "omits an empty query", %{conn: conn} do
+      assert conn |> visit("/page/index?#section") |> PhoenixTest.Driver.current_path() == "/page/index"
+    end
   end
 
   describe "drag/3" do
