@@ -24,7 +24,6 @@ defmodule PhoenixTest.Playwright.Case do
   alias PhoenixTest.Playwright.JsLogger
   alias PlaywrightEx.Browser
   alias PlaywrightEx.BrowserContext
-  alias PlaywrightEx.Page
   alias PlaywrightEx.Tracing
 
   using opts do
@@ -120,13 +119,7 @@ defmodule PhoenixTest.Playwright.Case do
     tracing = BrowserContext.tracing(browser_context)
     if config[:trace], do: start_trace(tracing, config, context)
 
-    %{
-      context: browser_context,
-      page: page,
-      frame: Page.main_frame(page),
-      tracing: tracing,
-      config: config
-    }
+    %{context: browser_context, page: page, config: config}
     |> Playwright.build()
     |> tap(fn conn ->
       if config[:screenshot], do: screenshot(conn, config, context)
