@@ -14,13 +14,12 @@ defmodule PhoenixTest.Playwright.Supervisor do
   def start_link([] \\ []) do
     # Host apps usually depend on this library with `runtime: false`, which leaves it to us.
     {:ok, _} = Application.ensure_all_started(:playwright_ex)
+    # `Config.global/0` raises on an invalid config.
     Supervisor.start_link(__MODULE__, Config.global(), name: __MODULE__)
   end
 
   @impl true
-  def init(config) do
-    Config.validate!(config)
-
+  def init(_config) do
     children = [
       PlaywrightEx.Supervisor,
       PhoenixTest.Playwright.DriverWatcher,
