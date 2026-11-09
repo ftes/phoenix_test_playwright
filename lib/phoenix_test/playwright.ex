@@ -4,7 +4,7 @@ defmodule PhoenixTest.Playwright do
 
   This module implements the PhoenixTest driver protocol, running tests in a real browser
   via Playwright. The `conn` in tests is not a `Plug.Conn` but a `%PhoenixTest.Playwright{}`
-  struct holding the Playwright session state (page, frame, browser context, etc.).
+  struct holding the Playwright session state (page, browser context, etc.).
 
   It also provides browser-specific functions beyond the standard PhoenixTest API,
   such as `screenshot/3`, `evaluate/2`, `type/3`, `press/3`, and `drag/3`.
@@ -38,8 +38,6 @@ defmodule PhoenixTest.Playwright do
   defstruct [
     :context,
     :page,
-    :frame,
-    :tracing,
     :dialog_listener,
     :last_input_selector,
     within: :none
@@ -65,18 +63,14 @@ defmodule PhoenixTest.Playwright do
   @spec build(%{
           required(:context) => BrowserContext.t(),
           required(:page) => Page.t(),
-          required(:frame) => PlaywrightEx.Frame.t(),
-          required(:tracing) => Tracing.t(),
           required(:config) => keyword()
         }) :: t()
-  def build(%{context: context, page: page, frame: frame, tracing: tracing, config: config}) do
+  def build(%{context: context, page: page, config: config}) do
     forward_downloads(page, self())
 
     %__MODULE__{
       context: context,
       page: page,
-      frame: frame,
-      tracing: tracing,
       dialog_listener: start_dialog_listener(page, config[:accept_dialogs])
     }
   end
@@ -151,12 +145,13 @@ defmodule PhoenixTest.Playwright do
     caller_location = [file: Path.absname(__CALLER__.file), line: __CALLER__.line]
 
     quote bind_quoted: [conn: conn, title: title, fun: fun, caller_location: caller_location] do
-      Tracing.group!(conn.tracing, title, location: Map.new(caller_location))
+      tracing = BrowserContext.tracing(conn.context)
+      Tracing.group!(tracing, title, location: Map.new(caller_location))
 
       try do
         fun.(conn)
       after
-        Tracing.group_end!(conn.tracing)
+        Tracing.group_end!(tracing)
       end
 
       conn
@@ -1331,7 +1326,7 @@ defmodule PhoenixTest.Playwright do
   """
   @spec unwrap(t(), (%{context: any(), page: any(), frame: any()} -> any())) :: t()
   def unwrap(conn, fun) do
-    tap(conn, &fun.(Map.take(&1, ~w(context page frame)a)))
+    tap(conn, &fun.(%{context: &1.context, page: &1.page, frame: Page.main_frame(&1.page)}))
   end
 
   @doc false

@@ -11,8 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Breaking: remove the `assets_dir` option. PlaywrightEx now downloads its own driver, so delete `assets_dir` from your
   config and install browsers with `MIX_ENV=test mix playwright_ex.install -- chromium --with-deps`. The `playwright`
   npm package is no longer used; set `PLAYWRIGHT_EX_EXECUTABLE` to keep using your own.
-- Breaking, if internals were used: `conn` and `unwrap/2` hold PlaywrightEx handles (`context`, `page`, `frame`)
-  instead of guids (`context_id`, ...), and the ExUnit context holds `playwright_browser` instead of `browser_id`.
+- Breaking, if internals were used: `conn` holds PlaywrightEx handles (`context`, `page`) and `unwrap/2` also passes `frame`,
+  instead of guids (`context_id`, ...). Derive the rest with `Page.main_frame(conn.page)` and
+  `BrowserContext.tracing(conn.context)`. The ExUnit context holds `playwright_browser` instead of `browser_id`.
   `PlaywrightEx.Selector` is now `PhoenixTest.Playwright.Selector`.
   A `with_dialog/3` callback receives `dialog` instead of `guid`.
 - Remove the internal `PhoenixTest.Playwright.EventListener`: dialogs are handled by `Page.on/3` listeners directly.

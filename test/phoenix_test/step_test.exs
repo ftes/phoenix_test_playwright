@@ -3,6 +3,7 @@ defmodule PhoenixTest.StepTest do
 
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 
+  alias PlaywrightEx.BrowserContext
   alias PlaywrightEx.Tracing
 
   @html """
@@ -30,21 +31,21 @@ defmodule PhoenixTest.StepTest do
       end)
 
       trace = stop_tracing(conn)
-      assert trace =~ ~r/Fill in form with test data.*step_test.exs.*"line":22/
-      assert trace =~ ~r/Type into text input.*step_test.exs.*"line":24/
-      assert trace =~ ~r/Verify form data changed.*step_test.exs.*"line":27/
+      assert trace =~ ~r/Fill in form with test data.*step_test.exs.*"line":23/
+      assert trace =~ ~r/Type into text input.*step_test.exs.*"line":25/
+      assert trace =~ ~r/Verify form data changed.*step_test.exs.*"line":28/
     end
   end
 
   defp start_tracing(conn) do
-    Tracing.start!(conn.tracing)
-    Tracing.start_chunk!(conn.tracing)
+    tracing = BrowserContext.tracing(conn.context)
+    Tracing.start!(tracing)
   end
 
   defp stop_tracing(conn) do
+    tracing = BrowserContext.tracing(conn.context)
     zip_file = Path.join(System.tmp_dir!(), "step-test-#{System.unique_integer([:positive])}.zip")
-    Tracing.stop_chunk!(conn.tracing, path: zip_file)
-    Tracing.stop!(conn.tracing)
+    Tracing.stop!(tracing, path: zip_file)
 
     {:ok, handle} = :zip.zip_open(String.to_charlist(zip_file), [:memory])
     {:ok, {_, trace_contents}} = :zip.zip_get(~c"trace.trace", handle)
