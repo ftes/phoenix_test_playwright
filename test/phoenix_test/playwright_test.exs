@@ -726,6 +726,16 @@ defmodule PhoenixTest.PlaywrightTest do
       |> fill_in(@name, with: "filled")
       |> evaluate("document.querySelector('#field').value", fn value -> assert value == "filled" end)
     end
+
+    test "is matched by the value option of assert_has and refute_has", %{conn: conn} do
+      value = ~S(it's \o/ >> "x")
+
+      conn
+      |> set_html(~s(<input id="field" />))
+      |> evaluate("value => { document.querySelector('#field').value = value }", arg: value)
+      |> assert_has("#field", value: value)
+      |> refute_has("#field", value: value <> "x")
+    end
   end
 
   describe "add_session_cookie/3" do
