@@ -66,12 +66,15 @@ For magic link / passwordless login, see the [Emails section](https://hexdocs.pm
 ## Common problems
 
 ### LiveView not connected
+`visit/2` can return before LiveView has connected, and an action taken before that is lost. Wait for the connection first:
 ```elixir
 |> visit(~p"/")
 |> assert_has("body .phx-connected")
 # now continue, Playwright has waited for LiveView to connect
 ```
 For LiveComponents, add `data-connected={connected?(@socket)}` and assert on that attribute instead.
+
+[Fluffy](https://hex.pm/packages/fluffy) waits for every LiveView to connect after each navigation in the browser, including one triggered by a click or form submit.
 
 ### Test failures, browser version mismatch, Ecto ownership errors
 See the [docs](https://hexdocs.pm/phoenix_test_playwright/PhoenixTest.Playwright.md#module-common-problems).
