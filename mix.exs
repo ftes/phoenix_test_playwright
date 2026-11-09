@@ -67,7 +67,7 @@ defmodule PhoenixTestPlaywright.MixProject do
       licenses: ["MIT"],
       links: %{"Github" => @source_url},
       files: ~w(lib .formatter.exs mix.exs README* LICENSE* CHANGELOG* usage-rules.md),
-      exclude_patterns: ~w(assets/node_modules priv/static/assets priv/plts)
+      exclude_patterns: ~w(priv/static/assets priv/plts)
     ]
   end
 
@@ -78,6 +78,7 @@ defmodule PhoenixTestPlaywright.MixProject do
         setup: :test,
         check: :test,
         "assets.setup": :test,
+        "assets.setup.playwright": :test,
         "assets.build": :test,
         esbuild: :test,
         "esbuild.install": :test,
@@ -116,11 +117,7 @@ defmodule PhoenixTestPlaywright.MixProject do
       "assets.setup": [
         "esbuild.install --if-missing"
       ],
-      "assets.setup.playwright": [
-        "cmd pnpm --dir priv/static/assets install --frozen-lockfile",
-        "cmd pnpm --dir priv/static/assets exec playwright install chromium --with-deps --only-shell",
-        "cmd pnpm --dir priv/static/assets exec playwright install firefox --with-deps --only-shell"
-      ],
+      "assets.setup.playwright": "playwright_ex.install -- chromium firefox --with-deps --only-shell",
       "assets.build": ["esbuild default"],
       "test.websocket": "phoenix_test_playwright.test.websocket",
       check: [

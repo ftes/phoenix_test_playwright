@@ -56,17 +56,6 @@ schema_opts = [
     type: :boolean,
     doc: "Accept browser dialogs (`alert()`, `confirm()`, `prompt()`)."
   ],
-  assets_dir: [
-    default: "./assets",
-    type_spec: quote(do: binary()),
-    type_doc: "`t:binary/0`",
-    type: {:custom, PhoenixTest.Playwright.Config, :__validate_assets_dir__, []},
-    doc: """
-    The directory where the JS assets are located and the Playwright CLI is installed.
-    Playwright version `#{PlaywrightEx.Driver.version()}` is required.
-    Alternatively, use `ws_endpoint` to connect to a remote Playwright server instead, in which case `assets_dir` is ignored.
-    """
-  ],
   browser: browser_opts[:browser],
   browser_context_opts: [
     default: [],
@@ -222,11 +211,6 @@ defmodule PhoenixTest.Playwright.Config do
   def schema_opts, do: @schema_opts
 
   @doc false
-  def executable do
-    [global()[:assets_dir], "node_modules", "playwright", "cli.js"] |> Path.join() |> Path.expand()
-  end
-
-  @doc false
   # A timeout of 0 means "don't wait" here, but "wait forever" to Playwright.
   def driver_timeout(0), do: 1
   def driver_timeout(timeout), do: timeout
@@ -285,25 +269,4 @@ defmodule PhoenixTest.Playwright.Config do
 
   defp normalize(:screenshot, true), do: NimbleOptions.validate!([], @screenshot_opts_schema)
   defp normalize(_key, value), do: value
-
-  def __validate_assets_dir__(assets_dir) do
-    config = Application.get_env(:phoenix_test, :playwright, [])
-
-    if playwright_installed?(assets_dir) or config[:ws_endpoint] do
-      {:ok, assets_dir}
-    else
-      {:error,
-       """
-       Could not find Playwright in `#{assets_dir}`.
-
-       To resolve this, either:
-       1. Install Playwright locally: `pnpm --dir #{assets_dir} add --save-dev playwright`
-       2. Or configure a remote Playwright server via `ws_endpoint` option
-       """}
-    end
-  end
-
-  defp playwright_installed?(assets_dir) do
-    [assets_dir, "node_modules", "playwright", "package.json"] |> Path.join() |> File.exists?()
-  end
 end

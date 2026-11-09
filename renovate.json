@@ -5,7 +5,6 @@
   ],
   "enabledManagers": [
     "mix",
-    "npm",
     "github-actions",
     "asdf"
   ],
@@ -18,30 +17,11 @@
   "rangeStrategy": "replace",
   "packageRules": [
     {
-      "description": "Keep runtime updates together, including pnpm's packageManager pin",
+      "description": "Keep runtime updates together",
       "matchManagers": [
         "asdf"
       ],
       "groupName": "toolchain"
-    },
-    {
-      "matchManagers": [
-        "npm"
-      ],
-      "matchDepTypes": [
-        "packageManager"
-      ],
-      "groupName": "toolchain"
-    },
-    {
-      "description": "The minimum supported Node version is a compatibility decision",
-      "matchManagers": [
-        "npm"
-      ],
-      "matchDepTypes": [
-        "engines"
-      ],
-      "enabled": false
     },
     {
       "description": "Preserve Elixir's OTP build compatibility suffix",

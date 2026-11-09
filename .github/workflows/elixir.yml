@@ -98,7 +98,7 @@ jobs:
         uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
       - name: Install dependencies
         run: mix "do" deps.get, deps.compile
-      - name: Install JS dependencies, build assets and install browsers
+      - name: Install browsers and build assets
         if: matrix.transport == 'port'
         run: mix setup
       - name: Build assets

@@ -19,19 +19,14 @@ defmodule PhoenixTest.Playwright.Supervisor do
 
   @impl true
   def init(config) do
-    config = Config.validate!(config)
+    Config.validate!(config)
 
     children = [
-      {PlaywrightEx.Supervisor, playwright_opts(config)},
+      PlaywrightEx.Supervisor,
       PhoenixTest.Playwright.DriverWatcher,
       PhoenixTest.Playwright.BrowserPoolSupervisor
     ]
 
     Supervisor.init(children, strategy: :rest_for_one)
-  end
-
-  # Without an executable, PlaywrightEx uses its own driver, so `assets_dir` isn't needed.
-  defp playwright_opts(config) do
-    if config[:ws_endpoint], do: [], else: [executable: Config.executable()]
   end
 end

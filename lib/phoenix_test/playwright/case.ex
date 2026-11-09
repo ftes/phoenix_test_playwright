@@ -160,7 +160,11 @@ defmodule PhoenixTest.Playwright.Case do
 
   defp maybe_open_trace(:open, path) do
     # Spawn to avoid blocking the test exit
-    spawn(fn -> System.cmd(Playwright.Config.executable(), ["show-trace", Path.absname(path)]) end)
+    spawn(fn ->
+      {program, args} = PlaywrightEx.Driver.executable()
+      System.cmd(program, args ++ ["show-trace", Path.absname(path)])
+    end)
+
     :ok
   end
 
