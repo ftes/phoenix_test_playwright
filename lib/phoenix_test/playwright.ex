@@ -23,7 +23,6 @@ defmodule PhoenixTest.Playwright do
   alias PhoenixTest.Playwright.Browser
   alias PhoenixTest.Playwright.Config
   alias PhoenixTest.Playwright.CookieArgs
-  alias PhoenixTest.Playwright.EventListener
   alias PhoenixTest.Playwright.Selector
   alias PlaywrightEx.BrowserContext
   alias PlaywrightEx.Dialog
@@ -41,7 +40,7 @@ defmodule PhoenixTest.Playwright do
     :page,
     :frame,
     :tracing,
-    :dialog_listener_pid,
+    :dialog_listener,
     :last_input_selector,
     within: :none
   ]
@@ -78,16 +77,15 @@ defmodule PhoenixTest.Playwright do
       page: page,
       frame: frame,
       tracing: tracing,
-      dialog_listener_pid: start_dialog_listener(page, config[:accept_dialogs])
+      dialog_listener: start_dialog_listener(page, config[:accept_dialogs])
     }
   end
 
+  # With no listener at all, Playwright dismisses dialogs. `accept_dialogs: false` must leave them open.
   defp start_dialog_listener(page, auto_accept?) do
-    callback = &if(auto_accept?, do: :ok = Dialog.accept(&1))
-    id = {:dialog_listener, make_ref()}
-    pid = ExUnit.Callbacks.start_supervised!({EventListener, %{callback: callback}}, id: id)
-    Page.on(page, :dialog, &EventListener.emit(pid, &1))
-    pid
+    listener = if auto_accept?, do: &(:ok = Dialog.accept(&1)), else: fn _dialog -> :ok end
+    Page.on(page, :dialog, listener)
+    listener
   end
 
   defp forward_downloads(page, owner) do
@@ -910,7 +908,7 @@ defmodule PhoenixTest.Playwright do
       end
   """
   def with_dialog(session, callback, fun) when is_function(callback, 1) and is_function(fun, 1) do
-    event_callback = fn dialog ->
+    listener = fn dialog ->
       :ok =
         case callback.(%{dialog: dialog, message: Dialog.message(dialog)}) do
           :accept -> Dialog.accept(dialog)
@@ -920,10 +918,20 @@ defmodule PhoenixTest.Playwright do
         end
     end
 
-    session
-    |> tap(&EventListener.push_callback(&1.dialog_listener_pid, event_callback))
-    |> fun.()
-    |> tap(&EventListener.pop_callback(&1.dialog_listener_pid))
+    outer = session.dialog_listener
+    replace_dialog_listener(session.page, outer, listener)
+
+    try do
+      %{fun.(%{session | dialog_listener: listener}) | dialog_listener: outer}
+    after
+      replace_dialog_listener(session.page, listener, outer)
+    end
+  end
+
+  # Add before remove: while a page has no dialog listener, Playwright dismisses its dialogs.
+  defp replace_dialog_listener(page, old, new) do
+    Page.on(page, :dialog, new)
+    Page.off(page, :dialog, old)
   end
 
   @doc false

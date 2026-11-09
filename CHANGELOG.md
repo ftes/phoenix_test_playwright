@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   instead of guids (`context_id`, ...), and the ExUnit context holds `playwright_browser` instead of `browser_id`.
   `PlaywrightEx.Selector` is now `PhoenixTest.Playwright.Selector`.
   A `with_dialog/3` callback receives `dialog` instead of `guid`.
+- Remove the internal `PhoenixTest.Playwright.EventListener`: dialogs are handled by `Page.on/3` listeners directly.
 - `ws_endpoint` connects through a local driver that PlaywrightEx downloads, and no longer needs `websockex`.
 - `assert_screenshot/3` prints a notice when it writes a missing baseline.
 - Sync usage rules into `AGENTS.md` with `usage_rules`. The README's setup now includes PlaywrightEx's rules.

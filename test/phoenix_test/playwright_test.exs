@@ -206,6 +206,31 @@ defmodule PhoenixTest.PlaywrightTest do
         end
       )
     end
+
+    @tag accept_dialogs: false
+    test "with_dialog/3 nests and restores the outer listener", %{conn: conn} do
+      conn
+      |> set_html("""
+      <button onclick="document.getElementById('result').textContent = confirm('Sure?')">Ask</button>
+      <p id="result"></p>
+      """)
+      |> with_dialog(
+        fn _ -> :accept end,
+        fn outer ->
+          outer = outer |> click_button("Ask") |> assert_has("#result", text: "true", exact: true)
+
+          nested =
+            with_dialog(
+              outer,
+              fn _ -> :dismiss end,
+              &(&1 |> click_button("Ask") |> assert_has("#result", text: "false", exact: true))
+            )
+
+          assert nested.dialog_listener == outer.dialog_listener
+          nested |> click_button("Ask") |> assert_has("#result", text: "true", exact: true)
+        end
+      )
+    end
   end
 
   describe "open_browser" do
