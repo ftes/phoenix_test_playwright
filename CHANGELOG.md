@@ -5,9 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
-## [Unreleased]
+## [0.20.0-rc.0] 2026-11-09
 ### Changed
 - Require PlaywrightEx 0.17 (rc), which pins Playwright 1.65.
+- **Breaking:** require Elixir 1.18 or newer.
 - Breaking: remove the `assets_dir` option. PlaywrightEx now downloads its own driver, so delete `assets_dir` from your
   config and install browsers with `MIX_ENV=test mix playwright_ex.install -- chromium --with-deps`. The `playwright`
   npm package is no longer used; set `PLAYWRIGHT_EX_EXECUTABLE` to keep using your own.
