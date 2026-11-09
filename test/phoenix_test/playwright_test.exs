@@ -9,6 +9,8 @@ defmodule PhoenixTest.PlaywrightTest do
   import ExUnit.CaptureLog, only: [capture_log: 1]
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 
+  alias PhoenixTest.Playwright.Case
+  alias PhoenixTest.Playwright.Config
   alias PhoenixTest.Playwright.Selector
 
   @long_page_html "<h1>Longer than viewport</h1>" <> String.duplicate("<div>Lorem ipsum</div>", 100)
@@ -342,6 +344,36 @@ defmodule PhoenixTest.PlaywrightTest do
         assert file.content == File.read!("test/files/elixir.jpg")
       end)
     end
+
+    test "asserts repeated downloads in order", %{conn: conn} do
+      conn
+      |> set_html(download_links(~w(first.txt second.txt)))
+      |> click_link("first.txt")
+      |> click_link("second.txt")
+      |> assert_download("first.txt")
+      |> assert_download("second.txt")
+    end
+
+    test "keeps downloads of a second session apart", context do
+      config = Config.validate!(%{})
+      conn2 = Case.new_session(config, context)
+
+      conn1 =
+        context.conn
+        |> set_html(download_links(~w(first.txt)))
+        |> click_link("first.txt")
+
+      conn2
+      |> set_html(download_links(~w(second.txt)))
+      |> click_link("second.txt")
+      |> assert_download("second.txt")
+
+      assert_download(conn1, "first.txt")
+    end
+
+    defp download_links(names) do
+      Enum.map_join(names, &~s(<a href="data:text/plain,#{&1}" download="#{&1}">#{&1}</a>))
+    end
   end
 
   describe "evaluate/2" do
@@ -619,8 +651,8 @@ defmodule PhoenixTest.PlaywrightTest do
       |> set_html("<h1>First session</h1>")
       |> assert_has("h1", text: "First session")
 
-      config = PhoenixTest.Playwright.Config.validate!(%{})
-      conn2 = PhoenixTest.Playwright.Case.new_session(config, context)
+      config = Config.validate!(%{})
+      conn2 = Case.new_session(config, context)
 
       conn2
       |> set_html("<h1>Second session</h1>")
