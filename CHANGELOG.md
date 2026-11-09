@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `ignore_all_default_args` in `browser_launch_opts`.
 - **Breaking:** `assert_screenshot/3` baselines must be `.png` or `.webp`, and the documented defaults `animations: "disabled"`
   and `scale: "css"` now apply. Regenerate baselines captured with running animations or a device scale factor above 1.
+- `assert_download/2` must run in the process that built the `conn` (normally the test process).
 - Include the runner image in CI's Dialyzer PLT cache key so runner image updates
   rebuild the PLT instead of reusing a stale one.
 

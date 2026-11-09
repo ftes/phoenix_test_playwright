@@ -24,7 +24,6 @@ defmodule PhoenixTest.Playwright do
   alias PhoenixTest.Playwright.Config
   alias PhoenixTest.Playwright.CookieArgs
   alias PhoenixTest.Playwright.EventListener
-  alias PhoenixTest.Playwright.EventRecorder
   alias PhoenixTest.Playwright.Selector
   alias PlaywrightEx.BrowserContext
   alias PlaywrightEx.Dialog
@@ -43,7 +42,6 @@ defmodule PhoenixTest.Playwright do
     :frame,
     :tracing,
     :dialog_listener_pid,
-    :download_recorder_pid,
     :last_input_selector,
     within: :none
   ]
@@ -73,13 +71,14 @@ defmodule PhoenixTest.Playwright do
           required(:config) => keyword()
         }) :: t()
   def build(%{context: context, page: page, frame: frame, tracing: tracing, config: config}) do
+    forward_downloads(page, self())
+
     %__MODULE__{
       context: context,
       page: page,
       frame: frame,
       tracing: tracing,
-      dialog_listener_pid: start_dialog_listener(page, config[:accept_dialogs]),
-      download_recorder_pid: start_download_recorder(page)
+      dialog_listener_pid: start_dialog_listener(page, config[:accept_dialogs])
     }
   end
 
@@ -91,10 +90,8 @@ defmodule PhoenixTest.Playwright do
     pid
   end
 
-  defp start_download_recorder(page) do
-    pid = ExUnit.Callbacks.start_supervised!(EventRecorder, id: {:download_recorder, make_ref()})
-    Page.on(page, :download, &EventRecorder.push(pid, &1))
-    pid
+  defp forward_downloads(page, owner) do
+    Page.on(page, :download, &send(owner, {:download, page, &1}))
   end
 
   @retry_interval to_timeout(millisecond: 10)
@@ -847,10 +844,10 @@ defmodule PhoenixTest.Playwright do
   defp selector_has(selector, :none), do: selector
   defp selector_has(selector, has_selector), do: Selector.has(selector, has_selector)
 
-  def assert_download(conn, filename_or_fun) do
+  def assert_download(%{page: page} = conn, filename_or_fun) do
     download =
-      case EventRecorder.pop(conn.download_recorder_pid, timeout()) do
-        {:ok, download} ->
+      receive do
+        {:download, ^page, download} ->
           path = download_artifact(download)
           filename = Download.suggested_filename(download)
 
@@ -859,9 +856,8 @@ defmodule PhoenixTest.Playwright do
             name: filename,
             content: File.read!(path)
           }
-
-        {:error, :timeout} ->
-          flunk("No download detected")
+      after
+        Config.global(:timeout) -> flunk("No download detected")
       end
 
     case filename_or_fun do
