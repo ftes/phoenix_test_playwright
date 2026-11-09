@@ -327,65 +327,64 @@ defmodule PhoenixTest.Playwright do
     conn
   end
 
-  @assert_screenshot_opts_schema [
-    full_page: [
-      type: :boolean,
-      doc:
-        "When true, takes a screenshot of the full scrollable page, instead of the currently visible viewport. Defaults to `false`."
-    ],
-    omit_background: [
-      type: :boolean,
-      doc:
-        "Hides default white background and allows capturing screenshots with transparency. Not applicable to `jpeg` images. Defaults to `false`."
-    ],
-    animations: [
-      type: {:in, ["disabled", "allow"]},
-      doc:
-        ~s{When set to `"disabled"`, stops CSS animations, CSS transitions and Web Animations. Animations get different treatment depending on their duration: finite animations are fast-forwarded to completion, so they'll fire `transitionend` event. Infinite animations are canceled to initial state, and then played over after the screenshot. Defaults to `"disabled"`.}
-    ],
-    caret: [
-      type: {:in, ["hide", "initial"]},
-      doc:
-        ~s{When set to `"hide"`, screenshot will hide text caret. When set to `"initial"`, text caret behavior will not be changed. Defaults to `"hide"`.}
-    ],
-    clip: [
-      type: :map,
-      doc:
-        "An object which specifies clipping of the resulting image. `%{x: float, y: float, width: float, height: float}`."
-    ],
-    selector: [type: :string, doc: "Scope the screenshot to a CSS or Playwright selector instead of the full page."],
-    max_diff_pixels: [
-      type: :non_neg_integer,
-      doc: "An acceptable amount of pixels that could be different. Unset by default."
-    ],
-    max_diff_pixel_ratio: [
-      type: :float,
-      doc:
-        "An acceptable ratio of pixels that are different to the total amount of pixels, between `0` and `1`. Unset by default."
-    ],
-    threshold: [
-      type: :float,
-      doc:
-        "An acceptable perceived color difference in the YIQ color space between the same pixel in compared images, between zero (strict) and one (lax). Defaults to `0.2`."
-    ],
-    scale: [
-      type: {:in, ["css", "device"]},
-      doc:
-        ~s{When set to `"css"`, screenshot will have a single pixel per each css pixel on the page. For high-dpi devices, this will keep screenshots small. Using `"device"` option will produce a single pixel per each device pixel. Defaults to `"css"`.}
-    ],
-    mask: [
-      type: {:list, :string},
-      doc:
-        "Specify selectors that should be masked when the screenshot is taken. Masked elements will be overlaid with a pink box `#FF00FF` (customized by `mask_color`) that completely covers its bounding box."
-    ],
-    mask_color: [
-      type: :string,
-      doc:
-        "Specify the color of the overlay box for masked elements, in CSS color format. Default color is pink `#FF00FF`."
-    ],
-    snapshot_dir: [type: :string, doc: "Override the global `:snapshot_dir` config for this call."],
-    timeout: @timeout_opt
-  ]
+  # Upstream's `doc` is only the first paragraph.
+  @assert_screenshot_doc_additions %{
+    animations:
+      " finite animations are fast-forwarded to completion, so they'll fire `transitionend` event. Infinite animations are canceled to initial state, and then played over after the screenshot. Defaults to `:disabled`.",
+    scale: " Defaults to `:css`."
+  }
+
+  # Options are passed on to `Expect.to_have_screenshot/2`. Enums also take strings there.
+  @assert_screenshot_opts_schema :to_have_screenshot
+                                 |> Expect.__options__()
+                                 |> Keyword.drop(~w(path signal)a)
+                                 |> Enum.map(fn {name, %{spec: spec, doc: doc}} ->
+                                   nodes = spec |> Macro.prewalker() |> Enum.to_list()
+
+                                   enum? =
+                                     match?({:|, _, _}, spec) and
+                                       Enum.all?(nodes, &(is_atom(&1) or match?({:|, _, _}, &1)))
+
+                                   {type, spec} =
+                                     case spec do
+                                       _enum when enum? ->
+                                         atoms = Enum.filter(nodes, &is_atom/1)
+
+                                         {{:in, atoms ++ Enum.map(atoms, &to_string/1)},
+                                          quote(do: String.t() | unquote(spec))}
+
+                                       {:boolean, _, []} ->
+                                         {:boolean, spec}
+
+                                       {:integer, _, []} ->
+                                         {:integer, spec}
+
+                                       {:number, _, []} ->
+                                         {{:or, [:float, :integer]}, spec}
+
+                                       _other ->
+                                         {:any, spec}
+                                     end
+
+                                   doc = doc <> Map.get(@assert_screenshot_doc_additions, name, "")
+                                   {name, type: type, type_spec: spec, type_doc: "`#{Macro.to_string(spec)}`", doc: doc}
+                                 end)
+                                 |> Keyword.merge(
+                                   selector: [
+                                     type: :string,
+                                     doc: "Scope the screenshot to a CSS or Playwright selector instead of the full page."
+                                   ],
+                                   mask: [
+                                     type: {:list, :string},
+                                     doc:
+                                       "Specify selectors that should be masked when the screenshot is taken. Masked elements will be overlaid with a pink box `#FF00FF` (customized by `:mask_color`) that completely covers its bounding box."
+                                   ],
+                                   snapshot_dir: [
+                                     type: :string,
+                                     doc: "Override the global `:snapshot_dir` config for this call."
+                                   ],
+                                   timeout: @timeout_opt
+                                 )
 
   @doc """
   Visual regression assertion: compares a screenshot of the current page against a stored baseline.
@@ -424,7 +423,6 @@ defmodule PhoenixTest.Playwright do
     opts =
       opts
       |> ensure_timeout()
-      |> atomize_enums(~w(animations caret scale)a)
       |> maybe_convert_mask(conn)
       |> Keyword.put(:path, snapshot_path)
 
@@ -1341,12 +1339,6 @@ defmodule PhoenixTest.Playwright do
   # `Page.evaluate/3` has no timeout, so it is bounded here.
   defp evaluate_within(conn, expression, arg, timeout) do
     bounded(timeout, "page.evaluate", fn -> Page.evaluate(conn.page, expression, arg) end)
-  end
-
-  defp atomize_enums(opts, keys) do
-    Enum.reduce(keys, opts, fn key, opts ->
-      if Keyword.has_key?(opts, key), do: Keyword.update!(opts, key, &String.to_atom/1), else: opts
-    end)
   end
 
   # For calls that take no timeout. `fun` must not raise: the task is linked to the caller.
