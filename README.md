@@ -326,11 +326,15 @@ end)
 
 ### LiveView not connected
 
+`visit/2` returns at the page's `load` event, which can be before LiveView has connected. An action taken before that is lost, so a longer timeout doesn't help. Wait for the connection first:
+
 ```elixir
 |> visit(~p"/")
 |> assert_has("body .phx-connected")
 # now continue, playwright has waited for LiveView to connect
 ```
+
+Or use [Fluffy](https://hex.pm/packages/fluffy), which waits for every LiveView to connect after each navigation in the browser, including one triggered by a click or form submit. See its [migration guide](https://hexdocs.pm/fluffy/migration-from-phoenix-test.html).
 
 ### LiveComponent not connected
 
