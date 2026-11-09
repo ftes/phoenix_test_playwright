@@ -1,6 +1,9 @@
 defmodule PhoenixTest.Playwright.JsLogger do
   @moduledoc """
   Default javascript logger, and the behaviour for custom ones (config opt `js_logger`).
+
+  `c:log/3` receives the PlaywrightEx object as its third argument: a `PlaywrightEx.ConsoleMessage`
+  for console messages, or a `PlaywrightEx.WebError` for uncaught errors.
   """
   alias PlaywrightEx.BrowserContext
   alias PlaywrightEx.ConsoleMessage
@@ -10,12 +13,12 @@ defmodule PhoenixTest.Playwright.JsLogger do
 
   @type level :: Logger.level()
   @type text :: binary()
-  @type playwright_message :: %{params: map()}
+  @type message :: ConsoleMessage.t() | WebError.t()
 
-  @callback log(level(), text(), playwright_message()) :: any()
+  @callback log(level(), text(), message()) :: any()
 
-  def log(level, text, msg) do
-    location = location(msg)
+  def log(level, text, message) do
+    location = location(message)
     Logger.log(level, if(location, do: "#{text} (#{location})", else: text))
   end
 
@@ -28,26 +31,23 @@ defmodule PhoenixTest.Playwright.JsLogger do
     :ok
   end
 
+  @doc false
+  def format_location(%{url: ""}), do: nil
+  def format_location(%{url: url, lineNumber: 0}), do: url
+  def format_location(%{url: url, lineNumber: line}), do: "#{url}:#{line}"
+
   defp log_console_message(module, message) do
-    type = ConsoleMessage.type(message)
-    text = ConsoleMessage.text(message)
-    %{url: url, lineNumber: line, columnNumber: column} = ConsoleMessage.location(message)
-    params = %{type: type, text: text, location: %{url: url, line_number: line, column_number: column}}
-    module.log(level(type), text, %{method: :console, params: params})
+    module.log(level(ConsoleMessage.type(message)), ConsoleMessage.text(message), message)
   end
 
   defp log_web_error(module, web_error) do
-    error = WebError.error(web_error)
-    module.log(:error, Exception.message(error), %{method: :page_error, params: %{error: error}})
+    module.log(:error, Exception.message(WebError.error(web_error)), web_error)
   end
 
   defp level("error"), do: :error
   defp level("debug"), do: :debug
   defp level(_), do: :info
 
-  defp location(%{params: %{location: %{url: ""}}}), do: nil
-  defp location(%{params: %{location: %{url: url, line_number: 0}}}), do: url
-  defp location(%{params: %{location: %{url: url, line_number: line}}}), do: "#{url}:#{line}"
-  defp location(%{params: %{location: %{url: url}}}), do: url
-  defp location(_), do: nil
+  defp location(%ConsoleMessage{} = message), do: message |> ConsoleMessage.location() |> format_location()
+  defp location(%WebError{}), do: nil
 end

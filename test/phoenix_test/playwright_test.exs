@@ -11,7 +11,18 @@ defmodule PhoenixTest.PlaywrightTest do
 
   alias PhoenixTest.Playwright.Case
   alias PhoenixTest.Playwright.Config
+  alias PhoenixTest.Playwright.JsLogger
   alias PhoenixTest.Playwright.Selector
+  alias PlaywrightEx.ConsoleMessage
+  alias PlaywrightEx.WebError
+
+  defmodule ForwardingJsLogger do
+    @moduledoc false
+    @behaviour JsLogger
+
+    @impl true
+    def log(level, text, message), do: send(PhoenixTest.PlaywrightTest, {:js_log, level, text, message})
+  end
 
   @long_page_html "<h1>Longer than viewport</h1>" <> String.duplicate("<div>Lorem ipsum</div>", 100)
 
@@ -727,6 +738,20 @@ defmodule PhoenixTest.PlaywrightTest do
 
       assert log =~ "TESTME 42"
       refute log =~ "localhost"
+    end
+
+    @tag :capture_log
+    test "passes PlaywrightEx objects to a custom logger", %{conn: conn} do
+      Process.register(self(), PhoenixTest.PlaywrightTest)
+      JsLogger.attach(conn.context, ForwardingJsLogger)
+
+      conn
+      |> set_html("<h1>Console log fixture</h1>")
+      |> tap(&PlaywrightEx.Page.evaluate(&1.page, "console.error('TESTME 42')"))
+      |> tap(&PlaywrightEx.Page.evaluate(&1.page, "setTimeout(() => { throw new Error('TESTME 43') })"))
+
+      assert_receive {:js_log, :error, "TESTME 42", %ConsoleMessage{}}, 5_000
+      assert_receive {:js_log, :error, "TESTME 43", %WebError{}}, 5_000
     end
   end
 
