@@ -4,7 +4,7 @@ To run the tests locally, you'll need to:
 
 1. Check out the repo
 2. Run `mix setup`. This will take care of setting up your dependencies, installing the Playwright driver and browsers, and compiling the assets.
-3. Run `mix test` or, for a more thorough check that matches what we test in CI, run `mix check`
+3. Run `mix test` or, for a more thorough check that matches what we test in CI, run `mix check`. CI also runs `MIX_ENV=dev mix docs --warnings-as-errors`.
 4. Run `mix test.websocket` to run all tests against a 'remote' playwright server via websocket. Docker needs to be installed. A container is started via `testcontainers`.
 
 ## Conventions

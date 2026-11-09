@@ -31,6 +31,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and `scale: "css"` now apply. Regenerate baselines captured with running animations or a device scale factor above 1.
 - `evaluate/2,3,4` callbacks receive PlaywrightEx's values directly: JS `null` is
   `:null` (previously `nil`), `undefined` is `nil`.
+- `browser_context_opts` no longer accepts `timeout`. The `browser_page_opts` config option and the `is_function` option
+  of `evaluate/3` are removed and now raise, except that `browser_page_opts` set through `@tag` or `use` is dropped like any
+  unknown tag. The `:android` and `:electron` browsers are removed.
 
 ### Changed
 - Require PlaywrightEx 0.17 (rc), which pins Playwright 1.65.
@@ -39,9 +42,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `assert_screenshot/3` prints a notice when it writes a missing baseline.
 - Sync usage rules into `AGENTS.md` with `usage_rules`. The README's setup now includes PlaywrightEx's rules.
 - Custom `js_logger` modules implement `PhoenixTest.Playwright.JsLogger`, which replaces `PlaywrightEx.JsLogger`.
-- `browser_context_opts` no longer accepts `timeout`. The `browser_page_opts` config option and the `is_function` option
-  of `evaluate/3` are removed and now raise, except that `browser_page_opts` set through `@tag` or `use` is dropped like any
-  unknown tag. The `:android` and `:electron` browsers are removed.
 - `assert_download/2` must run in the process that built the `conn` (normally the test process).
 - `submit/1` targets the last interacted element directly instead of focusing it first, and `current_path` reads the
   client's URL instead of evaluating JavaScript in the page.

@@ -218,7 +218,8 @@ defmodule PhoenixTest.Playwright.Config do
   ## Timeouts
 
   Timeouts are in milliseconds, or `:infinity` to disable them. `0` means no waiting.
-  This applies to the config options above and to the `timeout:` option of individual operations.
+  This applies to `timeout`, `browser_launch_timeout`, `browser_pool_checkout_timeout`,
+  and the `timeout:` option of individual operations.
   ExUnit's own test timeout (see `ExUnit.configure/1`) still applies.
   """
 

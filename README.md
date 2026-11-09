@@ -20,7 +20,7 @@ defmodule Features.RegisterTest do
   @tag trace: :open                      # replay in interactive viewer
   test "register", %{conn: conn} do
     conn
-    |> visit(~p"/")
+    |> visit("/")
     |> click_link("Register")
     |> fill_in("Email", with: "f@ftes.de")
     |> click_button("Create an account")
@@ -76,6 +76,7 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
     ```elixir
     defmodule MyTest do
       use PhoenixTest.Playwright.Case
+      use YourAppWeb, :verified_routes # for `~p`
 
       # `conn` isn't a `Plug.Conn` but a Playwright session.
       # We use the name `conn` anyway so you can easily switch `PhoenixTest` drivers.
@@ -366,6 +367,8 @@ conn
 )
 |> visit(~p"/")
 ```
+
+A generated Phoenix endpoint only has a `@session_options` attribute, so expose it with `def session_options, do: @session_options`.
 
 For magic link / passwordless login, see the [Emails](#emails) section below.
 

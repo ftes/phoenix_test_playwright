@@ -20,6 +20,7 @@ This assumes [PhoenixTest](https://hexdocs.pm/phoenix_test) and [PhoenixTest.Pla
 defmodule MyApp.Features.SomeTest do
   # Ecto sandbox is managed automatically — do not set it up manually
   use PhoenixTest.Playwright.Case, async: true
+  use MyAppWeb, :verified_routes
 
   test "example", %{conn: conn} do
     conn

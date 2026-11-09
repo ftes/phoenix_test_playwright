@@ -7,6 +7,7 @@ defmodule PhoenixTest.Playwright.Case do
       defmodule MyAppWeb.RegisterTest do
         use PhoenixTest.Playwright.Case,
           async: true,
+          # These pools must be defined in the `browser_pools` config.
           parameterize: [%{browser_pool: :chromium_pool}, %{browser_pool: :firefox_pool}]
 
         test "register", %{conn: conn} do
@@ -117,14 +118,15 @@ defmodule PhoenixTest.Playwright.Case do
 
   @doc """
   Creates a fresh browser context and page, and returns a `conn` for them.
-  Use it for another session within the same test, e.g. a second user.
 
   `config` is a validated config, `context` is the ExUnit test context (with `:playwright_browser`).
   The browser context is closed when the test exits.
 
+  For another session within the same test, e.g. a second user, `do_setup/1` calls this
+  with the test's own config:
+
       test "two users chat", context do
-        config = PhoenixTest.Playwright.Config.validate!(%{})
-        other_conn = PhoenixTest.Playwright.Case.new_session(config, context)
+        [conn: other_conn] = PhoenixTest.Playwright.Case.do_setup(context)
         # ...
       end
   """

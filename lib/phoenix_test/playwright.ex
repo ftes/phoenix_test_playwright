@@ -281,6 +281,8 @@ defmodule PhoenixTest.Playwright do
 
   The `session_options` are exactly the same as the opts used when
   writing `plug Plug.Session` in your router/endpoint module.
+  A generated Phoenix endpoint only has a `@session_options` attribute, so expose it
+  with `def session_options, do: @session_options` to call it as below.
 
   ## Examples
       |> add_session_cookie(
@@ -1005,7 +1007,7 @@ defmodule PhoenixTest.Playwright do
   ## Options
   #{NimbleOptions.docs(@exact_opts_schema)}
   """
-  @spec click_link(t(), selector() | nil, String.t(), [
+  @spec click_link(t(), css_selector() | nil, String.t(), [
           unquote(NimbleOptions.option_typespec(@exact_opts_schema))
         ]) :: t()
   def click_link(conn, selector \\ nil, text, opts \\ []) do
@@ -1019,7 +1021,7 @@ defmodule PhoenixTest.Playwright do
   ## Options
   #{NimbleOptions.docs(@exact_opts_schema)}
   """
-  @spec click_button(t(), selector() | nil, String.t(), [
+  @spec click_button(t(), css_selector() | nil, String.t(), [
           unquote(NimbleOptions.option_typespec(@exact_opts_schema))
         ]) :: t()
   def click_button(conn, selector \\ nil, text, opts \\ []) do
