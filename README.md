@@ -45,11 +45,10 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
     {:phoenix_test_playwright, "~> 0.14", only: :test, runtime: false}
     ```
 
-2. Install playwright and browser
+2. Install the Playwright driver and browser (no Node.js or npm needed, see [Playwright driver](#playwright-driver))
 
     ```sh
-    pnpm --dir assets add --save-dev playwright
-    pnpm --dir assets exec playwright install chromium --with-deps
+    MIX_ENV=test mix playwright_ex.install -- chromium --with-deps
     ```
 
 3. Config
@@ -190,6 +189,32 @@ defmodule DebuggingFeatureTest do
     headless: false,
     slow_mo: :timer.seconds(1)
 end
+```
+
+
+## Playwright driver
+
+PlaywrightEx pins the Playwright version and downloads its driver (Node.js and `playwright-core`)
+to `PLAYWRIGHT_EX_CACHE_DIR` (default: `playwright_ex` in the user cache directory) on first use.
+Browsers go to `PLAYWRIGHT_BROWSERS_PATH` (default: `ms-playwright` in the user cache directory).
+
+To bring your own, set one of these environment variables:
+- `PLAYWRIGHT_EX_EXECUTABLE`: a `playwright` CLI, e.g. `assets/node_modules/.bin/playwright`. Its version must match `PlaywrightEx.Driver.version/0`.
+- `PLAYWRIGHT_NODEJS_PATH`: a Node.js binary to run the pinned driver with, e.g. on Alpine Linux.
+
+Cache both directories in CI. Keep the install step on a cache hit, as `--with-deps` installs system packages.
+
+```yaml
+# .github/workflows/elixir.yml
+- uses: actions/cache@v4
+  with:
+    path: |
+      ~/.cache/playwright_ex
+      ~/.cache/ms-playwright
+    key: playwright-${{ runner.os }}-${{ hashFiles('mix.lock') }}
+- run: mix playwright_ex.install -- chromium --with-deps
+  env:
+    MIX_ENV: test
 ```
 
 
@@ -357,10 +382,9 @@ If you've installed a browser but can't run tests
 you probably used the wrong playwright JS version to install the browser.
 
 Each playwright JS version pins a specific browser version.
-Tests are run using `./assets/node_modules/playwright`
-(see `assets_dir` in `PhoenixTest.Playwright.Config`).
-Make sure to use that same playwright JS version to install the browser,
-e.g. via `pnpm --dir assets exec playwright install`.
+Tests are run using the driver pinned by PlaywrightEx (see `PlaywrightEx.Driver.version/0`).
+Make sure to use that same driver to install the browser,
+e.g. via `MIX_ENV=test mix playwright_ex.install -- chromium`.
 
 
 ## Ecto Sandbox
@@ -463,7 +487,7 @@ end
 To run the tests locally, you'll need to:
 
 1. Check out the repo
-2. Run `mix setup`. This will take care of setting up your dependencies, installing the JavaScript dependencies (including Playwright), and compiling the assets.
+2. Run `mix setup`. This will take care of setting up your dependencies, installing the Playwright driver and browsers, and compiling the assets.
 3. Run `mix test` or, for a more thorough check that matches what we test in CI, run `mix check`
 4. Run `mix test.websocket` to run all tests against a 'remote' playwright server via websocket. Docker needs to be installed. A container is started via `testcontainers`.
 
@@ -474,4 +498,4 @@ To run the tests locally, you'll need to:
 
 ### Playwright internals
 
-Playwright's implementation is split between a **client** (Node.js API) and a **server** (browser protocol layer). The [Playwright docs](https://playwright.dev/docs/intro) describe the public API but don't reflect this split. When reading Playwright source code, it can help to look at the TypeScript sources directly: [client](https://github.com/microsoft/playwright/tree/main/packages/playwright-core/src/client) and [server](https://github.com/microsoft/playwright/tree/main/packages/playwright-core/src/server) (locally under `priv/static/assets/node_modules/playwright-core/lib/`).
+Playwright's implementation is split between a **client** (Node.js API) and a **server** (browser protocol layer). The [Playwright docs](https://playwright.dev/docs/intro) describe the public API but don't reflect this split. When reading Playwright source code, it can help to look at the TypeScript sources directly: [client](https://github.com/microsoft/playwright/tree/main/packages/playwright-core/src/client) and [server](https://github.com/microsoft/playwright/tree/main/packages/playwright-core/src/server) (locally under `package/lib/` in `PlaywrightEx.Driver.install_dir/0`).

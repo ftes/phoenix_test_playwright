@@ -7,7 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 ### Changed
-- Require PlaywrightEx 0.17 (rc) and Playwright 1.65. Install the matching `playwright` package and browsers.
+- Require PlaywrightEx 0.17 (rc), which pins Playwright 1.65.
+- Breaking: remove the `assets_dir` option. PlaywrightEx now downloads its own driver, so delete `assets_dir` from your
+  config and install browsers with `MIX_ENV=test mix playwright_ex.install -- chromium --with-deps`. The `playwright`
+  npm package is no longer used; set `PLAYWRIGHT_EX_EXECUTABLE` to keep using your own.
 - Breaking, if internals were used: `conn` and `unwrap/2` hold PlaywrightEx handles (`context`, `page`, `frame`)
   instead of guids (`context_id`, ...), and the ExUnit context holds `playwright_browser` instead of `browser_id`.
   `PlaywrightEx.Selector` is now `PhoenixTest.Playwright.Selector`.
