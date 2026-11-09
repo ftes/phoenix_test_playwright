@@ -1,7 +1,7 @@
 defmodule PhoenixTestPlaywright.MixProject do
   use Mix.Project
 
-  @version "0.19.0"
+  @version "0.20.0-rc.0"
   @source_url "https://github.com/ftes/phoenix_test_playwright"
   @description """
   Execute PhoenixTest cases in an actual browser via Playwright.
@@ -12,7 +12,7 @@ defmodule PhoenixTestPlaywright.MixProject do
       app: :phoenix_test_playwright,
       version: @version,
       description: @description,
-      elixir: "~> 1.15",
+      elixir: "~> 1.18",
       deps: deps(),
       elixirc_paths: elixirc_paths(Mix.env()),
       package: package(),
