@@ -300,7 +300,7 @@ defmodule PhoenixTest.Playwright do
     omit_background: [
       type: :boolean,
       default: false,
-      doc: "Only applicable to .png images."
+      doc: "Hides the default white background to allow transparency. Ignored for `.jpg` and `.jpeg` images."
     ],
     timeout: @timeout_opt
   ]
@@ -308,8 +308,10 @@ defmodule PhoenixTest.Playwright do
   @doc """
   Takes a screenshot of the current page and saves it to the given file path.
 
-  The file type will be inferred from the file extension on the path you provide.
+  The file type will be inferred from the file extension on the path you provide:
+  `.png`, `.jpg`, `.jpeg` or `.webp`. Any other extension raises.
   The file is saved in `:screenshot_dir`, see `PhoenixTest.Playwright.Config`.
+  Missing directories are created.
 
   ## Options
   #{NimbleOptions.docs(@screenshot_opts_schema)}
@@ -324,11 +326,8 @@ defmodule PhoenixTest.Playwright do
   def screenshot(conn, file_path, opts \\ []) do
     opts = NimbleOptions.validate!(opts, @screenshot_opts_schema)
 
-    dir = Config.global(:screenshot_dir)
-    File.mkdir_p!(dir)
-
-    path = Path.join(dir, file_path)
-    File.write!(path, Page.screenshot!(conn.page, ensure_timeout(opts)))
+    path = Path.join(Config.global(:screenshot_dir), file_path)
+    Page.screenshot!(conn.page, ensure_timeout([path: path] ++ opts))
 
     conn
   end

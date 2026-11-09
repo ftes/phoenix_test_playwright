@@ -38,6 +38,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   compiled dependency runs without its sources (for example a Nix build).
 - `mix phoenix_test_playwright.test.websocket` and README: start the Playwright server with
   `npx`, since current Playwright Docker images no longer ship `corepack`.
+- `screenshot/3`: infer the image type from the file extension as documented. `.jpg` paths
+  contained PNG bytes. Unsupported extensions now raise, and `omit_background` is ignored for `.jpg` and `.jpeg`.
 
 ## [0.19.0] 2026-10-17
 ### Changed
