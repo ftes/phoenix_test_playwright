@@ -21,6 +21,9 @@ env:
 jobs:
   build:
     name: Build and lint
+    # In a stack, only the top PR runs CI (the tests need this job): it holds every change below it.
+    # `stack` is absent outside a stack and on other events.
+    if: github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size
     runs-on: ubuntu-latest
 
     steps:
@@ -129,3 +132,17 @@ jobs:
           name: screenshots-${{ matrix.transport }}
           path: ./screenshots
           if-no-files-found: ignore
+
+  # Reports the required `Test (...)` checks on a PR below the top of its stack: the skipped matrix
+  # job above reports its name unexpanded, which would leave them pending.
+  test-below-stack-top:
+    name: Test (${{ matrix.transport }})
+    if: github.event.pull_request.stack != null && github.event.pull_request.stack.position != github.event.pull_request.stack.size
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        transport: [port, websocket]
+
+    steps:
+      - run: echo "Covered by the top PR of the stack"
