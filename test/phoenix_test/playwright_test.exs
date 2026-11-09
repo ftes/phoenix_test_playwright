@@ -37,6 +37,23 @@ defmodule PhoenixTest.PlaywrightTest do
       assert File.exists?("screenshots/#{name}")
     end
 
+    test "infers the image type from the file extension", %{conn: conn} do
+      name = "inferred_#{System.unique_integer([:positive])}.jpg"
+      screenshot(conn, name)
+      assert <<0xFF, 0xD8, 0xFF, _rest::binary>> = File.read!("screenshots/#{name}")
+    end
+
+    test "ignores omit_background for a JPEG", %{conn: conn} do
+      plain = "plain_#{System.unique_integer([:positive])}.jpg"
+      omitted = "omitted_#{System.unique_integer([:positive])}.jpg"
+
+      conn
+      |> screenshot(plain, omit_background: false)
+      |> screenshot(omitted, omit_background: true)
+
+      assert File.read!("screenshots/#{omitted}") == File.read!("screenshots/#{plain}")
+    end
+
     test "full page screenshots are larger in file size than non-full-page", %{conn: conn} do
       full_page_name = "full_page_#{:erlang.system_time(:second)}.png"
       viewport_name = "viewport_#{:erlang.system_time(:second)}.png"
