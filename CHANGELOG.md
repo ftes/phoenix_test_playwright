@@ -21,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `assert_screenshot/3` prints a notice when it writes a missing baseline.
 - Sync usage rules into `AGENTS.md` with `usage_rules`. The README's setup now includes PlaywrightEx's rules.
 - Custom `js_logger` modules implement `PhoenixTest.Playwright.JsLogger`, which replaces `PlaywrightEx.JsLogger`.
+- Breaking for custom `js_logger` modules: `log/3` receives a `PlaywrightEx.ConsoleMessage` or `PlaywrightEx.WebError`
+  as its third argument, instead of a message map.
 - `browser_context_opts` no longer accepts `timeout`. The `browser_page_opts` config option and the `is_function` option
   of `evaluate/3` are removed and now raise, except that `browser_page_opts` set through `@tag` or `use` is dropped like any
   unknown tag. The `:android` and `:electron` browsers are removed.
