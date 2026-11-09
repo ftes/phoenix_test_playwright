@@ -34,6 +34,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   rebuild the PLT instead of reusing a stale one.
 - `submit/1` targets the last interacted element directly instead of focusing it first, and `current_path` reads the
   client's URL instead of evaluating JavaScript in the page.
+- **Breaking:** `evaluate/2,3,4` callbacks receive PlaywrightEx's values directly: JS `null` is
+  `:null` (previously `nil`), `undefined` is `nil`.
 
 ### Fixed
 - Embed the built-in selector engine scripts at compile time. They were read

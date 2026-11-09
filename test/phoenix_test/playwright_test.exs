@@ -472,8 +472,9 @@ defmodule PhoenixTest.PlaywrightTest do
 
       conn
       |> set_html("<h1>Other</h1>")
-      |> evaluate("({ a: null, b: [null] })", fn result -> assert result == %{"a" => nil, "b" => [nil]} end)
-      |> evaluate("null", fn result -> assert result == nil end)
+      |> evaluate("({ a: null, b: [null] })", fn result -> assert result == %{"a" => :null, "b" => [:null]} end)
+      |> evaluate("null", fn result -> assert result == :null end)
+      |> evaluate("undefined", fn result -> assert result == nil end)
       |> evaluate("1 + 2", [timeout: 5000], fn result ->
         send(test_pid, {:result, result})
       end)
