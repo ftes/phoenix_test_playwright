@@ -43,6 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   so invalid ones raise its errors instead of `NimbleOptions.ValidationError`.
 
 ### Fixed
+- Escape quotes and backslashes in the `:value` option of `assert_has/3` and `refute_has/3`. Such values caused a selector error.
 - Embed the built-in selector engine scripts at compile time. They were read
   from the dependency's source directory at runtime, which fails when the
   compiled dependency runs without its sources (for example a Nix build).

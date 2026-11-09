@@ -100,9 +100,9 @@ defmodule PhoenixTest.Playwright.Selector do
   # Custom
   @spec value(nil | any()) :: t()
   def value(nil), do: :none
-  def value(value), do: "phoenix_test_value='#{value}'"
+  def value(value), do: "phoenix_test_value=#{escape_text(value)}"
 
-  # Playwright parses the quoted text of `internal:text` and `internal:label` with `JSON.parse`.
+  # `internal:text`, `internal:label` and the `phoenix_test_value` engine read this with `JSON.parse`.
   defp escape_text(text), do: text |> to_string() |> JSON.encode!()
 
   defp escape_attribute(value), do: ~s("#{value |> String.replace("\\", "\\\\") |> String.replace(~s("), ~s(\\"))}")
