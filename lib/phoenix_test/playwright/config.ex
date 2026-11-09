@@ -201,14 +201,10 @@ defmodule PhoenixTest.Playwright.Config do
   """
 
   @schema schema
-  @schema_opts schema_opts
   @screenshot_opts_schema screenshot_opts_schema
   @setup_all_keys setup_all_keys
   @merge_global_into_browser_pool_keys merge_global_into_browser_pool_keys
   @setup_keys setup_keys
-
-  @doc false
-  def schema_opts, do: @schema_opts
 
   @doc false
   # A timeout of 0 means "don't wait" here, but "wait forever" to Playwright.

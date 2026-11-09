@@ -605,8 +605,8 @@ defmodule PhoenixTest.Playwright do
   def drag(conn, source_selector, opts) do
     {target_selector, opts} = opts |> NimbleOptions.validate!(@drag_opts_schema) |> Keyword.pop!(:to)
 
-    source_selector = conn |> maybe_within() |> Selector.concat(source_selector)
-    target_selector = conn |> maybe_within() |> Selector.concat(target_selector)
+    source_selector = Selector.concat(conn.within, source_selector)
+    target_selector = Selector.concat(conn.within, target_selector)
 
     opts = Keyword.merge([timeout: timeout(opts)], Keyword.fetch!(opts, :playwright))
 
@@ -630,22 +630,14 @@ defmodule PhoenixTest.Playwright do
   def assert_path(conn, path, opts \\ []) do
     opts = NimbleOptions.validate!(opts, @path_assertion_opts_schema)
 
-    if opts[:query_params] do
-      retry(fn -> Assertions.assert_path(conn, path, opts) end, timeout(opts))
-    else
-      retry(fn -> Assertions.assert_path(conn, path) end, timeout(opts))
-    end
+    retry(fn -> Assertions.assert_path(conn, path, opts) end, timeout(opts))
   end
 
   @doc false
   def refute_path(conn, path, opts \\ []) do
     opts = NimbleOptions.validate!(opts, @path_assertion_opts_schema)
 
-    if opts[:query_params] do
-      retry(fn -> Assertions.refute_path(conn, path, opts) end, timeout(opts))
-    else
-      retry(fn -> Assertions.refute_path(conn, path) end, timeout(opts))
-    end
+    retry(fn -> Assertions.refute_path(conn, path, opts) end, timeout(opts))
   end
 
   @doc false
@@ -752,8 +744,7 @@ defmodule PhoenixTest.Playwright do
     end
 
     selector =
-      conn
-      |> maybe_within()
+      conn.within
       |> Selector.concat(Selector.css(selector))
       |> Selector.concat(assertion_position(opts[:at]))
       |> Selector.and(Selector.label(opts[:label], opts))
@@ -761,7 +752,7 @@ defmodule PhoenixTest.Playwright do
       |> selector_has(selected_selector(opts[:selected]))
       |> Selector.concat(Selector.text(opts[:text], opts))
       |> Selector.concat(Selector.value(opts[:value]))
-      |> Selector.concat("visible=true")
+      |> Selector.visible()
 
     case Map.new(opts) do
       %{count: count} ->
@@ -936,7 +927,7 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def render_html(conn) do
-    selector = conn |> maybe_within() |> Selector.build()
+    selector = Selector.build(conn.within)
     html = conn |> locator(selector) |> Locator.first() |> Locator.inner_html!(timeout: timeout())
     LazyHTML.from_document(html)
   end
@@ -975,10 +966,9 @@ defmodule PhoenixTest.Playwright do
     opts = NimbleOptions.validate!(opts, @exact_opts_schema)
 
     selector =
-      conn
-      |> maybe_within()
+      conn.within
       |> Selector.concat(selector)
-      |> Selector.has(Selector.concat(Selector.text(text, opts), "visible=true"))
+      |> Selector.has(Selector.visible(Selector.text(text, opts)))
 
     conn
     |> locator(selector)
@@ -995,25 +985,7 @@ defmodule PhoenixTest.Playwright do
   #{NimbleOptions.docs(@exact_opts_schema)}
   """
   def click_link(conn, selector \\ nil, text, opts \\ []) do
-    opts = NimbleOptions.validate!(opts, @exact_opts_schema)
-
-    selector =
-      conn
-      |> maybe_within()
-      |> Selector.concat(
-        case selector do
-          nil -> Selector.link(text, opts)
-          css -> css |> Selector.css() |> Selector.concat(Selector.text(text, opts))
-        end
-      )
-      |> Selector.build()
-
-    conn
-    |> locator(selector)
-    |> Locator.click(timeout: timeout(opts))
-    |> handle_response(selector)
-
-    conn
+    click_role(conn, selector, text, opts, &Selector.link/2)
   end
 
   @doc """
@@ -1023,14 +995,17 @@ defmodule PhoenixTest.Playwright do
   #{NimbleOptions.docs(@exact_opts_schema)}
   """
   def click_button(conn, selector \\ nil, text, opts \\ []) do
+    click_role(conn, selector, text, opts, &Selector.button/2)
+  end
+
+  defp click_role(conn, selector, text, opts, role_selector) do
     opts = NimbleOptions.validate!(opts, @exact_opts_schema)
 
     selector =
-      conn
-      |> maybe_within()
+      conn.within
       |> Selector.concat(
         case selector do
-          nil -> Selector.button(text, opts)
+          nil -> role_selector.(text, opts)
           css -> css |> Selector.css() |> Selector.concat(Selector.text(text, opts))
         end
       )
@@ -1053,8 +1028,6 @@ defmodule PhoenixTest.Playwright do
     exact: @exact_opt_schema,
     timeout: @timeout_opt
   ]
-
-  @form_field_opts_schema [exact: @exact_opt_schema, timeout: @timeout_opt]
 
   @select_opts_schema [
     from: [
@@ -1095,28 +1068,28 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def check(conn, css_selector \\ nil, label, opts) do
-    opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
+    opts = NimbleOptions.validate!(opts, @exact_opts_schema)
     fun = &Locator.check(&1, timeout: timeout(opts))
     input(conn, css_selector || "input[type='checkbox']", label, opts, fun)
   end
 
   @doc false
   def uncheck(conn, css_selector \\ nil, label, opts) do
-    opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
+    opts = NimbleOptions.validate!(opts, @exact_opts_schema)
     fun = &Locator.uncheck(&1, timeout: timeout(opts))
     input(conn, css_selector || "input[type='checkbox']", label, opts, fun)
   end
 
   @doc false
   def choose(conn, css_selector \\ nil, label, opts) do
-    opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
+    opts = NimbleOptions.validate!(opts, @exact_opts_schema)
     fun = &Locator.check(&1, timeout: timeout(opts))
     input(conn, css_selector || "input[type='radio']", label, opts, fun)
   end
 
   @doc false
   def upload(conn, css_selector \\ nil, label, paths, opts) do
-    opts = NimbleOptions.validate!(opts, @form_field_opts_schema)
+    opts = NimbleOptions.validate!(opts, @exact_opts_schema)
     paths = paths |> List.wrap() |> Enum.map(&Path.expand/1)
     fun = &Locator.set_input_files(&1, paths, timeout: timeout(opts))
     input(conn, css_selector || "input[type='file']", label, opts, fun)
@@ -1124,14 +1097,13 @@ defmodule PhoenixTest.Playwright do
 
   defp input(conn, css_selector, label, opts, fun, input_opts \\ []) do
     selector =
-      conn
-      |> maybe_within()
+      conn.within
       |> Selector.concat(
         css_selector
         |> Selector.css()
         |> Selector.and(Selector.label(label, opts))
       )
-      |> Selector.concat("visible=true")
+      |> Selector.visible()
       |> Selector.build()
 
     conn
@@ -1148,13 +1120,6 @@ defmodule PhoenixTest.Playwright do
 
   defp ensure_binary(value) when is_binary(value), do: value
   defp ensure_binary(value), do: value |> Phoenix.HTML.Safe.to_iodata() |> IO.iodata_to_binary()
-
-  defp maybe_within(conn) do
-    case conn.within do
-      :none -> Selector.none()
-      selector -> selector
-    end
-  end
 
   defp locator(conn, selector), do: Page.locator(conn.page, selector)
 

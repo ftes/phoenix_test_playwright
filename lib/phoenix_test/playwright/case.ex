@@ -1,6 +1,3 @@
-setup_all_config_keys = ~w(browser headless slow_mo)a
-setup_config_keys = ~w(screenshot trace)a
-
 defmodule PhoenixTest.Playwright.Case do
   @moduledoc """
   ExUnit case module to assist with browser based tests.
@@ -79,7 +76,7 @@ defmodule PhoenixTest.Playwright.Case do
     if pool = config[:browser_pool] do
       [playwright_browser: BrowserPool.checkout(pool)]
     else
-      [playwright_browser: config |> Keyword.delete(:browser_pool) |> launch_browser()]
+      [playwright_browser: launch_browser(config)]
     end
   end
 
@@ -97,7 +94,7 @@ defmodule PhoenixTest.Playwright.Case do
     timeout = Keyword.fetch!(config, :browser_launch_timeout)
     browser = PhoenixTest.Playwright.Browser.launch_browser!(config)
 
-    on_exit(fn -> Playwright.Browser.close_within(timeout, fn -> Browser.close(browser) end) end)
+    on_exit(fn -> Playwright.Browser.within(timeout, fn -> Browser.close(browser) end) end)
 
     browser
   end
@@ -113,7 +110,7 @@ defmodule PhoenixTest.Playwright.Case do
     page = BrowserContext.new_page!(browser_context)
 
     on_exit(fn ->
-      Playwright.Browser.close_within(config[:timeout], fn -> BrowserContext.close(browser_context) end)
+      Playwright.Browser.within(config[:timeout], fn -> BrowserContext.close(browser_context) end)
     end)
 
     tracing = BrowserContext.tracing(browser_context)

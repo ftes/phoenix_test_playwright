@@ -45,14 +45,6 @@ defmodule PhoenixTest.Playwright.Browser do
   end
 
   @doc """
-  Runs a Playwright `close` call, which takes no timeout, for at most `timeout`.
-  """
-  def close_within(timeout, fun) do
-    within(timeout, fun)
-    :ok
-  end
-
-  @doc """
   Runs a Playwright call that takes no timeout, for at most `Config.client_timeout(timeout)`.
   """
   def within(timeout, fun) do

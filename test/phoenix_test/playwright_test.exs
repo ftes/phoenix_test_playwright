@@ -42,12 +42,6 @@ defmodule PhoenixTest.PlaywrightTest do
       assert File.exists?("screenshots/#{name}")
     end
 
-    test "takes a screenshot of the current page as a JPEG", %{conn: conn} do
-      name = "jpg_#{:erlang.system_time(:second)}.jpg"
-      screenshot(conn, name)
-      assert File.exists?("screenshots/#{name}")
-    end
-
     test "infers the image type from the file extension", %{conn: conn} do
       name = "inferred_#{System.unique_integer([:positive])}.jpg"
       screenshot(conn, name)

@@ -59,7 +59,7 @@ defmodule PhoenixTest.Playwright.BrowserPool do
         {:reply, browser, state}
 
       map_size(state.in_use) < state.size ->
-        {:ok, browser} = launch(state.config)
+        browser = launch(state.config)
         state = do_checkout(state, from, browser)
         {:reply, browser, state}
 
@@ -70,11 +70,9 @@ defmodule PhoenixTest.Playwright.BrowserPool do
   end
 
   @impl GenServer
-  def handle_info({:DOWN, ref, :process, pid, _reason}, state) do
-    case Enum.find_value(state.in_use, fn {browser, tracked} -> tracked == {pid, ref} and browser end) do
-      nil -> {:noreply, state}
-      browser -> {:noreply, do_checkin(state, browser)}
-    end
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, state) do
+    {browser, in_use} = Map.pop!(state.in_use, ref)
+    {:noreply, do_checkin(%{state | in_use: in_use}, browser)}
   end
 
   @impl GenServer
@@ -82,7 +80,7 @@ defmodule PhoenixTest.Playwright.BrowserPool do
     timeout = Config.global(:timeout)
 
     tasks =
-      for browser <- state.available ++ Map.keys(state.in_use) do
+      for browser <- state.available ++ Map.values(state.in_use) do
         Task.async(fn -> close(browser, timeout) end)
       end
 
@@ -90,15 +88,11 @@ defmodule PhoenixTest.Playwright.BrowserPool do
   end
 
   defp close(browser, timeout) do
-    Browser.close_within(timeout, fn -> PlaywrightEx.Browser.close(browser) end)
+    Browser.within(timeout, fn -> PlaywrightEx.Browser.close(browser) end)
   end
 
-  @doc false
-  defdelegate launch_browser!(config), to: Browser
-
   defp launch(config) do
-    config = config |> Config.validate!() |> Keyword.take(Config.setup_all_keys())
-    {:ok, launch_browser!(config)}
+    config |> Config.validate!() |> Keyword.take(Config.setup_all_keys()) |> Browser.launch_browser!()
   end
 
   defp do_checkout(state, from, browser) do
@@ -106,13 +100,11 @@ defmodule PhoenixTest.Playwright.BrowserPool do
 
     state
     |> Map.update!(:available, &(&1 -- [browser]))
-    |> Map.update!(:in_use, &Map.put(&1, browser, {from_pid, Process.monitor(from_pid)}))
+    |> Map.update!(:in_use, &Map.put(&1, Process.monitor(from_pid), browser))
   end
 
   defp do_checkin(state, browser) do
-    {{_from_pid, ref}, in_use} = Map.pop(state.in_use, browser)
-    Process.demonitor(ref, [:flush])
-    state = %{state | in_use: in_use, available: [browser | state.available]}
+    state = %{state | available: [browser | state.available]}
 
     case state.waiting do
       [from | rest] ->
