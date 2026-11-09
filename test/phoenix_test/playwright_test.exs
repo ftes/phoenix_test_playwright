@@ -121,6 +121,12 @@ defmodule PhoenixTest.PlaywrightTest do
     end
 
     @tag :tmp_dir
+    test "accepts enum options as strings and atoms", %{conn: conn, tmp_dir: tmp_dir} do
+      assert_screenshot(conn, "strings.png", snapshot_dir: tmp_dir, animations: "disabled", caret: "hide", scale: "css")
+      assert_screenshot(conn, "atoms.png", snapshot_dir: tmp_dir, animations: :allow, caret: :initial, scale: :device)
+    end
+
+    @tag :tmp_dir
     test "creates subdirectory for nested name", %{conn: conn, tmp_dir: tmp_dir} do
       assert_screenshot(conn, "subdir/nested.png", snapshot_dir: tmp_dir)
       assert File.exists?(Path.join(tmp_dir, "subdir/nested.png"))
@@ -177,6 +183,18 @@ defmodule PhoenixTest.PlaywrightTest do
       assert_screenshot(conn, "kept.png", snapshot_dir: tmp_dir)
 
       assert Enum.map(siblings, &File.read!/1) == ["unrelated", "unrelated"]
+    end
+
+    @tag :tmp_dir
+    test "applies the :style_path stylesheet", %{conn: conn, tmp_dir: tmp_dir} do
+      style_path = Path.join(tmp_dir, "hide.css")
+      File.write!(style_path, "#sibling { visibility: hidden; }")
+      assert_screenshot(conn, "styled.png", snapshot_dir: tmp_dir, style_path: style_path)
+
+      # The hidden sibling changes, so this only matches because the stylesheet is applied.
+      conn
+      |> evaluate("document.querySelector('#sibling').style.backgroundColor = 'blue'")
+      |> assert_screenshot("styled.png", snapshot_dir: tmp_dir, style_path: style_path)
     end
 
     @tag :tmp_dir

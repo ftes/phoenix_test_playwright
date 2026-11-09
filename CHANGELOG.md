@@ -38,6 +38,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   client's URL instead of evaluating JavaScript in the page.
 - **Breaking:** `evaluate/2,3,4` callbacks receive PlaywrightEx's values directly: JS `null` is
   `:null` (previously `nil`), `undefined` is `nil`.
+- `assert_screenshot/3` takes its options from PlaywrightEx: `:style_path` is new, and enum options also accept atoms.
+  Options such as `:clip` and `:mask_color`, and out-of-range values such as a negative `:max_diff_pixels`, are validated by PlaywrightEx,
+  so invalid ones raise its errors instead of `NimbleOptions.ValidationError`.
 
 ### Fixed
 - Embed the built-in selector engine scripts at compile time. They were read
