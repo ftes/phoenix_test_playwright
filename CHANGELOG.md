@@ -51,6 +51,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `screenshot/3`: infer the image type from the file extension as documented. `.jpg` paths
   contained PNG bytes. Unsupported extensions now raise, and `omit_background` is ignored for `.jpg` and `.jpeg`.
 - Escape quotes and backslashes in text, label and accessible-name selectors. Such text caused a selector error.
+- Accept an atom-keyed map for `browser_context_opts`. Such maps passed validation, then raised an error.
 
 ## [0.19.0] 2026-10-17
 ### Changed

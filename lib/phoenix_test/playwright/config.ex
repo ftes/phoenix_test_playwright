@@ -59,7 +59,7 @@ schema_opts = [
   browser: browser_opts[:browser],
   browser_context_opts: [
     default: [],
-    type: {:or, [:map, :keyword_list]},
+    type: {:or, [{:map, :atom, :any}, :keyword_list]},
     doc: """
     Additional arguments passed to Playwright [Browser.newContext](https://playwright.dev/docs/api/class-browser#browser-new-context).
     E.g. `[http_credentials: %{username: "a", password: "b"}]`.
@@ -263,6 +263,7 @@ defmodule PhoenixTest.Playwright.Config do
     false
   end
 
+  defp normalize(:browser_context_opts, value), do: Keyword.new(value)
   defp normalize(:screenshot, true), do: NimbleOptions.validate!([], @screenshot_opts_schema)
   defp normalize(_key, value), do: value
 end

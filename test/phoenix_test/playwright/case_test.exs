@@ -39,6 +39,19 @@ defmodule PhoenixTest.Playwright.CaseTest do
       |> assert_has("#headers", text: "x-custom: 1")
     end
 
+    @tag browser_context_opts: %{locale: "fr"}
+    test "accepts a map", %{conn: conn} do
+      conn
+      |> visit("/pw/headers")
+      |> assert_has("#headers", text: "accept-language: fr")
+    end
+
+    test "rejects a map with string keys" do
+      assert_raise NimbleOptions.ValidationError, ~r/browser_context_opts/, fn ->
+        PhoenixTest.Playwright.Config.validate!(browser_context_opts: %{"locale" => "fr"})
+      end
+    end
+
     @tag browser_context_opts: [viewport: nil]
     test "viewport: nil disables the default viewport", %{conn: conn} do
       refute is_map(PlaywrightEx.Page.viewport_size(conn.page))
