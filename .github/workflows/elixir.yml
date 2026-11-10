@@ -39,6 +39,8 @@ jobs:
         run: mix credo
       - name: Compiles without warnings
         run: mix compile --warnings-as-errors
+      - name: Check generated usage rules
+        run: mix usage_rules.sync --check
       # PLTs built on another runner image (e.g. ubuntu24 vs ubuntu26) are rejected as "Old PLT file".
       - name: Get runner image
         id: runner_image

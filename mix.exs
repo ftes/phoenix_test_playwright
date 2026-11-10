@@ -124,6 +124,7 @@ defmodule PhoenixTestPlaywright.MixProject do
         "format --check-formatted",
         "credo",
         "compile --warnings-as-errors",
+        "usage_rules.sync --check",
         "dialyzer --format github --format dialyxir",
         "assets.build",
         "test --warnings-as-errors"
