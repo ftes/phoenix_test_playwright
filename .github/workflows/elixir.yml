@@ -10,6 +10,7 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
@@ -21,9 +22,9 @@ env:
 jobs:
   build:
     name: Build and lint
-    # In a stack, only the top PR runs CI (the tests need this job): it holds every change below it.
-    # `stack` is absent outside a stack and on other events.
-    if: github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size
+    # Draft PRs skip CI until marked ready, and in a stack only the top PR runs it (the tests need
+    # this job): it holds every change below it. `stack` is absent outside a stack and on other events.
+    if: ${{ !github.event.pull_request.draft && (github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size) }}
     runs-on: ubuntu-latest
 
     steps:
@@ -64,7 +65,7 @@ jobs:
 
   docs:
     name: Docs
-    if: github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size
+    if: ${{ !github.event.pull_request.draft && (github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size) }}
     runs-on: ubuntu-latest
     env:
       # `ex_doc` is a dev-only dependency.
@@ -150,11 +151,11 @@ jobs:
           path: ./screenshots
           if-no-files-found: ignore
 
-  # Reports the required `Test (...)` checks on a PR below the top of its stack: the skipped matrix
-  # job above reports its name unexpanded, which would leave them pending.
+  # Reports the required `Test (...)` checks on a draft or a PR below the top of its stack: the
+  # skipped matrix job above reports its name unexpanded, which would leave them pending.
   test-below-stack-top:
     name: Test (${{ matrix.transport }})
-    if: github.event.pull_request.stack != null && github.event.pull_request.stack.position != github.event.pull_request.stack.size
+    if: ${{ github.event.pull_request.draft || (github.event.pull_request.stack != null && github.event.pull_request.stack.position != github.event.pull_request.stack.size) }}
     runs-on: ubuntu-latest
 
     strategy:
@@ -162,4 +163,4 @@ jobs:
         transport: [port, websocket]
 
     steps:
-      - run: echo "Covered by the top PR of the stack"
+      - run: echo "Draft, or covered by the top PR of the stack"
