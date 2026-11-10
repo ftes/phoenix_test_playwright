@@ -1,0 +1,389 @@
+name: Claude Nightly Improvement
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+# One run at a time, so two runs can't both take the last slot.
+concurrency:
+  group: claude-nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # As in elixir.yml.
+  MIX_ENV: test
+  # Runs subagents in the foreground. A headless run ends with Claude's turn, which drops any
+  # still running in the background: the survey agents never reported back.
+  CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
+
+jobs:
+  # Frees slots before the cap is counted. A job, not an earlier cron: GitHub delays scheduled
+  # runs, and only `needs` guarantees the order.
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+      id-token: write # Exchanged for the Claude app token, which closes the PRs.
+    steps:
+      - name: List open nightly PRs without human comments or reviews
+        id: list
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        # A human comment or review keeps a PR out of triage; Claude's own review doesn't. The
+        # allowlist names each PR, so Claude can't close any other.
+        run: |
+          numbers=$(gh pr list --state open --limit 1000 --json number,headRefName,isCrossRepository,comments,reviews \
+            --jq '[.[] | select((.isCrossRepository | not) and (.headRefName | startswith("claude/nightly-")) and ([.comments[], .reviews[]] | all(.author.login == "claude"))) | .number]')
+          {
+            echo "numbers=$(jq -r 'join(" ")' <<< "$numbers")"
+            echo "allowed=$(jq -r 'map("Bash(gh pr close \(.) *)") | join(",")' <<< "$numbers")"
+          } >> "$GITHUB_OUTPUT"
+      - name: Checkout repository
+        if: steps.list.outputs.numbers != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Run Claude
+        id: claude
+        if: steps.list.outputs.numbers != ''
+        uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            OPEN NIGHTLY PRS: ${{ steps.list.outputs.numbers }}
+
+            An earlier nightly run opened these simplification PRs. Close each one that main has
+            made obsolete, so its slot can go to new work. main is checked out.
+
+            For each PR, read `gh pr view N`, `gh pr diff N` and the code it touches on main. It is
+            obsolete only if the code it simplifies is gone or rewritten, or main already made the
+            same change or solved the problem another way. A merge conflict, the PR's age or a
+            preference for other work is not a reason. When in doubt, keep it.
+
+            To close one, run exactly:
+              gh pr close N --delete-branch --comment "<one sentence naming what on main made it obsolete>"
+          claude_args: |
+            --model claude-opus-5-5
+            --max-turns 60
+            --allowedTools "Read,Grep,Glob,Agent,Task,Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(gh pr view:*),Bash(gh pr diff:*),${{ steps.list.outputs.allowed }}"
+      - name: Summarize Claude's result
+        if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        # Only the final message: this repo is public, and the full transcript can contain secrets.
+        run: jq -r '.[] | select(.type == "result") | .result // .subtype' "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+
+  # After triage, so only PRs worth keeping get fixed.
+  classify:
+    needs: triage
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # Deletes the branch of a PR given up on.
+      pull-requests: write # Closes that PR.
+      # Read by statusCheckRollup.
+      actions: read
+      checks: read
+      statuses: read
+    outputs:
+      conflicted: ${{ steps.list.outputs.conflicted }}
+      failing: ${{ steps.list.outputs.failing }}
+    steps:
+      - name: Sort open nightly PRs without human comments or reviews by what they need
+        id: list
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          MAX_COMMITS: 3
+        # GitHub computes mergeability on the first read after main moves, answering UNKNOWN until
+        # it's done. A human comment or review keeps a PR from being changed under them. A PR lists
+        # every run of a check, so only each check's latest counts. Every fix or re-run adds a
+        # commit, so the commit count limits the attempts. Listing commits caps --limit at 40: more
+        # exceeds GitHub's GraphQL node limit.
+        run: |
+          list() {
+            gh pr list --state open --limit 40 --json number,headRefName,isCrossRepository,mergeable,commits,statusCheckRollup,comments,reviews \
+              --jq '[.[] | select((.isCrossRepository | not) and (.headRefName | startswith("claude/nightly-")) and ([.comments[], .reviews[]] | all(.author.login == "claude"))) | {number, branch: .headRefName, mergeable, commits: (.commits | length), failing: ([.statusCheckRollup[] | select(.workflowName == "Elixir CI")] | group_by(.name) | map(max_by(.startedAt)) | any(.conclusion == "FAILURE" or .conclusion == "TIMED_OUT"))}]'
+          }
+          list > /dev/null
+          sleep 30
+          prs=$(list)
+          {
+            echo "conflicted=$(jq -c 'map(select(.mergeable == "CONFLICTING") | .number)' <<< "$prs")"
+            echo "failing=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.mergeable != "CONFLICTING" and .failing and .commits < $max) | {number, branch})' <<< "$prs")"
+            echo "exhausted=$(jq -r --argjson max "$MAX_COMMITS" 'map(select(.mergeable == "MERGEABLE" and .failing and .commits >= $max) | .number) | join(" ")' <<< "$prs")"
+          } >> "$GITHUB_OUTPUT"
+      - name: Close PRs still failing after two fixes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NUMBERS: ${{ steps.list.outputs.exhausted }}
+        run: |
+          for number in $NUMBERS; do
+            gh pr close "$number" --delete-branch --comment "CI still fails after two automatic fixes."
+          done
+
+  # Pushes a fix to each PR whose CI failed, which is where a change gets tested: improve publishes
+  # without running the suite. Only new commits, nothing merged from main, so no workflow files.
+  fix:
+    needs: classify
+    if: ${{ !cancelled() && needs.classify.result == 'success' && needs.classify.outputs.failing != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read # gh run view, for the failed log.
+      id-token: write # Exchanged for the Claude app token.
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJSON(needs.classify.outputs.failing) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.pr.branch }}
+          fetch-depth: 0
+      - name: Setup languages
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - name: Install dependencies
+        run: mix "do" deps.get, deps.compile
+      - name: Save the failed CI log
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ matrix.pr.branch }}
+        run: |
+          run=$(gh run list --branch "$BRANCH" --workflow elixir.yml --event pull_request --limit 1 --json databaseId --jq '.[0].databaseId')
+          mkdir -p tmp
+          gh run view "$run" --log-failed | tail -n 5000 > tmp/ci-failed.log
+      - name: Run Claude
+        id: claude
+        uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR: ${{ matrix.pr.number }}
+            BRANCH: ${{ matrix.pr.branch }} (already checked out)
+
+            CI failed on this simplification PR. The end of the failed steps' log is in
+            tmp/ci-failed.log (tmp/ is gitignored).
+
+            Read it along with `gh pr view ${{ matrix.pr.number }}` and
+            `gh pr diff ${{ matrix.pr.number }}` and find the cause. Tests can't run here: CI runs them on your push. Don't merge or rebase on main. End with
+            exactly one of these:
+
+            - The PR caused it: fix it, keeping what the PR set out to do and the public behaviour,
+              and matching the surrounding code. Don't weaken or skip a test to get it green. Run
+              `mix format`, `mix compile --warnings-as-errors` and `mix credo`, `git add` the files,
+              commit with one imperative sentence as the subject (match `git log`), then run exactly:
+                git push origin ${{ matrix.pr.branch }}
+            - It is unrelated to this PR, like a flaky browser test: run exactly
+              `git commit --allow-empty -m "Re-run CI"`, then the push above.
+            - It can't be fixed without redesigning the change: run exactly
+              gh pr close ${{ matrix.pr.number }} --delete-branch --comment "<one sentence on why>"
+
+            No attribution anywhere: no Co-Authored-By trailers or "Generated with" lines.
+          # The owner forbids attribution; the prompt says so too.
+          settings: |
+            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}}
+          claude_args: |
+            --model claude-opus-5-5
+            --max-turns 60
+            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr.number }}:*),Bash(gh pr diff ${{ matrix.pr.number }}:*),Bash(git push origin ${{ matrix.pr.branch }}),Bash(gh pr close ${{ matrix.pr.number }} *)"
+      - name: Summarize Claude's result
+        if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: jq -r '.[] | select(.type == "result") | .result // .subtype' "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+
+  # Replaces each conflicted PR with one on a new branch from main. The Claude app can't push
+  # workflow file changes, which a merge or rebase of the old branch would carry from main.
+  recreate:
+    needs: classify
+    if: ${{ !cancelled() && needs.classify.result == 'success' && needs.classify.outputs.conflicted != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write # Exchanged for the Claude app token.
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJSON(needs.classify.outputs.conflicted) }}
+    env:
+      NIGHTLY_BRANCH: claude/nightly-${{ github.run_id }}-${{ matrix.pr }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Setup languages
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - name: Install dependencies
+        run: mix "do" deps.get, deps.compile
+      - run: git switch -c "$NIGHTLY_BRANCH"
+      - name: Run Claude
+        id: claude
+        uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            OLD PR: ${{ matrix.pr }}
+            BRANCH: ${{ env.NIGHTLY_BRANCH }} (already checked out, from current main)
+
+            The old PR is a simplification that now conflicts with main. Redo it on this branch.
+
+            Read `gh pr view ${{ matrix.pr }}` and `gh pr diff ${{ matrix.pr }}` for what it set out
+            to do, then make the same change against the code as it is now, keeping what main has
+            changed since. Run `mix format`, `mix compile --warnings-as-errors` and `mix credo`; they must pass. CI
+            on the new PR runs the test suite.
+
+            If the change can't be redone without redesigning it, stop without pushing and say why.
+
+            To publish, commit with the old PR's title as the subject, write tmp/nightly-pr.md (the
+            old description, updated if the change differs; tmp/ is gitignored), then run exactly,
+            in this order:
+              git push -u origin ${{ env.NIGHTLY_BRANCH }}
+              gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} --title "<subject>" --body-file tmp/nightly-pr.md
+              gh pr close ${{ matrix.pr }} --delete-branch --comment "Conflicted with main; replaced by <new PR URL>."
+
+            No attribution anywhere: no Co-Authored-By trailers or "Generated with" lines.
+          # The owner forbids attribution; the prompt says so too.
+          settings: |
+            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}}
+          claude_args: |
+            --model claude-opus-5-5
+            --max-turns 60
+            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr }}:*),Bash(gh pr diff ${{ matrix.pr }}:*),Bash(git push -u origin ${{ env.NIGHTLY_BRANCH }}),Bash(gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} *),Bash(gh pr close ${{ matrix.pr }} *)"
+      - name: Summarize Claude's result
+        if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: jq -r '.[] | select(.type == "result") | .result // .subtype' "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+
+  # Enforces the cap before any toolchain is set up. Runs even if an earlier job failed: the
+  # count is still right, it just finds fewer slots.
+  capacity:
+    needs: [fix, recreate]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    outputs:
+      has-slot: ${{ steps.count.outputs.has-slot }}
+      prs: ${{ steps.count.outputs.prs }}
+    steps:
+      - name: Count open nightly PRs
+        id: count
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          MAX_OPEN_PRS: 3
+        # Same-repo branches only: a fork can pick any branch name, and this repo is public.
+        run: |
+          prs=$(gh pr list --state all --limit 1000 --json title,state,headRefName,isCrossRepository \
+            --jq '[.[] | select((.isCrossRepository | not) and (.headRefName | startswith("claude/nightly-"))) | {title, state}]')
+          open=$(jq '[.[] | select(.state == "OPEN")] | length' <<< "$prs")
+          echo "::notice::$open of $MAX_OPEN_PRS nightly PRs open"
+          if [ "$open" -lt "$MAX_OPEN_PRS" ]; then has_slot=true; else has_slot=false; fi
+          {
+            echo "has-slot=$has_slot"
+            echo "prs=$(jq -c '.[:30]' <<< "$prs")"
+          } >> "$GITHUB_OUTPUT"
+
+  improve:
+    needs: capacity
+    # !cancelled(): the implicit success() would also fail on any failed or skipped job further up.
+    if: ${{ !cancelled() && needs.capacity.outputs.has-slot == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write # Exchanged for the Claude app token. PRs from GITHUB_TOKEN wouldn't trigger CI.
+    env:
+      # The run's only branch: the exact push and PR commands below allow no other, and GitHub
+      # refuses a second PR for one head, so a run opens at most one.
+      NIGHTLY_BRANCH: claude/nightly-${{ github.run_id }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Setup languages
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - name: Install dependencies
+        run: mix "do" deps.get, deps.compile
+      - run: git switch -c "$NIGHTLY_BRANCH"
+
+      - name: Run Claude
+        id: claude
+        uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            BRANCH: ${{ env.NIGHTLY_BRANCH }} (already checked out)
+            PREVIOUS NIGHTLY PRS, newest first: ${{ needs.capacity.outputs.prs }}
+
+            Find the single most valuable improvement to this codebase's simplicity or consistency
+            and open one pull request for it, the kind a senior maintainer would be glad to merge.
+
+            test/phoenix_test/upstream/ and test/support/upstream/web_app/ mirror upstream
+            phoenix_test as a compatibility suite: leave them alone.
+
+            1. Read AGENTS.md and enough of lib/ and test/ to know the prevailing patterns. Use
+               subagents to survey separate areas in parallel.
+            2. Look for duplicated logic that belongs in one place, dead code, needless indirection
+               or options, and one concept handled or named differently across modules.
+            3. Rank the candidates by how much simpler or more uniform the code becomes for how
+               little it changes. Read the callers and tests of the best one before committing to
+               it. Skip anything overlapping an OPEN PR above or repeating a CLOSED one: those were
+               declined.
+            4. Implement that one idea, matching the surrounding code. Prefer a diff that removes
+               more than it adds.
+
+            Limits: observable public behaviour stays the same. No new features, bug fixes,
+            dependency, CI or changelog changes, and no changes that are only formatting, comments
+            or renames to taste.
+
+            Run `mix format`, `mix compile --warnings-as-errors` and `mix credo`; they must pass.
+            Don't run the test suite: CI runs it on the PR, and the next nightly run fixes what it
+            finds.
+
+            If nothing is clearly worth a maintainer's time, stop without pushing and say why. No
+            PR is a good result; a marginal PR is not.
+
+            To publish, commit with one imperative sentence as the subject (match `git log`), then
+            run exactly:
+              git push -u origin ${{ env.NIGHTLY_BRANCH }}
+              gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} --title "<subject>" --body-file tmp/nightly-pr.md
+            Write tmp/nightly-pr.md first (tmp/ is gitignored): a few sentences on what was
+            inconsistent or complex and why this is simpler.
+
+            No attribution anywhere: no Co-Authored-By trailers or "Generated with" lines.
+          # The owner forbids attribution; the prompt says so too.
+          settings: |
+            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}}
+          claude_args: |
+            --model claude-opus-5-5
+            --max-turns 150
+            --allowedTools "Read,Grep,Glob,Edit,Write,Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(git push -u origin ${{ env.NIGHTLY_BRANCH }}),Bash(gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} *)"
+      - name: Summarize Claude's result
+        if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: jq -r '.[] | select(.type == "result") | .result // .subtype' "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
