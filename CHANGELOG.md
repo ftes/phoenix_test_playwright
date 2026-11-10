@@ -10,38 +10,57 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Correct and reorganise the docs: README setup examples, `with_dialog/3`, `PhoenixTest.Playwright.Selector`, `PhoenixTest.Playwright.Config`.
 - `PhoenixTest.Playwright.Supervisor` is now in the API docs.
 - Hide the `test.websocket` mix task from the docs.
+- Add upgrade steps from 0.19 to the 0.20.0-rc.0 changelog.
 
 ## [0.20.0-rc.0] 2026-11-09
 ### Breaking
+Upgrading from 0.19: bump the dependency, then follow the first two items below. The rest of this list applies only
+if you use the feature it names. `~> 0.14` (as the 0.19 README suggested) never selects a release candidate, so the
+requirement must name it:
+
+```diff
+  # mix.exs (Elixir 1.18 or newer)
+- {:phoenix_test_playwright, "~> 0.14", only: :test, runtime: false}
++ {:phoenix_test_playwright, "~> 0.20.0-rc.0", only: :test, runtime: false}
+```
+
 - Require Elixir 1.18 or newer.
 - Remove the `assets_dir` option. PlaywrightEx now downloads its own driver, so delete `assets_dir` from your
   config and install browsers with `MIX_ENV=test mix playwright_ex.install -- chromium --with-deps`. The `playwright`
-  npm package is no longer used; set `PLAYWRIGHT_EX_EXECUTABLE` to keep using your own.
-- If you used internals: `conn` holds PlaywrightEx handles (`context`, `page`) and `unwrap/2` also passes `frame`,
-  instead of guids (`context_id`, ...). Derive the rest with `Page.main_frame(conn.page)` and
-  `BrowserContext.tracing(conn.context)`. The ExUnit context holds `playwright_browser` instead of `browser_id`.
-  `PlaywrightEx.Selector` is now `PhoenixTest.Playwright.Selector`.
-  A `with_dialog/3` callback receives `dialog` instead of `guid`.
-- Custom `js_logger` modules: `log/3` receives a `PlaywrightEx.ConsoleMessage` or `PlaywrightEx.WebError`
-  as its third argument, instead of a message map.
+  npm package is no longer used, so you can remove it from `assets/package.json`; set `PLAYWRIGHT_EX_EXECUTABLE`
+  to keep using your own. See [Playwright driver](README.md#playwright-driver) for CI caching.
+- `ws_endpoint` connects through a local driver too, so the test machine downloads it (on Alpine Linux, install
+  `nodejs` and set `PLAYWRIGHT_NODEJS_PATH`). The server must run Playwright 1.65. `websockex` is no longer needed.
+- `PlaywrightEx.Selector` is now `PhoenixTest.Playwright.Selector`, with the same functions.
+- Custom code calling PlaywrightEx (e.g. via `unwrap/2`): `conn` holds PlaywrightEx handles (`context`, `page`) and
+  `unwrap/2` also passes `frame`, instead of guids (`context_id`, ...). Derive the rest with `Page.main_frame(conn.page)`
+  and `BrowserContext.tracing(conn.context)`. The ExUnit context holds `playwright_browser` instead of `browser_id`.
+  PlaywrightEx 0.17 itself changed its API, see its
+  [migration guide](https://hexdocs.pm/playwright_ex/0.17.0-rc.4/migration.html). For example:
+  ```diff
+  - |> unwrap(&PlaywrightEx.Frame.evaluate(&1.frame_id, expression: "axe.run()", timeout: 2_000))
+  + |> evaluate("axe.run()", timeout: 2_000)
+  ```
+  `unwrap/2` ignores the callback's return value, so call the raising `!` variants there (e.g. `Frame.evaluate!/2`).
+- A `with_dialog/3` callback receives `dialog` instead of `guid`.
+- Custom `js_logger` modules implement `PhoenixTest.Playwright.JsLogger` (`PlaywrightEx.JsLogger` is gone), and
+  `log/3` receives a `PlaywrightEx.ConsoleMessage` or `PlaywrightEx.WebError` as its third argument, instead of a message map.
 - `PhoenixTest.Playwright.Supervisor.start_link/0` no longer takes a config: it reads the global `config :phoenix_test, :playwright`.
 - Options passed through to Playwright follow PlaywrightEx 0.17, and unknown ones raise, for example
-  `ignore_all_default_args` in `browser_launch_opts`.
+  `ignore_all_default_args` in `browser_launch_opts` (use `ignore_default_args: true`).
 - `assert_screenshot/3` baselines must be `.png` or `.webp`, and the documented defaults `animations: "disabled"`
   and `scale: "css"` now apply. Regenerate baselines captured with running animations or a device scale factor above 1.
 - `evaluate/2,3,4` callbacks receive PlaywrightEx's values directly: JS `null` is
   `:null` (previously `nil`), `undefined` is `nil`.
 - `browser_context_opts` no longer accepts `timeout`. The `browser_page_opts` config option and the `is_function` option
-  of `evaluate/3` are removed and now raise, except that `browser_page_opts` set through `@tag` or `use` is dropped like any
-  unknown tag. The `:android` and `:electron` browsers are removed.
+  of `evaluate/3` (drop it, function expressions are detected) are removed and now raise, except that `browser_page_opts`
+  set through `@tag` or `use` is dropped like any unknown tag. The `:android` and `:electron` browsers are removed.
 
 ### Changed
 - Require PlaywrightEx 0.17 (rc), which pins Playwright 1.65.
 - Remove the internal `PhoenixTest.Playwright.EventListener`: dialogs are handled by `Page.on/3` listeners directly.
-- `ws_endpoint` connects through a local driver that PlaywrightEx downloads, and no longer needs `websockex`.
 - `assert_screenshot/3` prints a notice when it writes a missing baseline.
 - Sync usage rules into `AGENTS.md` with `usage_rules`. The README's setup now includes PlaywrightEx's rules.
-- Custom `js_logger` modules implement `PhoenixTest.Playwright.JsLogger`, which replaces `PlaywrightEx.JsLogger`.
 - `assert_download/2` must run in the process that built the `conn` (normally the test process).
 - `submit/1` targets the last interacted element directly instead of focusing it first, and `current_path` reads the
   client's URL instead of evaluating JavaScript in the page.
