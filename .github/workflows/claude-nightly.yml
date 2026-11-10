@@ -151,6 +151,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Else checkout's read-only token can override the app token Claude pushes with: from v6
+          # it sits in an includeIf file claude-code-action doesn't clear, so the push gets a 403.
+          persist-credentials: false
           ref: ${{ matrix.pr.branch }}
           fetch-depth: 0
       - name: Setup languages
@@ -228,6 +231,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Else checkout's read-only token can override the app token Claude pushes with: from v6
+          # it sits in an includeIf file claude-code-action doesn't clear, so the push gets a 403.
+          persist-credentials: false
           fetch-depth: 0
       - name: Setup languages
         uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
@@ -322,6 +328,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Else checkout's read-only token can override the app token Claude pushes with: from v6
+          # it sits in an includeIf file claude-code-action doesn't clear, so the push gets a 403.
+          persist-credentials: false
           fetch-depth: 0
       - name: Setup languages
         uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
