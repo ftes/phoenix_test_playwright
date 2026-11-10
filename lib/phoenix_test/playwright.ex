@@ -534,13 +534,7 @@ defmodule PhoenixTest.Playwright do
   def type(conn, selector, text, opts \\ []) when is_binary(text) do
     opts = opts |> NimbleOptions.validate!(@type_opts_schema) |> ensure_timeout()
 
-    conn
-    |> locator(selector)
-    |> Locator.first()
-    |> Locator.press_sequentially(text, opts)
-    |> handle_response(selector)
-
-    conn
+    act(conn, selector, &(&1 |> Locator.first() |> Locator.press_sequentially(text, opts)))
   end
 
   @press_opts_schema [
@@ -579,13 +573,7 @@ defmodule PhoenixTest.Playwright do
   def press(conn, selector, key, opts \\ []) when is_binary(key) do
     opts = opts |> NimbleOptions.validate!(@press_opts_schema) |> ensure_timeout()
 
-    conn
-    |> locator(selector)
-    |> Locator.first()
-    |> Locator.press(key, opts)
-    |> handle_response(selector)
-
-    conn
+    act(conn, selector, &(&1 |> Locator.first() |> Locator.press(key, opts)))
   end
 
   @drag_opts_schema [
@@ -625,12 +613,7 @@ defmodule PhoenixTest.Playwright do
 
     opts = Keyword.merge([timeout: timeout(opts)], Keyword.fetch!(opts, :playwright))
 
-    conn
-    |> locator(source_selector)
-    |> Locator.drag_to(locator(conn, target_selector), opts)
-    |> handle_response(source_selector)
-
-    conn
+    act(conn, source_selector, &Locator.drag_to(&1, locator(conn, target_selector), opts))
   end
 
   @path_assertion_opts_schema [
@@ -956,14 +939,7 @@ defmodule PhoenixTest.Playwright do
   See `click/4` to also match on text.
   """
   @spec click(t(), selector()) :: t()
-  def click(conn, selector) do
-    conn
-    |> locator(selector)
-    |> Locator.click(timeout: timeout())
-    |> handle_response(selector)
-
-    conn
-  end
+  def click(conn, selector), do: act(conn, selector, &Locator.click(&1, timeout: timeout()))
 
   @doc group: "Actions"
   @doc """
@@ -992,12 +968,7 @@ defmodule PhoenixTest.Playwright do
       |> Selector.concat(selector)
       |> Selector.has(Selector.visible(Selector.text(text, opts)))
 
-    conn
-    |> locator(selector)
-    |> Locator.click(timeout: timeout(opts))
-    |> handle_response(selector)
-
-    conn
+    act(conn, selector, &Locator.click(&1, timeout: timeout(opts)))
   end
 
   @doc group: "Actions"
@@ -1041,12 +1012,7 @@ defmodule PhoenixTest.Playwright do
       )
       |> Selector.build()
 
-    conn
-    |> locator(selector)
-    |> Locator.click(timeout: timeout(opts))
-    |> handle_response(selector)
-
-    conn
+    act(conn, selector, &Locator.click(&1, timeout: timeout(opts)))
   end
 
   @fill_in_opts_schema [
@@ -1136,10 +1102,7 @@ defmodule PhoenixTest.Playwright do
       |> Selector.visible()
       |> Selector.build()
 
-    conn
-    |> locator(selector)
-    |> fun.()
-    |> handle_response(selector)
+    act(conn, selector, fun)
 
     # Trigger phx-change for text inputs using phx-debounce="blur". Other
     # controls dispatch their change event as part of the Playwright action.
@@ -1152,6 +1115,12 @@ defmodule PhoenixTest.Playwright do
   defp ensure_binary(value), do: value |> Phoenix.HTML.Safe.to_iodata() |> IO.iodata_to_binary()
 
   defp locator(conn, selector), do: Page.locator(conn.page, selector)
+
+  # Runs a Playwright action on the locator for `selector`, raising a readable error if it fails.
+  defp act(conn, selector, action) do
+    conn |> locator(selector) |> action.() |> handle_response(selector)
+    conn
+  end
 
   defp handle_response(result, debug_selector) do
     case result do
