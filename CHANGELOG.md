@@ -14,24 +14,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.20.0-rc.0] 2026-11-09
 ### Breaking
-Upgrading from 0.19: most apps only need the steps below. The rest of this list applies only if you use the
-feature it names.
+Upgrading from 0.19: bump the dependency, then follow the first two items below. The rest of this list applies only
+if you use the feature it names. `~> 0.14` (as the 0.19 README suggested) never selects a release candidate, so the
+requirement must name it:
 
 ```diff
   # mix.exs (Elixir 1.18 or newer)
-- {:phoenix_test_playwright, "~> 0.19", only: :test, runtime: false},
-- {:websockex, "~> 0.4", only: :test}
+- {:phoenix_test_playwright, "~> 0.14", only: :test, runtime: false}
 + {:phoenix_test_playwright, "~> 0.20.0-rc.0", only: :test, runtime: false}
-
-  # config/test.exs
-  config :phoenix_test, playwright: [
--   assets_dir: "./assets",
-    ...
-  ]
-
-  # local setup and CI
-- pnpm --dir assets exec playwright install chromium --with-deps
-+ MIX_ENV=test mix playwright_ex.install -- chromium --with-deps
 ```
 
 - Require Elixir 1.18 or newer.
@@ -49,9 +39,9 @@ feature it names.
   [migration guide](https://hexdocs.pm/playwright_ex/0.17.0-rc.4/migration.html). For example:
   ```diff
   - |> unwrap(&PlaywrightEx.Frame.evaluate(&1.frame_id, expression: "axe.run()", timeout: 2_000))
-  + |> unwrap(&PlaywrightEx.Page.evaluate(&1.page, "axe.run()"))
+  + |> evaluate("axe.run()", timeout: 2_000)
   ```
-  Often `evaluate/2` and friends cover it without `unwrap/2`.
+  `unwrap/2` ignores the callback's return value, so call the raising `!` variants there (e.g. `Frame.evaluate!/2`).
 - A `with_dialog/3` callback receives `dialog` instead of `guid`.
 - Custom `js_logger` modules implement `PhoenixTest.Playwright.JsLogger` (`PlaywrightEx.JsLogger` is gone), and
   `log/3` receives a `PlaywrightEx.ConsoleMessage` or `PlaywrightEx.WebError` as its third argument, instead of a message map.
