@@ -59,7 +59,9 @@ defmodule PhoenixTestPlaywright.MixProject do
     ]
   end
 
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  # Maintainer tasks in `dev/` are not part of the package.
+  defp elixirc_paths(:test), do: ["lib", "dev", "test/support"]
+  defp elixirc_paths(:dev), do: ["lib", "dev"]
   defp elixirc_paths(_), do: ["lib"]
 
   defp package do
@@ -96,7 +98,10 @@ defmodule PhoenixTestPlaywright.MixProject do
         "CHANGELOG.md": [title: "Changelog"]
       ],
       nest_modules_by_prefix: [PhoenixTest.Playwright],
-      filter_modules: fn _, metadata -> not String.contains?(to_string(metadata.source_path), "/internal/") end
+      filter_modules: fn _, metadata ->
+        path = Path.relative_to_cwd(to_string(metadata.source_path))
+        not String.contains?(path, "/internal/") and not String.starts_with?(path, "dev/")
+      end
     ]
   end
 
@@ -113,13 +118,19 @@ defmodule PhoenixTestPlaywright.MixProject do
 
   defp aliases do
     [
-      setup: ["deps.get", "assets.setup", "assets.setup.playwright", "playwright.source", "assets.build", "ecto.create"],
+      setup: [
+        "deps.get",
+        "assets.setup",
+        "assets.setup.playwright",
+        "phoenix_test_playwright.playwright_source",
+        "assets.build",
+        "ecto.create"
+      ],
       "assets.setup": [
         "esbuild.install --if-missing"
       ],
       "assets.setup.playwright": "playwright_ex.install -- chromium firefox --with-deps --only-shell",
       "assets.build": ["esbuild default"],
-      "playwright.source": &playwright_source/1,
       "test.websocket": "phoenix_test_playwright.test.websocket",
       check: [
         "format --check-formatted",
@@ -131,38 +142,5 @@ defmodule PhoenixTestPlaywright.MixProject do
         "test --warnings-as-errors"
       ]
     ]
-  end
-
-  @playwright_paths ~w(
-    packages/playwright-core/src packages/injected/src packages/isomorphic packages/protocol
-    packages/utils packages/playwright/src/matchers docs/src/api tests/page tests/library
-  )
-
-  # Playwright's source at the driver version PlaywrightEx pins, for agents to read: shallow,
-  # blobless and sparse, in gitignored tmp/.
-  defp playwright_source(_args) do
-    Mix.Task.run("loadpaths")
-    version = PlaywrightEx.Driver.version()
-    dir = "tmp/playwright-#{version}"
-
-    if not File.dir?(dir) do
-      # Into a temporary directory first, so an interrupted clone isn't taken for a finished one.
-      tmp = dir <> ".tmp"
-      File.rm_rf!(tmp)
-
-      git!(
-        ~w(clone --depth 1 --filter=blob:none --sparse --branch v#{version} https://github.com/microsoft/playwright #{tmp})
-      )
-
-      git!(["-C", tmp, "sparse-checkout", "set" | @playwright_paths])
-      File.rename!(tmp, dir)
-    end
-
-    Mix.shell().info("Playwright #{version} source: #{dir}")
-  end
-
-  defp git!(args) do
-    {output, status} = System.cmd("git", args, stderr_to_stdout: true)
-    if status != 0, do: Mix.raise("git #{Enum.join(args, " ")} exited with #{status}:\n#{output}")
   end
 end
