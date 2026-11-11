@@ -9,16 +9,18 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # As in elixir.yml.
+  MIX_ENV: test
   # Steers Claude off the Bash habits (cd, pipes, heredocs) that miss the allowlist. Plain text
   # only (no quotes, $ or backslashes): claude.yml passes it in a quoted claude_args argument.
   TOOL_HINT: "Prefer your file tools over Bash to read, search and edit files, and keep any scratch files under tmp/; run each allowed Bash command on its own, without cd, semicolons, &&, pipes or heredocs (you are already in the repository)."
 
 jobs:
   claude-review:
-    # Bots are refused by the action, and fork PRs get no secrets.
+    # Claude's own PRs are the only bot PRs reviewed, and fork PRs get no secrets.
     if: >-
       !github.event.pull_request.draft &&
-      github.event.pull_request.user.type != 'Bot' &&
+      (github.event.pull_request.user.type != 'Bot' || github.event.pull_request.user.login == 'claude[bot]') &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -27,10 +29,6 @@ jobs:
       pull-requests: write
       issues: read
       id-token: write
-    env:
-      # As in elixir.yml.
-      MIX_ENV: test
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -51,6 +49,7 @@ jobs:
         uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: claude[bot]
           prompt: |
             REPO: ${{ github.repository }}
             PR: ${{ github.event.pull_request.number }}
