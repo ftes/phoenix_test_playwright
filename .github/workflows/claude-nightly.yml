@@ -287,7 +287,6 @@ jobs:
           claude_args: |
             --model claude-opus-5-5
             --max-turns 60
-            --add-dir ${{ steps.setup.outputs.playwright-source }}
             --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr }}:*),Bash(gh pr diff ${{ matrix.pr }}:*),Bash(git push -u origin ${{ env.NIGHTLY_BRANCH }}),Bash(gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} *),Bash(gh pr close ${{ matrix.pr }} *)"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
@@ -436,7 +435,6 @@ jobs:
           claude_args: |
             --model claude-opus-5-5
             --max-turns 150
-            --add-dir ${{ steps.setup.outputs.playwright-source }}
             --allowedTools "Read,Grep,Glob,Edit,Write,Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(git push -u origin ${{ env.NIGHTLY_BRANCH }}),Bash(gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} *)"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}

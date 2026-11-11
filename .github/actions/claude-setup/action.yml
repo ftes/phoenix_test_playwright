@@ -5,7 +5,7 @@ description: >-
 
 outputs:
   playwright-source:
-    description: The directory holding Playwright's source.
+    description: The directory holding Playwright's source, relative to the checkout.
     value: ${{ steps.playwright.outputs.dir }}
 
 runs:
@@ -22,6 +22,5 @@ runs:
       shell: bash
       run: |
         mix playwright.source
-        mix run --no-compile --no-start -e '
-          IO.puts("dir=" <> Path.join([PlaywrightEx.Driver.cache_dir(), PlaywrightEx.Driver.version(), "playwright"]))
-        ' | grep '^dir=' >> "$GITHUB_OUTPUT"
+        mix run --no-compile --no-start -e 'IO.puts("dir=tmp/playwright-#{PlaywrightEx.Driver.version()}")' \
+          | grep '^dir=' >> "$GITHUB_OUTPUT"

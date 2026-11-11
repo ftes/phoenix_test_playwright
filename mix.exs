@@ -135,47 +135,27 @@ defmodule PhoenixTestPlaywright.MixProject do
 
   @playwright_repo "https://github.com/microsoft/playwright"
   @playwright_paths ~w(
-    packages/playwright-core/src packages/playwright/src packages/injected/src packages/protocol
-    packages/isomorphic packages/utils utils docs/src/api tests/page tests/library tests/config
-    tests/assets
+    packages/playwright-core/src packages/injected/src packages/isomorphic packages/protocol
+    docs/src/api tests/page tests/library
   )
 
   # Playwright's source at the driver version PlaywrightEx pins, for agents to read: shallow,
-  # blobless and sparse. PlaywrightEx and Fluffy check out the same paths in the same place, so
-  # one checkout serves all three.
+  # blobless and sparse, in gitignored tmp/.
   defp playwright_source(_args) do
     Mix.Task.run("loadpaths")
     version = PlaywrightEx.Driver.version()
-    dir = Path.join([PlaywrightEx.Driver.cache_dir(), version, "playwright"])
+    dir = "tmp/playwright-#{version}"
 
-    case missing_paths(dir) do
-      [] ->
-        :ok
-
-      missing ->
-        if checkout_root?(dir), do: git!(["-C", dir, "sparse-checkout", "add" | missing]), else: clone!(version, dir)
+    if not File.dir?(dir) do
+      # Into a temporary directory first, so an interrupted clone isn't taken for a finished one.
+      tmp = dir <> ".tmp"
+      File.rm_rf!(tmp)
+      git!(~w(clone --depth 1 --filter=blob:none --sparse --branch v#{version} #{@playwright_repo} #{tmp}))
+      git!(["-C", tmp, "sparse-checkout", "set" | @playwright_paths])
+      File.rename!(tmp, dir)
     end
 
-    if missing_paths(dir) != [], do: Mix.raise("Playwright v#{version} lacks #{Enum.join(missing_paths(dir), ", ")}")
     Mix.shell().info("Playwright #{version} source: #{dir}")
-  end
-
-  defp missing_paths(dir), do: Enum.reject(@playwright_paths, &File.dir?(Path.join(dir, &1)))
-
-  # An empty prefix: `dir` is the root of a work tree, not a plain directory inside another.
-  defp checkout_root?(dir) do
-    File.dir?(dir) and System.cmd("git", ["-C", dir, "rev-parse", "--show-prefix"], stderr_to_stdout: true) == {"\n", 0}
-  end
-
-  # Into a temporary directory first, so an interrupted clone never looks complete.
-  defp clone!(version, dir) do
-    tmp = dir <> ".tmp"
-    File.rm_rf!(tmp)
-    File.mkdir_p!(Path.dirname(dir))
-    git!(~w(clone --depth 1 --filter=blob:none --sparse --branch v#{version}) ++ [@playwright_repo, tmp])
-    git!(["-C", tmp, "sparse-checkout", "set" | @playwright_paths])
-    File.rm_rf!(dir)
-    File.rename!(tmp, dir)
   end
 
   defp git!(args) do
