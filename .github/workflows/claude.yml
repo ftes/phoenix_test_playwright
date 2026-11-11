@@ -42,9 +42,10 @@ jobs:
           fetch-depth: 0
       - name: Setup languages
         uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      # Soft, so a PR whose mix.exs, deps or code doesn't build still gets a Claude run.
       - name: Install dependencies
+        continue-on-error: true
         run: mix "do" deps.get, deps.compile
-      # Compiles the project to find the task: a PR that doesn't compile still gets a Claude run.
       - name: Fetch Playwright's source
         continue-on-error: true
         run: mix phoenix_test_playwright.playwright_source

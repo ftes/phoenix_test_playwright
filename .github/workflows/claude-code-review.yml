@@ -33,9 +33,10 @@ jobs:
           fetch-depth: 0
       - name: Setup languages
         uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      # Soft, so a PR whose mix.exs, deps or code doesn't build still gets a Claude run.
       - name: Install dependencies
+        continue-on-error: true
         run: mix "do" deps.get, deps.compile
-      # Compiles the project to find the task: a PR that doesn't compile still gets a Claude run.
       - name: Fetch Playwright's source
         continue-on-error: true
         run: mix phoenix_test_playwright.playwright_source
@@ -75,7 +76,7 @@ jobs:
           claude_args: |
             --model claude-opus-5-5
             --max-turns 80
-            --allowedTools "Read,Grep,Glob,Agent,Task,Write,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments:*),mcp__github_inline_comment__create_inline_comment"
+            --allowedTools "Read,Grep,Glob,Agent,Task,Write,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments:*),mcp__github_inline_comment__create_inline_comment"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:

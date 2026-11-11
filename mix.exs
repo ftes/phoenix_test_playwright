@@ -59,9 +59,7 @@ defmodule PhoenixTestPlaywright.MixProject do
     ]
   end
 
-  # Maintainer tasks in `dev/` are not part of the package.
   defp elixirc_paths(:test), do: ["lib", "dev", "test/support"]
-  defp elixirc_paths(:dev), do: ["lib", "dev"]
   defp elixirc_paths(_), do: ["lib"]
 
   defp package do
@@ -84,7 +82,8 @@ defmodule PhoenixTestPlaywright.MixProject do
         "assets.build": :test,
         esbuild: :test,
         "esbuild.install": :test,
-        "test.websocket": :test
+        "test.websocket": :test,
+        "phoenix_test_playwright.playwright_source": :test
       ]
     ]
   end
@@ -98,10 +97,7 @@ defmodule PhoenixTestPlaywright.MixProject do
         "CHANGELOG.md": [title: "Changelog"]
       ],
       nest_modules_by_prefix: [PhoenixTest.Playwright],
-      filter_modules: fn _, metadata ->
-        path = Path.relative_to_cwd(to_string(metadata.source_path))
-        not String.contains?(path, "/internal/") and not String.starts_with?(path, "dev/")
-      end
+      filter_modules: fn _, metadata -> not String.contains?(to_string(metadata.source_path), "/internal/") end
     ]
   end
 
@@ -122,9 +118,9 @@ defmodule PhoenixTestPlaywright.MixProject do
         "deps.get",
         "assets.setup",
         "assets.setup.playwright",
-        "phoenix_test_playwright.playwright_source",
         "assets.build",
-        "ecto.create"
+        "ecto.create",
+        "phoenix_test_playwright.playwright_source"
       ],
       "assets.setup": [
         "esbuild.install --if-missing"
