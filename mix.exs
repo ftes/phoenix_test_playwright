@@ -113,12 +113,13 @@ defmodule PhoenixTestPlaywright.MixProject do
 
   defp aliases do
     [
-      setup: ["deps.get", "assets.setup", "assets.setup.playwright", "assets.build", "ecto.create"],
+      setup: ["deps.get", "assets.setup", "assets.setup.playwright", "playwright.source", "assets.build", "ecto.create"],
       "assets.setup": [
         "esbuild.install --if-missing"
       ],
       "assets.setup.playwright": "playwright_ex.install -- chromium firefox --with-deps --only-shell",
       "assets.build": ["esbuild default"],
+      "playwright.source": &playwright_source/1,
       "test.websocket": "phoenix_test_playwright.test.websocket",
       check: [
         "format --check-formatted",
@@ -130,5 +131,37 @@ defmodule PhoenixTestPlaywright.MixProject do
         "test --warnings-as-errors"
       ]
     ]
+  end
+
+  @playwright_repo "https://github.com/microsoft/playwright"
+  @playwright_paths ~w(
+    packages/playwright-core/src packages/injected/src packages/playwright/src packages/isomorphic
+    packages/protocol tests/page tests/library docs/src/api
+  )
+
+  # Playwright's source at the driver version PlaywrightEx pins, for agents to read: shallow,
+  # blobless and sparse. Fluffy clones the same paths to the same place, so one clone serves both.
+  defp playwright_source(_args) do
+    Mix.Task.run("loadpaths")
+    version = PlaywrightEx.Driver.version()
+    dir = Path.join([PlaywrightEx.Driver.cache_dir(), version, "playwright"])
+
+    if not Enum.all?(@playwright_paths, &File.dir?(Path.join(dir, &1))) do
+      # Into a temporary directory first, so an interrupted clone never looks complete.
+      tmp = dir <> ".tmp"
+      File.rm_rf!(tmp)
+      File.mkdir_p!(Path.dirname(dir))
+      git!(~w(clone --depth 1 --filter=blob:none --sparse --branch v#{version}) ++ [@playwright_repo, tmp])
+      git!(["-C", tmp, "sparse-checkout", "set" | @playwright_paths])
+      File.rm_rf!(dir)
+      File.rename!(tmp, dir)
+    end
+
+    Mix.shell().info("Playwright #{version} source: #{dir}")
+  end
+
+  defp git!(args) do
+    {output, status} = System.cmd("git", args, stderr_to_stdout: true)
+    if status != 0, do: Mix.raise("git #{Enum.join(args, " ")} exited with #{status}:\n#{output}")
   end
 end

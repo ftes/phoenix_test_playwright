@@ -163,6 +163,7 @@ jobs:
           persist-credentials: false
           ref: ${{ matrix.pr.branch }}
           fetch-depth: 0
+      # Not ./.github/actions/claude-setup: a branch from before it was added doesn't have it.
       - name: Setup languages
         uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
       - name: Install dependencies
@@ -248,10 +249,9 @@ jobs:
           # it sits in an includeIf file claude-code-action doesn't clear, so the push gets a 403.
           persist-credentials: false
           fetch-depth: 0
-      - name: Setup languages
-        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
-      - name: Install dependencies
-        run: mix "do" deps.get, deps.compile
+      - name: Set up Claude's context
+        id: setup
+        uses: ./.github/actions/claude-setup
       - run: git switch -c "$NIGHTLY_BRANCH"
       - name: Run Claude
         id: claude
@@ -262,6 +262,7 @@ jobs:
             REPO: ${{ github.repository }}
             OLD PR: ${{ matrix.pr }}
             BRANCH: ${{ env.NIGHTLY_BRANCH }} (already checked out, from current main)
+            PLAYWRIGHT SOURCE: ${{ steps.setup.outputs.playwright-source }}
 
             The old PR is a simplification that now conflicts with main. Redo it on this branch.
 
@@ -286,6 +287,7 @@ jobs:
           claude_args: |
             --model claude-opus-5-5
             --max-turns 60
+            --add-dir ${{ steps.setup.outputs.playwright-source }}
             --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr }}:*),Bash(gh pr diff ${{ matrix.pr }}:*),Bash(git push -u origin ${{ env.NIGHTLY_BRANCH }}),Bash(gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} *),Bash(gh pr close ${{ matrix.pr }} *)"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
@@ -361,10 +363,9 @@ jobs:
           # it sits in an includeIf file claude-code-action doesn't clear, so the push gets a 403.
           persist-credentials: false
           fetch-depth: 0
-      - name: Setup languages
-        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
-      - name: Install dependencies
-        run: mix "do" deps.get, deps.compile
+      - name: Set up Claude's context
+        id: setup
+        uses: ./.github/actions/claude-setup
       - run: git switch -c "$NIGHTLY_BRANCH"
       - name: Pick tonight's focus area
         id: focus
@@ -389,6 +390,7 @@ jobs:
             REPO: ${{ github.repository }}
             BRANCH: ${{ env.NIGHTLY_BRANCH }} (already checked out)
             PREVIOUS NIGHTLY PRS, newest first: ${{ needs.capacity.outputs.prs }}
+            PLAYWRIGHT SOURCE: ${{ steps.setup.outputs.playwright-source }}
             FOCUS: ${{ steps.focus.outputs.area }}
 
             Find the single most valuable improvement to this codebase's simplicity or consistency
@@ -434,6 +436,7 @@ jobs:
           claude_args: |
             --model claude-opus-5-5
             --max-turns 150
+            --add-dir ${{ steps.setup.outputs.playwright-source }}
             --allowedTools "Read,Grep,Glob,Edit,Write,Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(git push -u origin ${{ env.NIGHTLY_BRANCH }}),Bash(gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} *)"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}

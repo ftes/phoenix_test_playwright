@@ -1,0 +1,27 @@
+name: Set up Claude's context
+description: >-
+  Installs the toolchain and compiles the dependencies, so Claude can read their source in deps/
+  and run mix tasks, and checks out Playwright's source at the version PlaywrightEx pins.
+
+outputs:
+  playwright-source:
+    description: The directory holding Playwright's source.
+    value: ${{ steps.playwright.outputs.dir }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup languages
+      uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+    - name: Install dependencies
+      shell: bash
+      run: mix "do" deps.get, deps.compile
+    # Not cached: the sparse, blobless clone takes a few seconds.
+    - name: Fetch Playwright's source
+      id: playwright
+      shell: bash
+      run: |
+        mix playwright.source
+        mix run --no-compile --no-start -e '
+          IO.puts("dir=" <> Path.join([PlaywrightEx.Driver.cache_dir(), PlaywrightEx.Driver.version(), "playwright"]))
+        ' | grep '^dir=' >> "$GITHUB_OUTPUT"
