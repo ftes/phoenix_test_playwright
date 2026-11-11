@@ -10,6 +10,13 @@ on:
   pull_request_review:
     types: [submitted]
 
+env:
+  # As in elixir.yml.
+  MIX_ENV: test
+  # Steers Claude off the Bash habits (cd, pipes, heredocs) that miss the allowlist. Plain text
+  # only (no quotes, $ or backslashes): claude.yml passes it in a quoted claude_args argument.
+  TOOL_HINT: "Prefer your file tools over Bash to read, search and edit files, and keep any scratch files under tmp/; run each allowed Bash command on its own, without cd, semicolons, &&, pipes or heredocs (you are already in the repository)."
+
 jobs:
   claude:
     # Maintainers only, before any setup: the action rejects anyone else anyway. Review events
@@ -28,9 +35,6 @@ jobs:
       issues: read
       id-token: write
       actions: read # Required for Claude to read CI results on PRs
-    env:
-      # As in elixir.yml.
-      MIX_ENV: test
     steps:
       # main for issues and issue comments, the PR's merge ref for review events.
       - name: Checkout repository
@@ -77,12 +81,15 @@ jobs:
           # Added to the action's defaults, which cover editing, committing and its comment.
           claude_args: |
             --model claude-opus-5-5
-            --allowedTools "Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*)${{ steps.tools.outputs.mix }}"
+            --max-turns 100
+            --append-system-prompt "Tests can't run here; if your change needs them, say they haven't run. No Claude attribution: leave the Generated with Claude Code signature out of commits, PRs and PR links. ${{ env.TOOL_HINT }}"
+            --allowedTools "Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*)${{ steps.tools.outputs.mix }}"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # The run's commit's filter, not the working tree's, which Claude can edit.
+        # .github/claude-summary.jq: only the final message and the denied calls (public repo). From
+        # the run's commit, as Claude may have edited the checkout; a failed `git show` stops the step.
         run: |
           filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
           jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"

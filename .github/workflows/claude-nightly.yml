@@ -19,6 +19,9 @@ env:
   # Runs subagents in the foreground. A headless run ends with Claude's turn, which drops any
   # still running in the background: the survey agents never reported back.
   CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
+  # Steers Claude off the Bash habits (cd, pipes, heredocs) that miss the allowlist. Plain text
+  # only (no quotes, $ or backslashes): claude.yml passes it in a quoted claude_args argument.
+  TOOL_HINT: "Prefer your file tools over Bash to read, search and edit files, and keep any scratch files under tmp/; run each allowed Bash command on its own, without cd, semicolons, &&, pipes or heredocs (you are already in the repository)."
 
 jobs:
   # Frees slots before the cap is counted. A job, not an earlier cron: GitHub delays scheduled
@@ -63,14 +66,12 @@ jobs:
             An earlier nightly run opened these simplification PRs. Close each one that main has
             made obsolete, so its slot can go to new work. main is checked out.
 
-            Read, search and edit files with Read, Grep, Glob, Edit and Write, and write scratch files
-            under tmp/; run each allowed Bash command on its own, without `cd`, `;`, `&&`, pipes or
-            heredocs (you are already in the repository).
-
             For each PR, read `gh pr view N`, `gh pr diff N` and the code it touches on main. It is
             obsolete only if the code it simplifies is gone or rewritten, or main already made the
             same change or solved the problem another way. A merge conflict, the PR's age or a
             preference for other work is not a reason. When in doubt, keep it.
+
+            ${{ env.TOOL_HINT }}
 
             To close one, run exactly:
               gh pr close N --delete-branch --comment "<one sentence naming what on main made it obsolete>"
@@ -82,7 +83,8 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # The run's commit's filter, not the working tree's, which Claude can edit.
+        # .github/claude-summary.jq: only the final message and the denied calls (public repo). From
+        # the run's commit, as Claude may have edited the checkout; a failed `git show` stops the step.
         run: |
           filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
           jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
@@ -125,7 +127,7 @@ jobs:
           prs=$(list)
           {
             echo "conflicted=$(jq -c 'map(select(.mergeable == "CONFLICTING") | .number)' <<< "$prs")"
-            echo "failing=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.mergeable != "CONFLICTING" and .failing and .commits < $max) | {number, branch})' <<< "$prs")"
+            echo "failing=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.mergeable == "MERGEABLE" and .failing and .commits < $max) | {number, branch})' <<< "$prs")"
             echo "exhausted=$(jq -r --argjson max "$MAX_COMMITS" 'map(select(.mergeable == "MERGEABLE" and .failing and .commits >= $max) | .number) | join(" ")' <<< "$prs")"
           } >> "$GITHUB_OUTPUT"
       - name: Close PRs still failing after two fixes
@@ -193,13 +195,9 @@ jobs:
             CI failed on this simplification PR. The end of the failed steps' log is in
             tmp/ci-failed.log (tmp/ is gitignored).
 
-            Read, search and edit files with Read, Grep, Glob, Edit and Write, and write scratch files
-            under tmp/; run each allowed Bash command on its own, without `cd`, `;`, `&&`, pipes or
-            heredocs (you are already in the repository).
-
             Read it along with `gh pr view ${{ matrix.pr.number }}` and
-            `gh pr diff ${{ matrix.pr.number }}` and find the cause. Tests can't run here: CI runs them on your push. Don't merge or rebase on main. End with
-            exactly one of these:
+            `gh pr diff ${{ matrix.pr.number }}` and find the cause. Tests can't run here: CI runs
+            them on your push. Don't merge or rebase on main. End with exactly one of these:
 
             - The PR caused it: fix it, keeping what the PR set out to do and the public behaviour,
               and matching the surrounding code. Don't weaken or skip a test to get it green. Run
@@ -210,6 +208,8 @@ jobs:
               `git commit --allow-empty -m "Re-run CI"`, then the push above.
             - It can't be fixed without redesigning the change: run exactly
               gh pr close ${{ matrix.pr.number }} --delete-branch --comment "<one sentence on why>"
+
+            ${{ env.TOOL_HINT }}
 
             No attribution anywhere: no Co-Authored-By trailers or "Generated with" lines.
           # The owner forbids attribution; the prompt says so too.
@@ -223,7 +223,8 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # The run's commit's filter, not the working tree's, which Claude can edit.
+        # .github/claude-summary.jq: only the final message and the denied calls (public repo). From
+        # the run's commit, as Claude may have edited the checkout; a failed `git show` stops the step.
         run: |
           filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
           jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
@@ -254,7 +255,7 @@ jobs:
           fetch-depth: 0
       - name: Setup languages
         uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
-      - name: Install dependencies
+      - name: Install dependencies and Playwright's source
         run: mix "do" deps.get, deps.compile, phoenix_test_playwright.playwright_source
       - run: git switch -c "$NIGHTLY_BRANCH"
       - name: Run Claude
@@ -269,14 +270,10 @@ jobs:
 
             The old PR is a simplification that now conflicts with main. Redo it on this branch.
 
-            Read, search and edit files with Read, Grep, Glob, Edit and Write, and write scratch files
-            under tmp/; run each allowed Bash command on its own, without `cd`, `;`, `&&`, pipes or
-            heredocs (you are already in the repository).
-
             Read `gh pr view ${{ matrix.pr }}` and `gh pr diff ${{ matrix.pr }}` for what it set out
             to do, then make the same change against the code as it is now, keeping what main has
-            changed since. Run `mix format`, `mix compile --warnings-as-errors` and `mix credo`; they must pass. CI
-            on the new PR runs the test suite.
+            changed since. Run `mix format`, `mix compile --warnings-as-errors` and `mix credo`;
+            they must pass. CI on the new PR runs the test suite.
 
             If the change can't be redone without redesigning it, stop without pushing and say why.
 
@@ -286,6 +283,8 @@ jobs:
               git push -u origin ${{ env.NIGHTLY_BRANCH }}
               gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} --title "<subject>" --body-file tmp/nightly-pr.md
               gh pr close ${{ matrix.pr }} --delete-branch --comment "Conflicted with main; replaced by <new PR URL>."
+
+            ${{ env.TOOL_HINT }}
 
             No attribution anywhere: no Co-Authored-By trailers or "Generated with" lines.
           # The owner forbids attribution; the prompt says so too.
@@ -299,7 +298,8 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # The run's commit's filter, not the working tree's, which Claude can edit.
+        # .github/claude-summary.jq: only the final message and the denied calls (public repo). From
+        # the run's commit, as Claude may have edited the checkout; a failed `git show` stops the step.
         run: |
           filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
           jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
@@ -368,7 +368,7 @@ jobs:
           fetch-depth: 0
       - name: Setup languages
         uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
-      - name: Install dependencies
+      - name: Install dependencies and Playwright's source
         run: mix "do" deps.get, deps.compile, phoenix_test_playwright.playwright_source
       - run: git switch -c "$NIGHTLY_BRANCH"
       - name: Pick tonight's focus area
@@ -400,10 +400,6 @@ jobs:
             and open one pull request for it, the kind a senior maintainer would be glad to merge.
             Pick it in or touching FOCUS: each night looks at a different part of the codebase.
 
-            Read, search and edit files with Read, Grep, Glob, Edit and Write, and write scratch files
-            under tmp/; run each allowed Bash command on its own, without `cd`, `;`, `&&`, pipes or
-            heredocs (you are already in the repository).
-
             test/phoenix_test/upstream/ and test/support/upstream/web_app/ mirror upstream
             phoenix_test as a compatibility suite: leave them alone.
 
@@ -423,8 +419,8 @@ jobs:
             or renames to taste.
 
             Run `mix format`, `mix compile --warnings-as-errors` and `mix credo`; they must pass.
-            Don't run the test suite: CI runs it on the PR, and the next nightly run fixes what it
-            finds.
+            Tests can't run here, in place of AGENTS.md's `mix check`: CI runs them on the PR, and
+            a later nightly run fixes any failure.
 
             If nothing is clearly worth a maintainer's time, stop without pushing and say why. No
             PR is a good result; a marginal PR is not.
@@ -435,6 +431,8 @@ jobs:
               gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} --title "<subject>" --body-file tmp/nightly-pr.md
             Write tmp/nightly-pr.md first (tmp/ is gitignored): a few sentences on what was
             inconsistent or complex and why this is simpler.
+
+            ${{ env.TOOL_HINT }}
 
             No attribution anywhere: no Co-Authored-By trailers or "Generated with" lines.
           # The owner forbids attribution; the prompt says so too.
@@ -448,7 +446,8 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # The run's commit's filter, not the working tree's, which Claude can edit.
+        # .github/claude-summary.jq: only the final message and the denied calls (public repo). From
+        # the run's commit, as Claude may have edited the checkout; a failed `git show` stops the step.
         run: |
           filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
           jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
