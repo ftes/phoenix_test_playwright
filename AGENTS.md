@@ -8,6 +8,10 @@
 - Always keep docs up to date (exdoc `@doc` + `@moduledoc`, `README.md`)
 - If you changed browser transport / websocket behavior, also run `mix test.websocket`.
 
+## Reference sources
+- Dependencies' source is in `deps/` at the versions `mix.lock` pins, for example `deps/phoenix_test` and `deps/playwright_ex`.
+- PlaywrightEx is a 1:1 port of the Playwright client. `mix phoenix_test_playwright.playwright_source` (part of `mix setup`) checks out Playwright's source at the version PlaywrightEx pins into `tmp/playwright-<version>`. It is gitignored, so search it by path. Check Playwright-internal behavior, such as `internal:` selectors and their escaping, against it.
+
 ## phoenix_test upstream compatibility
 - `test/phoenix_test/upstream/` is a mirror of upstream `phoenix_test` tests and is used as a compatibility suite.
 - Do not add new Playwright-specific behavior tests under `test/phoenix_test/upstream/`.

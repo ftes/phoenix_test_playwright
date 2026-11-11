@@ -59,7 +59,7 @@ defmodule PhoenixTestPlaywright.MixProject do
     ]
   end
 
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(:test), do: ["lib", "dev", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
   defp package do
@@ -82,7 +82,8 @@ defmodule PhoenixTestPlaywright.MixProject do
         "assets.build": :test,
         esbuild: :test,
         "esbuild.install": :test,
-        "test.websocket": :test
+        "test.websocket": :test,
+        "phoenix_test_playwright.playwright_source": :test
       ]
     ]
   end
@@ -113,7 +114,14 @@ defmodule PhoenixTestPlaywright.MixProject do
 
   defp aliases do
     [
-      setup: ["deps.get", "assets.setup", "assets.setup.playwright", "assets.build", "ecto.create"],
+      setup: [
+        "deps.get",
+        "assets.setup",
+        "assets.setup.playwright",
+        "assets.build",
+        "ecto.create",
+        "phoenix_test_playwright.playwright_source"
+      ],
       "assets.setup": [
         "esbuild.install --if-missing"
       ],

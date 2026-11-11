@@ -22,12 +22,24 @@ jobs:
       pull-requests: write
       issues: read
       id-token: write
+    env:
+      # As in elixir.yml.
+      MIX_ENV: test
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+      - name: Setup languages
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      # Soft, so a PR whose mix.exs, deps or code doesn't build still gets a Claude run.
+      - name: Install dependencies
+        continue-on-error: true
+        run: mix "do" deps.get, deps.compile
+      - name: Fetch Playwright's source
+        continue-on-error: true
+        run: mix phoenix_test_playwright.playwright_source
 
       - name: Run Claude Code Review
         id: claude
@@ -69,12 +81,7 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # Only the final message and each denied call's command, path or URL: this repo is public,
-        # and the full transcript can contain secrets.
+        # The run's commit's filter, not the working tree's, which Claude can edit.
         run: |
-          jq -r '.[] | select(.type == "result")
-            | (.result // .subtype),
-              (.permission_denials // [] | select(length > 0) | "\n**Denied tool calls (\(length)):**\n",
-                (.[] | (.tool_input | .command // .file_path // .path // .pattern // .url // "" | gsub("\\s+"; " ") | .[:200]) as $arg
-                  | "- \(.tool_name)" + (if $arg == "" then "" else ": `` \($arg) ``" end)))' \
-            "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+          filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
+          jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"

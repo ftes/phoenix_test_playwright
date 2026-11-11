@@ -78,15 +78,10 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # Only the final message and each denied call's command, path or URL: this repo is public,
-        # and the full transcript can contain secrets.
+        # The run's commit's filter, not the working tree's, which Claude can edit.
         run: |
-          jq -r '.[] | select(.type == "result")
-            | (.result // .subtype),
-              (.permission_denials // [] | select(length > 0) | "\n**Denied tool calls (\(length)):**\n",
-                (.[] | (.tool_input | .command // .file_path // .path // .pattern // .url // "" | gsub("\\s+"; " ") | .[:200]) as $arg
-                  | "- \(.tool_name)" + (if $arg == "" then "" else ": `` \($arg) ``" end)))' \
-            "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+          filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
+          jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
 
   # After triage, so only PRs worth keeping get fixed.
   classify:
@@ -167,6 +162,10 @@ jobs:
         uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
       - name: Install dependencies
         run: mix "do" deps.get, deps.compile
+      # Compiles the project to find the task: a PR that doesn't compile still gets a Claude run.
+      - name: Fetch Playwright's source
+        continue-on-error: true
+        run: mix phoenix_test_playwright.playwright_source
       - name: Save the failed CI log
         shell: bash
         env:
@@ -216,13 +215,10 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        # The run's commit's filter, not the working tree's, which Claude can edit.
         run: |
-          jq -r '.[] | select(.type == "result")
-            | (.result // .subtype),
-              (.permission_denials // [] | select(length > 0) | "\n**Denied tool calls (\(length)):**\n",
-                (.[] | (.tool_input | .command // .file_path // .path // .pattern // .url // "" | gsub("\\s+"; " ") | .[:200]) as $arg
-                  | "- \(.tool_name)" + (if $arg == "" then "" else ": `` \($arg) ``" end)))' \
-            "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+          filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
+          jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
 
   # Replaces each conflicted PR with one on a new branch from main. The Claude app can't push
   # workflow file changes, which a merge or rebase of the old branch would carry from main.
@@ -251,7 +247,7 @@ jobs:
       - name: Setup languages
         uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
       - name: Install dependencies
-        run: mix "do" deps.get, deps.compile
+        run: mix "do" deps.get, deps.compile, phoenix_test_playwright.playwright_source
       - run: git switch -c "$NIGHTLY_BRANCH"
       - name: Run Claude
         id: claude
@@ -291,13 +287,10 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        # The run's commit's filter, not the working tree's, which Claude can edit.
         run: |
-          jq -r '.[] | select(.type == "result")
-            | (.result // .subtype),
-              (.permission_denials // [] | select(length > 0) | "\n**Denied tool calls (\(length)):**\n",
-                (.[] | (.tool_input | .command // .file_path // .path // .pattern // .url // "" | gsub("\\s+"; " ") | .[:200]) as $arg
-                  | "- \(.tool_name)" + (if $arg == "" then "" else ": `` \($arg) ``" end)))' \
-            "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+          filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
+          jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
 
   # Enforces the cap before any toolchain is set up. Runs even if an earlier job failed: the
   # count is still right, it just finds fewer slots.
@@ -364,7 +357,7 @@ jobs:
       - name: Setup languages
         uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
       - name: Install dependencies
-        run: mix "do" deps.get, deps.compile
+        run: mix "do" deps.get, deps.compile, phoenix_test_playwright.playwright_source
       - run: git switch -c "$NIGHTLY_BRANCH"
       - name: Pick tonight's focus area
         id: focus
@@ -439,10 +432,7 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        # The run's commit's filter, not the working tree's, which Claude can edit.
         run: |
-          jq -r '.[] | select(.type == "result")
-            | (.result // .subtype),
-              (.permission_denials // [] | select(length > 0) | "\n**Denied tool calls (\(length)):**\n",
-                (.[] | (.tool_input | .command // .file_path // .path // .pattern // .url // "" | gsub("\\s+"; " ") | .[:200]) as $arg
-                  | "- \(.tool_name)" + (if $arg == "" then "" else ": `` \($arg) ``" end)))' \
-            "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+          filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
+          jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
