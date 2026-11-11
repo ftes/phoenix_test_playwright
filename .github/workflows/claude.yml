@@ -10,6 +10,10 @@ on:
   pull_request_review:
     types: [submitted]
 
+env:
+  # Steers Claude off the Bash habits (cd, pipes, heredocs) that miss the allowlist.
+  TOOL_HINT: "Use your file tools, not Bash, to read and search files, and keep any scratch files under tmp/; run each allowed Bash command on its own, without cd, ;, &&, pipes or heredocs (you are already in the repository)."
+
 jobs:
   claude:
     # Maintainers only, before any setup: the action rejects anyone else anyway. Review events
@@ -77,6 +81,7 @@ jobs:
           # Added to the action's defaults, which cover editing, committing and its comment.
           claude_args: |
             --model claude-opus-5-5
+            --append-system-prompt "${{ env.TOOL_HINT }}"
             --allowedTools "Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*)${{ steps.tools.outputs.mix }}"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}

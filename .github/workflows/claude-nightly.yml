@@ -19,6 +19,8 @@ env:
   # Runs subagents in the foreground. A headless run ends with Claude's turn, which drops any
   # still running in the background: the survey agents never reported back.
   CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
+  # Steers Claude off the Bash habits (cd, pipes, heredocs) that miss the allowlist.
+  TOOL_HINT: "Use your file tools, not Bash, to read and search files, and keep any scratch files under tmp/; run each allowed Bash command on its own, without cd, ;, &&, pipes or heredocs (you are already in the repository)."
 
 jobs:
   # Frees slots before the cap is counted. A job, not an earlier cron: GitHub delays scheduled
@@ -63,8 +65,7 @@ jobs:
             An earlier nightly run opened these simplification PRs. Close each one that main has
             made obsolete, so its slot can go to new work. main is checked out.
 
-            Use your file tools, not Bash, to read, search and edit files; run each allowed Bash command
-            on its own, without `cd`, `;`, `&&`, pipes or heredocs (you are already in the repository).
+            ${{ env.TOOL_HINT }}
 
             For each PR, read `gh pr view N`, `gh pr diff N` and the code it touches on main. It is
             obsolete only if the code it simplifies is gone or rewritten, or main already made the
@@ -192,8 +193,7 @@ jobs:
             CI failed on this simplification PR. The end of the failed steps' log is in
             tmp/ci-failed.log (tmp/ is gitignored).
 
-            Use your file tools, not Bash, to read, search and edit files; run each allowed Bash command
-            on its own, without `cd`, `;`, `&&`, pipes or heredocs (you are already in the repository).
+            ${{ env.TOOL_HINT }}
 
             Read it along with `gh pr view ${{ matrix.pr.number }}` and
             `gh pr diff ${{ matrix.pr.number }}` and find the cause. Tests can't run here: CI runs them on your push. Don't merge or rebase on main. End with
@@ -267,8 +267,7 @@ jobs:
 
             The old PR is a simplification that now conflicts with main. Redo it on this branch.
 
-            Use your file tools, not Bash, to read, search and edit files; run each allowed Bash command
-            on its own, without `cd`, `;`, `&&`, pipes or heredocs (you are already in the repository).
+            ${{ env.TOOL_HINT }}
 
             Read `gh pr view ${{ matrix.pr }}` and `gh pr diff ${{ matrix.pr }}` for what it set out
             to do, then make the same change against the code as it is now, keeping what main has
@@ -397,8 +396,7 @@ jobs:
             and open one pull request for it, the kind a senior maintainer would be glad to merge.
             Pick it in or touching FOCUS: each night looks at a different part of the codebase.
 
-            Use your file tools, not Bash, to read, search and edit files; run each allowed Bash command
-            on its own, without `cd`, `;`, `&&`, pipes or heredocs (you are already in the repository).
+            ${{ env.TOOL_HINT }}
 
             test/phoenix_test/upstream/ and test/support/upstream/web_app/ mirror upstream
             phoenix_test as a compatibility suite: leave them alone.
