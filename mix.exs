@@ -136,7 +136,7 @@ defmodule PhoenixTestPlaywright.MixProject do
   @playwright_repo "https://github.com/microsoft/playwright"
   @playwright_paths ~w(
     packages/playwright-core/src packages/injected/src packages/isomorphic packages/protocol
-    docs/src/api tests/page tests/library
+    packages/utils packages/playwright/src/matchers docs/src/api tests/page tests/library
   )
 
   # Playwright's source at the driver version PlaywrightEx pins, for agents to read: shallow,
