@@ -63,6 +63,10 @@ jobs:
             An earlier nightly run opened these simplification PRs. Close each one that main has
             made obsolete, so its slot can go to new work. main is checked out.
 
+            Read, search and edit files with Read, Grep, Glob, Edit and Write, and write scratch files
+            under tmp/; run each allowed Bash command on its own, without `cd`, `;`, `&&`, pipes or
+            heredocs (you are already in the repository).
+
             For each PR, read `gh pr view N`, `gh pr diff N` and the code it touches on main. It is
             obsolete only if the code it simplifies is gone or rewritten, or main already made the
             same change or solved the problem another way. A merge conflict, the PR's age or a
@@ -189,6 +193,10 @@ jobs:
             CI failed on this simplification PR. The end of the failed steps' log is in
             tmp/ci-failed.log (tmp/ is gitignored).
 
+            Read, search and edit files with Read, Grep, Glob, Edit and Write, and write scratch files
+            under tmp/; run each allowed Bash command on its own, without `cd`, `;`, `&&`, pipes or
+            heredocs (you are already in the repository).
+
             Read it along with `gh pr view ${{ matrix.pr.number }}` and
             `gh pr diff ${{ matrix.pr.number }}` and find the cause. Tests can't run here: CI runs them on your push. Don't merge or rebase on main. End with
             exactly one of these:
@@ -260,6 +268,10 @@ jobs:
             BRANCH: ${{ env.NIGHTLY_BRANCH }} (already checked out, from current main)
 
             The old PR is a simplification that now conflicts with main. Redo it on this branch.
+
+            Read, search and edit files with Read, Grep, Glob, Edit and Write, and write scratch files
+            under tmp/; run each allowed Bash command on its own, without `cd`, `;`, `&&`, pipes or
+            heredocs (you are already in the repository).
 
             Read `gh pr view ${{ matrix.pr }}` and `gh pr diff ${{ matrix.pr }}` for what it set out
             to do, then make the same change against the code as it is now, keeping what main has
@@ -387,6 +399,10 @@ jobs:
             Find the single most valuable improvement to this codebase's simplicity or consistency
             and open one pull request for it, the kind a senior maintainer would be glad to merge.
             Pick it in or touching FOCUS: each night looks at a different part of the codebase.
+
+            Read, search and edit files with Read, Grep, Glob, Edit and Write, and write scratch files
+            under tmp/; run each allowed Bash command on its own, without `cd`, `;`, `&&`, pipes or
+            heredocs (you are already in the repository).
 
             test/phoenix_test/upstream/ and test/support/upstream/web_app/ mirror upstream
             phoenix_test as a compatibility suite: leave them alone.
