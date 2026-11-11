@@ -87,7 +87,8 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # The run's commit's filter, not the working tree's, which Claude can edit.
+        # .github/claude-summary.jq: only the final message and the denied calls (public repo). From
+        # the run's commit, as Claude may have edited the checkout; a failed `git show` stops the step.
         run: |
           filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
           jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"

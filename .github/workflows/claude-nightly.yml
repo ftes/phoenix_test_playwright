@@ -83,7 +83,8 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # The run's commit's filter, not the working tree's, which Claude can edit.
+        # .github/claude-summary.jq: only the final message and the denied calls (public repo). From
+        # the run's commit, as Claude may have edited the checkout; a failed `git show` stops the step.
         run: |
           filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
           jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
@@ -126,7 +127,7 @@ jobs:
           prs=$(list)
           {
             echo "conflicted=$(jq -c 'map(select(.mergeable == "CONFLICTING") | .number)' <<< "$prs")"
-            echo "failing=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.mergeable != "CONFLICTING" and .failing and .commits < $max) | {number, branch})' <<< "$prs")"
+            echo "failing=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.mergeable == "MERGEABLE" and .failing and .commits < $max) | {number, branch})' <<< "$prs")"
             echo "exhausted=$(jq -r --argjson max "$MAX_COMMITS" 'map(select(.mergeable == "MERGEABLE" and .failing and .commits >= $max) | .number) | join(" ")' <<< "$prs")"
           } >> "$GITHUB_OUTPUT"
       - name: Close PRs still failing after two fixes
@@ -195,8 +196,8 @@ jobs:
             tmp/ci-failed.log (tmp/ is gitignored).
 
             Read it along with `gh pr view ${{ matrix.pr.number }}` and
-            `gh pr diff ${{ matrix.pr.number }}` and find the cause. Tests can't run here: CI runs them on your push. Don't merge or rebase on main. End with
-            exactly one of these:
+            `gh pr diff ${{ matrix.pr.number }}` and find the cause. Tests can't run here: CI runs
+            them on your push. Don't merge or rebase on main. End with exactly one of these:
 
             - The PR caused it: fix it, keeping what the PR set out to do and the public behaviour,
               and matching the surrounding code. Don't weaken or skip a test to get it green. Run
@@ -222,7 +223,8 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # The run's commit's filter, not the working tree's, which Claude can edit.
+        # .github/claude-summary.jq: only the final message and the denied calls (public repo). From
+        # the run's commit, as Claude may have edited the checkout; a failed `git show` stops the step.
         run: |
           filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
           jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
@@ -253,7 +255,7 @@ jobs:
           fetch-depth: 0
       - name: Setup languages
         uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
-      - name: Install dependencies
+      - name: Install dependencies and Playwright's source
         run: mix "do" deps.get, deps.compile, phoenix_test_playwright.playwright_source
       - run: git switch -c "$NIGHTLY_BRANCH"
       - name: Run Claude
@@ -270,8 +272,8 @@ jobs:
 
             Read `gh pr view ${{ matrix.pr }}` and `gh pr diff ${{ matrix.pr }}` for what it set out
             to do, then make the same change against the code as it is now, keeping what main has
-            changed since. Run `mix format`, `mix compile --warnings-as-errors` and `mix credo`; they must pass. CI
-            on the new PR runs the test suite.
+            changed since. Run `mix format`, `mix compile --warnings-as-errors` and `mix credo`;
+            they must pass. CI on the new PR runs the test suite.
 
             If the change can't be redone without redesigning it, stop without pushing and say why.
 
@@ -296,7 +298,8 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # The run's commit's filter, not the working tree's, which Claude can edit.
+        # .github/claude-summary.jq: only the final message and the denied calls (public repo). From
+        # the run's commit, as Claude may have edited the checkout; a failed `git show` stops the step.
         run: |
           filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
           jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
@@ -365,7 +368,7 @@ jobs:
           fetch-depth: 0
       - name: Setup languages
         uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
-      - name: Install dependencies
+      - name: Install dependencies and Playwright's source
         run: mix "do" deps.get, deps.compile, phoenix_test_playwright.playwright_source
       - run: git switch -c "$NIGHTLY_BRANCH"
       - name: Pick tonight's focus area
@@ -416,8 +419,8 @@ jobs:
             or renames to taste.
 
             Run `mix format`, `mix compile --warnings-as-errors` and `mix credo`; they must pass.
-            Don't run the test suite: CI runs it on the PR, and the next nightly run fixes what it
-            finds.
+            Tests can't run here, in place of AGENTS.md's `mix check`: CI runs them on the PR, and
+            a later nightly run fixes any failure.
 
             If nothing is clearly worth a maintainer's time, stop without pushing and say why. No
             PR is a good result; a marginal PR is not.
@@ -443,7 +446,8 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # The run's commit's filter, not the working tree's, which Claude can edit.
+        # .github/claude-summary.jq: only the final message and the denied calls (public repo). From
+        # the run's commit, as Claude may have edited the checkout; a failed `git show` stops the step.
         run: |
           filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
           jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
