@@ -30,6 +30,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run Claude Code Review
+        id: claude
         uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -64,3 +65,16 @@ jobs:
             --model claude-opus-5-5
             --max-turns 80
             --allowedTools "Read,Grep,Glob,Agent,Task,Write,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments:*),mcp__github_inline_comment__create_inline_comment"
+      - name: Summarize Claude's result
+        if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        # Only the final message and each denied call's command, path or URL: this repo is public,
+        # and the full transcript can contain secrets.
+        run: |
+          jq -r '.[] | select(.type == "result")
+            | (.result // .subtype),
+              (.permission_denials // [] | select(length > 0) | "\n**Denied tool calls (\(length)):**\n",
+                (.[] | (.tool_input | .command // .file_path // .path // .pattern // .url // "" | gsub("\\s+"; " ") | .[:200]) as $arg
+                  | "- \(.tool_name)" + (if $arg == "" then "" else ": `` \($arg) ``" end)))' \
+            "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"

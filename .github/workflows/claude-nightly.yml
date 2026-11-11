@@ -78,8 +78,15 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # Only the final message: this repo is public, and the full transcript can contain secrets.
-        run: jq -r '.[] | select(.type == "result") | .result // .subtype' "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+        # Only the final message and each denied call's command, path or URL: this repo is public,
+        # and the full transcript can contain secrets.
+        run: |
+          jq -r '.[] | select(.type == "result")
+            | (.result // .subtype),
+              (.permission_denials // [] | select(length > 0) | "\n**Denied tool calls (\(length)):**\n",
+                (.[] | (.tool_input | .command // .file_path // .path // .pattern // .url // "" | gsub("\\s+"; " ") | .[:200]) as $arg
+                  | "- \(.tool_name)" + (if $arg == "" then "" else ": `` \($arg) ``" end)))' \
+            "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
 
   # After triage, so only PRs worth keeping get fixed.
   classify:
@@ -209,7 +216,13 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        run: jq -r '.[] | select(.type == "result") | .result // .subtype' "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          jq -r '.[] | select(.type == "result")
+            | (.result // .subtype),
+              (.permission_denials // [] | select(length > 0) | "\n**Denied tool calls (\(length)):**\n",
+                (.[] | (.tool_input | .command // .file_path // .path // .pattern // .url // "" | gsub("\\s+"; " ") | .[:200]) as $arg
+                  | "- \(.tool_name)" + (if $arg == "" then "" else ": `` \($arg) ``" end)))' \
+            "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
 
   # Replaces each conflicted PR with one on a new branch from main. The Claude app can't push
   # workflow file changes, which a merge or rebase of the old branch would carry from main.
@@ -278,7 +291,13 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        run: jq -r '.[] | select(.type == "result") | .result // .subtype' "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          jq -r '.[] | select(.type == "result")
+            | (.result // .subtype),
+              (.permission_denials // [] | select(length > 0) | "\n**Denied tool calls (\(length)):**\n",
+                (.[] | (.tool_input | .command // .file_path // .path // .pattern // .url // "" | gsub("\\s+"; " ") | .[:200]) as $arg
+                  | "- \(.tool_name)" + (if $arg == "" then "" else ": `` \($arg) ``" end)))' \
+            "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
 
   # Enforces the cap before any toolchain is set up. Runs even if an earlier job failed: the
   # count is still right, it just finds fewer slots.
@@ -301,14 +320,24 @@ jobs:
           MAX_OPEN_PRS: 3
         # Same-repo branches only: a fork can pick any branch name, and this repo is public.
         run: |
-          prs=$(gh pr list --state all --limit 1000 --json title,state,headRefName,isCrossRepository \
-            --jq '[.[] | select((.isCrossRepository | not) and (.headRefName | startswith("claude/nightly-"))) | {title, state}]')
+          prs=$(gh pr list --state all --limit 1000 --json number,title,state,headRefName,isCrossRepository \
+            --jq '[.[] | select((.isCrossRepository | not) and (.headRefName | startswith("claude/nightly-"))) | {number, title, state}]')
           open=$(jq '[.[] | select(.state == "OPEN")] | length' <<< "$prs")
           echo "::notice::$open of $MAX_OPEN_PRS nightly PRs open"
           if [ "$open" -lt "$MAX_OPEN_PRS" ]; then has_slot=true; else has_slot=false; fi
+          # Why each closed PR was declined: its maintainers' comments and reviews, and the bots'
+          # closing comment. No one else's, as anyone can comment on a PR and this reaches the prompt.
+          recent=$(jq -c '.[:30]' <<< "$prs")
+          for number in $(jq -r '.[] | select(.state == "CLOSED") | .number' <<< "$recent"); do
+            why=$(gh pr view "$number" --json closedAt,comments,reviews --jq '(.closedAt | fromdate) as $closed
+              | [.comments[], .reviews[] | select(.authorAssociation | IN("OWNER", "MEMBER", "COLLABORATOR"))]
+                + [.comments[] | select((.author.login | IN("claude", "github-actions")) and (.createdAt | fromdate) >= $closed - 120)]
+              | map(.body | gsub("\\s+"; " ") | .[:300] | select(. != ""))') || why='[]'
+            recent=$(jq -c --argjson n "$number" --argjson why "$why" 'map(if .number == $n then . + {why: $why} else . end)' <<< "$recent")
+          done
           {
             echo "has-slot=$has_slot"
-            echo "prs=$(jq -c '.[:30]' <<< "$prs")"
+            echo "prs=$recent"
           } >> "$GITHUB_OUTPUT"
 
   improve:
@@ -337,6 +366,19 @@ jobs:
       - name: Install dependencies
         run: mix "do" deps.get, deps.compile
       - run: git switch -c "$NIGHTLY_BRANCH"
+      - name: Pick tonight's focus area
+        id: focus
+        # By day of the year, so successive nights look at different parts of the code.
+        run: |
+          areas=(
+            "the public API: lib/phoenix_test/playwright.ex"
+            "setup and browsers: case.ex, config.ex, supervisor.ex, internal/browser*, internal/driver_watcher.ex, lib/mix/"
+            "selectors and helpers: selector.ex, internal/selector/, internal/cookie_args.ex, js_logger.ex"
+            "the tests: test/phoenix_test/playwright/ and test/support/, outside the upstream mirrors"
+          )
+          area=${areas[$((10#$(date -u +%j) % ${#areas[@]}))]}
+          echo "::notice::Focus: $area"
+          echo "area=$area" >> "$GITHUB_OUTPUT"
 
       - name: Run Claude
         id: claude
@@ -347,9 +389,11 @@ jobs:
             REPO: ${{ github.repository }}
             BRANCH: ${{ env.NIGHTLY_BRANCH }} (already checked out)
             PREVIOUS NIGHTLY PRS, newest first: ${{ needs.capacity.outputs.prs }}
+            FOCUS: ${{ steps.focus.outputs.area }}
 
             Find the single most valuable improvement to this codebase's simplicity or consistency
             and open one pull request for it, the kind a senior maintainer would be glad to merge.
+            Pick it in or touching FOCUS: each night looks at a different part of the codebase.
 
             test/phoenix_test/upstream/ and test/support/upstream/web_app/ mirror upstream
             phoenix_test as a compatibility suite: leave them alone.
@@ -361,7 +405,7 @@ jobs:
             3. Rank the candidates by how much simpler or more uniform the code becomes for how
                little it changes. Read the callers and tests of the best one before committing to
                it. Skip anything overlapping an OPEN PR above or repeating a CLOSED one: those were
-               declined.
+               declined, and `why` holds the reasons people gave.
             4. Implement that one idea, matching the surrounding code. Prefer a diff that removes
                more than it adds.
 
@@ -395,4 +439,10 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        run: jq -r '.[] | select(.type == "result") | .result // .subtype' "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          jq -r '.[] | select(.type == "result")
+            | (.result // .subtype),
+              (.permission_denials // [] | select(length > 0) | "\n**Denied tool calls (\(length)):**\n",
+                (.[] | (.tool_input | .command // .file_path // .path // .pattern // .url // "" | gsub("\\s+"; " ") | .[:200]) as $arg
+                  | "- \(.tool_name)" + (if $arg == "" then "" else ": `` \($arg) ``" end)))' \
+            "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
