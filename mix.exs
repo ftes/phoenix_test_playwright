@@ -133,7 +133,6 @@ defmodule PhoenixTestPlaywright.MixProject do
     ]
   end
 
-  @playwright_repo "https://github.com/microsoft/playwright"
   @playwright_paths ~w(
     packages/playwright-core/src packages/injected/src packages/isomorphic packages/protocol
     packages/utils packages/playwright/src/matchers docs/src/api tests/page tests/library
@@ -150,7 +149,11 @@ defmodule PhoenixTestPlaywright.MixProject do
       # Into a temporary directory first, so an interrupted clone isn't taken for a finished one.
       tmp = dir <> ".tmp"
       File.rm_rf!(tmp)
-      git!(~w(clone --depth 1 --filter=blob:none --sparse --branch v#{version} #{@playwright_repo} #{tmp}))
+
+      git!(
+        ~w(clone --depth 1 --filter=blob:none --sparse --branch v#{version} https://github.com/microsoft/playwright #{tmp})
+      )
+
       git!(["-C", tmp, "sparse-checkout", "set" | @playwright_paths])
       File.rename!(tmp, dir)
     end

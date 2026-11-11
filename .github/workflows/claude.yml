@@ -12,12 +12,15 @@ on:
 
 jobs:
   claude:
-    # Only maintainers, before any setup: the action would reject anyone else anyway.
+    # Maintainers only, before any setup: the action rejects anyone else anyway. Review events
+    # check out the PR's merge ref, so only same-repo PRs.
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association || github.event.issue.author_association) && (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && github.event.pull_request.head.repo.full_name == github.repository) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && github.event.pull_request.head.repo.full_name == github.repository) ||
+        (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -29,32 +32,29 @@ jobs:
       # As in elixir.yml.
       MIX_ENV: test
     steps:
+      # main for issues and issue comments, the PR's merge ref for review events.
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          # Else checkout's read-only token, in an includeIf file the action doesn't clear,
+          # overrides the app token and Claude's push gets a 403.
+          persist-credentials: false
           fetch-depth: 0
-      - name: Set up Claude's context
-        id: setup
-        uses: ./.github/actions/claude-setup
+      - name: Setup languages
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - name: Install dependencies
+        run: mix "do" deps.get, deps.compile, playwright.source
       # The action checks out a fork PR's head with a token that can push, and mix runs the
-      # checked-out mix.exs and .formatter.exs: no mix tasks on a fork's code. deps.get is for a PR
-      # that changes mix.lock, as setup fetched main's deps.
-      - name: List the allowed tools
+      # checked-out mix.exs and .formatter.exs: no mix tasks on a fork's code.
+      - name: Allow mix tasks unless on a fork PR
         id: tools
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) }}
         run: |
-          allowed="Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*)"
-          fork=false
-          if [ -n "$PR" ]; then
-            fork=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json isCrossRepository --jq .isCrossRepository)
+          if [ -z "$PR" ] || [ "$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json isCrossRepository --jq .isCrossRepository)" = false ]; then
+            echo "mix=,Bash(mix format:*),Bash(mix compile:*),Bash(mix credo:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*)" >> "$GITHUB_OUTPUT"
           fi
-          if [ "$fork" = false ]; then
-            allowed="$allowed,Bash(mix deps.get:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix credo:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*)"
-          fi
-          echo "::notice::Fork PR: $fork"
-          echo "allowed=$allowed" >> "$GITHUB_OUTPUT"
 
       - name: Run Claude Code
         id: claude
@@ -72,17 +72,10 @@ jobs:
           # Added to the action's defaults, which cover editing, committing and its comment.
           claude_args: |
             --model claude-opus-5-5
-            --allowedTools "${{ steps.tools.outputs.allowed }}"
+            --allowedTools "Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*)${{ steps.tools.outputs.mix }}"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # Only the final message and each denied call's command, path or URL: this repo is public,
-        # and the full transcript can contain secrets.
-        run: |
-          jq -r '.[] | select(.type == "result")
-            | (.result // .subtype),
-              (.permission_denials // [] | select(length > 0) | "\n**Denied tool calls (\(length)):**\n",
-                (.[] | (.tool_input | .command // .file_path // .path // .pattern // .url // "" | gsub("\\s+"; " ") | .[:200]) as $arg
-                  | "- \(.tool_name)" + (if $arg == "" then "" else ": `` \($arg) ``" end)))' \
-            "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+        # The run's commit's filter, not the working tree's, which Claude can edit.
+        run: jq -r -f <(git show "$GITHUB_SHA:.github/claude-summary.jq") "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"

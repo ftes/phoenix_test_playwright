@@ -78,15 +78,8 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # Only the final message and each denied call's command, path or URL: this repo is public,
-        # and the full transcript can contain secrets.
-        run: |
-          jq -r '.[] | select(.type == "result")
-            | (.result // .subtype),
-              (.permission_denials // [] | select(length > 0) | "\n**Denied tool calls (\(length)):**\n",
-                (.[] | (.tool_input | .command // .file_path // .path // .pattern // .url // "" | gsub("\\s+"; " ") | .[:200]) as $arg
-                  | "- \(.tool_name)" + (if $arg == "" then "" else ": `` \($arg) ``" end)))' \
-            "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+        # The run's commit's filter, not the working tree's, which Claude can edit.
+        run: jq -r -f <(git show "$GITHUB_SHA:.github/claude-summary.jq") "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
 
   # After triage, so only PRs worth keeping get fixed.
   classify:
@@ -163,7 +156,6 @@ jobs:
           persist-credentials: false
           ref: ${{ matrix.pr.branch }}
           fetch-depth: 0
-      # Not ./.github/actions/claude-setup: a branch from before it was added doesn't have it.
       - name: Setup languages
         uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
       - name: Install dependencies
@@ -249,9 +241,10 @@ jobs:
           # it sits in an includeIf file claude-code-action doesn't clear, so the push gets a 403.
           persist-credentials: false
           fetch-depth: 0
-      - name: Set up Claude's context
-        id: setup
-        uses: ./.github/actions/claude-setup
+      - name: Setup languages
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - name: Install dependencies
+        run: mix "do" deps.get, deps.compile, playwright.source
       - run: git switch -c "$NIGHTLY_BRANCH"
       - name: Run Claude
         id: claude
@@ -262,7 +255,6 @@ jobs:
             REPO: ${{ github.repository }}
             OLD PR: ${{ matrix.pr }}
             BRANCH: ${{ env.NIGHTLY_BRANCH }} (already checked out, from current main)
-            PLAYWRIGHT SOURCE: ${{ steps.setup.outputs.playwright-source }}
 
             The old PR is a simplification that now conflicts with main. Redo it on this branch.
 
@@ -292,13 +284,8 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        run: |
-          jq -r '.[] | select(.type == "result")
-            | (.result // .subtype),
-              (.permission_denials // [] | select(length > 0) | "\n**Denied tool calls (\(length)):**\n",
-                (.[] | (.tool_input | .command // .file_path // .path // .pattern // .url // "" | gsub("\\s+"; " ") | .[:200]) as $arg
-                  | "- \(.tool_name)" + (if $arg == "" then "" else ": `` \($arg) ``" end)))' \
-            "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+        # The run's commit's filter, not the working tree's, which Claude can edit.
+        run: jq -r -f <(git show "$GITHUB_SHA:.github/claude-summary.jq") "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
 
   # Enforces the cap before any toolchain is set up. Runs even if an earlier job failed: the
   # count is still right, it just finds fewer slots.
@@ -362,9 +349,10 @@ jobs:
           # it sits in an includeIf file claude-code-action doesn't clear, so the push gets a 403.
           persist-credentials: false
           fetch-depth: 0
-      - name: Set up Claude's context
-        id: setup
-        uses: ./.github/actions/claude-setup
+      - name: Setup languages
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - name: Install dependencies
+        run: mix "do" deps.get, deps.compile, playwright.source
       - run: git switch -c "$NIGHTLY_BRANCH"
       - name: Pick tonight's focus area
         id: focus
@@ -389,7 +377,6 @@ jobs:
             REPO: ${{ github.repository }}
             BRANCH: ${{ env.NIGHTLY_BRANCH }} (already checked out)
             PREVIOUS NIGHTLY PRS, newest first: ${{ needs.capacity.outputs.prs }}
-            PLAYWRIGHT SOURCE: ${{ steps.setup.outputs.playwright-source }}
             FOCUS: ${{ steps.focus.outputs.area }}
 
             Find the single most valuable improvement to this codebase's simplicity or consistency
@@ -440,10 +427,5 @@ jobs:
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        run: |
-          jq -r '.[] | select(.type == "result")
-            | (.result // .subtype),
-              (.permission_denials // [] | select(length > 0) | "\n**Denied tool calls (\(length)):**\n",
-                (.[] | (.tool_input | .command // .file_path // .path // .pattern // .url // "" | gsub("\\s+"; " ") | .[:200]) as $arg
-                  | "- \(.tool_name)" + (if $arg == "" then "" else ": `` \($arg) ``" end)))' \
-            "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+        # The run's commit's filter, not the working tree's, which Claude can edit.
+        run: jq -r -f <(git show "$GITHUB_SHA:.github/claude-summary.jq") "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
