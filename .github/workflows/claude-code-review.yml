@@ -77,4 +77,6 @@ jobs:
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         # The run's commit's filter, not the working tree's, which Claude can edit.
-        run: jq -r -f <(git show "$GITHUB_SHA:.github/claude-summary.jq") "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
+          jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"

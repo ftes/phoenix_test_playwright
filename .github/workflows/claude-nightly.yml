@@ -79,7 +79,9 @@ jobs:
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         # The run's commit's filter, not the working tree's, which Claude can edit.
-        run: jq -r -f <(git show "$GITHUB_SHA:.github/claude-summary.jq") "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
+          jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
 
   # After triage, so only PRs worth keeping get fixed.
   classify:
@@ -285,7 +287,9 @@ jobs:
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         # The run's commit's filter, not the working tree's, which Claude can edit.
-        run: jq -r -f <(git show "$GITHUB_SHA:.github/claude-summary.jq") "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
+          jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
 
   # Enforces the cap before any toolchain is set up. Runs even if an earlier job failed: the
   # count is still right, it just finds fewer slots.
@@ -428,4 +432,6 @@ jobs:
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         # The run's commit's filter, not the working tree's, which Claude can edit.
-        run: jq -r -f <(git show "$GITHUB_SHA:.github/claude-summary.jq") "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
+          jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
