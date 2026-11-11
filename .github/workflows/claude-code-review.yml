@@ -54,6 +54,10 @@ jobs:
             Review this pull request like a senior maintainer of this codebase. The PR is checked
             out; read whatever you need.
 
+            Read, search and edit files with Read, Grep, Glob, Edit and Write, and write scratch files
+            under tmp/; run each allowed Bash command on its own, without `cd`, `;`, `&&`, pipes or
+            heredocs (you are already in the repository).
+
             1. Read AGENTS.md / CLAUDE.md (and the files they reference) for the project's rules.
                Read the PR description (`gh pr view PR`) and the diff (`git diff BASE...HEAD`).
             2. For every changed file, read the surrounding code, the callers and the tests, not
