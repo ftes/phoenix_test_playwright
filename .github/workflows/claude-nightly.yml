@@ -63,9 +63,8 @@ jobs:
             An earlier nightly run opened these simplification PRs. Close each one that main has
             made obsolete, so its slot can go to new work. main is checked out.
 
-            Read, search and edit files with Read, Grep, Glob, Edit and Write, and write scratch files
-            under tmp/; run each allowed Bash command on its own, without `cd`, `;`, `&&`, pipes or
-            heredocs (you are already in the repository).
+            Read and search files with Read, Grep and Glob; run each allowed Bash command on its own,
+            without `cd`, `;`, `&&`, pipes or heredocs (you are already in the repository).
 
             For each PR, read `gh pr view N`, `gh pr diff N` and the code it touches on main. It is
             obsolete only if the code it simplifies is gone or rewritten, or main already made the
