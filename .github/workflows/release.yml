@@ -1,0 +1,61 @@
+# Publishes a pushed vX.Y.Z tag to Hex, then creates its GitHub release from CHANGELOG.md.
+#
+# Hex authenticates the job by workload identity (hex.pm/docs/workload-identity): no API key.
+# The package's workload identity names this file and the `release` environment, so renaming
+# either breaks publishing. Staged publishing holds the release until an owner approves it on
+# hex.pm with 2FA; `--wait` blocks until then, so the GitHub release appears only once the Hex
+# release is live. Approve within the job's 6 h, or create the GitHub release by hand.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to Hex and GitHub
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 360
+    permissions:
+      contents: write # gh release create
+      id-token: write # Hex workload identity
+    env:
+      RELEASE_TITLE: PhoenixTestPlaywright
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Setup languages
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      # Before publishing, so a wrong tag or a missing changelog entry stages nothing on Hex.
+      - name: Check the tag and extract the release notes
+        run: |
+          version=$(sed -n 's/^  @version "\(.*\)"$/\1/p' mix.exs)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match @version $version in mix.exs"
+            exit 1
+          fi
+          awk -v v="$version" '/^## /{if (f) exit; f = ($2 == v || $2 == "[" v "]"); next} f' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md"; then
+            echo "::error::No '## $version' section in CHANGELOG.md"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - name: Install dependencies
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+          mix deps.get
+      # No HEX_API_KEY: with one set, Hex would use it instead of the workload identity.
+      - name: Publish to Hex and wait for approval
+        run: mix hex.publish --yes --wait
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=""
+          case "$VERSION" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" --verify-tag $prerelease \
+            --title "$RELEASE_TITLE $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
