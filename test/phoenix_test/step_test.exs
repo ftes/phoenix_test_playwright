@@ -4,24 +4,28 @@ defmodule PhoenixTest.StepTest.TraceCase do
   # after the one of `use PlaywrightEx.Test`, which writes `trace.zip`.
   use ExUnit.CaseTemplate
 
+  import ExUnit.Assertions
+
   using do
     quote do
       use PlaywrightEx.Test
     end
   end
 
-  setup do
-    {:ok, trace_checks} = Agent.start(fn -> nil end)
-
+  setup %{test_pid: test_pid} do
     on_exit(fn ->
-      {output_dir, check} = Agent.get(trace_checks, & &1)
-      {:ok, handle} = :zip.zip_open(String.to_charlist(Path.join(output_dir, "trace.zip")), [:memory])
+      trace_zip = Path.join(PlaywrightEx.Test.info(test_pid).output_dir, "trace.zip")
+      {:ok, handle} = :zip.zip_open(String.to_charlist(trace_zip), [:memory])
       {:ok, {_, trace}} = :zip.zip_get(~c"test.trace", handle)
       :ok = :zip.zip_close(handle)
-      check.(trace)
-    end)
 
-    [trace_checks: trace_checks]
+      steps = for line <- String.split(trace, "\n"), line =~ ~s("method":"test.step"), do: JSON.decode!(line)
+      [outer, inner1, inner2] = steps
+      assert outer["title"] == "Fill in form with test data"
+      assert [inner1["title"], inner2["title"]] == ["Type into text input", "Verify form data changed"]
+      assert inner1["parentId"] == outer["callId"] and inner2["parentId"] == outer["callId"]
+      assert Enum.all?(steps, &String.ends_with?(hd(&1["stack"])["file"], "test/phoenix_test/step_test.exs"))
+    end)
   end
 end
 
@@ -48,21 +52,7 @@ defmodule PhoenixTest.StepTest do
   """
 
   describe "step/3" do
-    test "produces nested labels at their call site in the trace", %{conn: conn, trace_checks: trace_checks} do
-      output_dir = PlaywrightEx.Test.info().output_dir
-
-      Agent.update(trace_checks, fn _ ->
-        {output_dir,
-         fn trace ->
-           steps = for line <- String.split(trace, "\n"), line =~ ~s("method":"test.step"), do: JSON.decode!(line)
-           [outer, inner1, inner2] = steps
-           assert outer["title"] == "Fill in form with test data"
-           assert [inner1["title"], inner2["title"]] == ["Type into text input", "Verify form data changed"]
-           assert inner1["parentId"] == outer["callId"] and inner2["parentId"] == outer["callId"]
-           assert Enum.all?(steps, &String.ends_with?(hd(&1["stack"])["file"], "test/phoenix_test/step_test.exs"))
-         end}
-      end)
-
+    test "produces nested labels at their call site in the trace", %{conn: conn} do
       conn
       |> set_html(@html)
       |> step("Fill in form with test data", fn conn ->
