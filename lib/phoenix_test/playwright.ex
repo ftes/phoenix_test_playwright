@@ -755,7 +755,7 @@ defmodule PhoenixTest.Playwright do
     case Map.new(opts) do
       %{count: count} ->
         conn
-        |> locator(Selector.build(selector))
+        |> locator(selector)
         |> expect_matches?(other_opts[:is_not], &Expect.to_have_count(&1, count, timeout: timeout(opts)))
 
       _ ->
@@ -927,8 +927,7 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def render_html(conn) do
-    selector = Selector.build(conn.within)
-    html = conn |> locator(selector) |> Locator.first() |> Locator.inner_html!(timeout: timeout())
+    html = conn |> locator(conn.within) |> Locator.first() |> Locator.inner_html!(timeout: timeout())
     LazyHTML.from_document(html)
   end
 
@@ -1003,14 +1002,13 @@ defmodule PhoenixTest.Playwright do
     opts = NimbleOptions.validate!(opts, @exact_opts_schema)
 
     selector =
-      conn.within
-      |> Selector.concat(
+      Selector.concat(
+        conn.within,
         case selector do
           nil -> role_selector.(text, opts)
           css -> css |> Selector.css() |> Selector.concat(Selector.text(text, opts))
         end
       )
-      |> Selector.build()
 
     act(conn, selector, &Locator.click(&1, timeout: timeout(opts)))
   end
@@ -1100,7 +1098,6 @@ defmodule PhoenixTest.Playwright do
         |> Selector.and(Selector.label(label, opts))
       )
       |> Selector.visible()
-      |> Selector.build()
 
     act(conn, selector, fun)
 
@@ -1114,7 +1111,7 @@ defmodule PhoenixTest.Playwright do
   defp ensure_binary(value) when is_binary(value), do: value
   defp ensure_binary(value), do: value |> Phoenix.HTML.Safe.to_iodata() |> IO.iodata_to_binary()
 
-  defp locator(conn, selector), do: Page.locator(conn.page, selector)
+  defp locator(conn, selector), do: Page.locator(conn.page, Selector.build(selector))
 
   # Runs a Playwright action on the locator for `selector`, raising a readable error if it fails.
   defp act(conn, selector, action) do
