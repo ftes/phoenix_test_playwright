@@ -541,23 +541,34 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def assert_path(conn, path, opts \\ []) do
-    {poll_opts, opts} = path_poll_opts(opts)
-    fn -> conn end |> Expect.poll(&Assertions.assert_path(&1, path, opts), poll_opts) |> expect!()
-    conn
+    expect_path(conn, conn.page, path, opts, &Assertions.assert_path/3)
   end
 
   @doc false
   def refute_path(conn, path, opts \\ []) do
-    {poll_opts, opts} = path_poll_opts(opts)
-    fn -> conn end |> Expect.poll(&Assertions.refute_path(&1, path, opts), poll_opts) |> expect!()
-    conn
+    expect_path(conn, Expect.not_(conn.page), path, opts, &Assertions.refute_path/3)
   end
 
-  # Polls the URL with the backoff that Playwright's server polls `toHaveURL` with
-  # (`Frame.retryWithProgressAndBackoff`), rather than `expect.poll`'s, which is for slower probes.
-  defp path_poll_opts(opts) do
-    {poll_opts, opts} = opts |> NimbleOptions.validate!(@path_assertion_opts_schema) |> Keyword.split([:timeout])
-    {[intervals: [20, 50, 100, 100, 500]] ++ poll_opts, opts}
+  # `Expect.to_have_url/3` with a predicate waits on navigations (`Frame.wait_for_url/3`) for
+  # phoenix_test's `assert_path`, which reads the frame's URL: the predicate runs in this process.
+  # On timeout, `assertion` fails with phoenix_test's message.
+  defp expect_path(conn, page, path, opts, assertion) do
+    {expect_opts, opts} = opts |> NimbleOptions.validate!(@path_assertion_opts_schema) |> Keyword.split([:timeout])
+
+    at_path? = fn _url ->
+      try do
+        Assertions.assert_path(conn, path, opts)
+        true
+      rescue
+        ExUnit.AssertionError -> false
+      end
+    end
+
+    case Expect.to_have_url(page, at_path?, expect_opts) do
+      :ok -> conn
+      {:error, %ExpectError{matcherResult: %{timeout: _}}} -> assertion.(conn, path, opts)
+      {:error, error} -> raise error
+    end
   end
 
   @doc false
