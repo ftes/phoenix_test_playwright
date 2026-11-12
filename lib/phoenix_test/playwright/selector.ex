@@ -36,6 +36,8 @@ defmodule PhoenixTest.Playwright.Selector do
       click(conn, edit_alice)
   """
 
+  alias PlaywrightEx.Isomorphic.LocatorUtils
+
   @typedoc "A selector string that Playwright understands."
   @type built :: String.t()
 
@@ -50,6 +52,7 @@ defmodule PhoenixTest.Playwright.Selector do
 
   `:none` becomes `*` (any element). Any other selector is returned as is.
   """
+
   @spec build(t()) :: built()
   def build(:none), do: "*"
   def build(selector), do: selector
@@ -119,7 +122,7 @@ defmodule PhoenixTest.Playwright.Selector do
   @spec text(nil | String.t(), exact_opts) :: t()
   def text(text, opts \\ [])
   def text(nil, _opts), do: :none
-  def text(text, opts), do: "internal:text=#{escape_text(text)}#{exact_suffix(opts)}"
+  def text(text, opts), do: LocatorUtils.get_by_text_selector(to_string(text), exact(opts))
 
   @doc """
   Matches form controls by their label (`<label>`, `aria-labelledby` or `aria-label`).
@@ -130,7 +133,7 @@ defmodule PhoenixTest.Playwright.Selector do
   @spec label(nil | String.t(), exact_opts) :: t()
   def label(label, opts \\ [])
   def label(nil, _opts), do: :none
-  def label(label, opts), do: "internal:label=#{escape_text(label)}#{exact_suffix(opts)}"
+  def label(label, opts), do: LocatorUtils.get_by_label_selector(to_string(label), exact(opts))
 
   @doc """
   Selects the match at a zero-based position (Playwright's `nth`). `-1` selects the last match.
@@ -169,7 +172,8 @@ defmodule PhoenixTest.Playwright.Selector do
   """
   @spec role(String.t(), String.t()) :: built()
   @spec role(String.t(), String.t(), exact_opts) :: built()
-  def role(role, text, opts \\ []), do: "internal:role=#{role}[name=#{escape_attribute(text)}#{exact_suffix(opts)}]"
+  def role(role, text, opts \\ []),
+    do: LocatorUtils.get_by_role_selector(role, Map.put(exact(opts), :name, to_string(text)))
 
   @doc """
   Matches elements by CSS selector. A list matches any of its selectors.
@@ -193,13 +197,9 @@ defmodule PhoenixTest.Playwright.Selector do
   def value(nil), do: :none
   def value(value), do: "phoenix_test_value=#{escape_text(value)}"
 
-  # `internal:text`, `internal:label` and the `phoenix_test_value` engine read this with `JSON.parse`.
+  # The `phoenix_test_value` engine reads this with `JSON.parse`.
   defp escape_text(text), do: text |> to_string() |> JSON.encode!()
 
-  defp escape_attribute(value), do: ~s("#{value |> String.replace("\\", "\\\\") |> String.replace(~s("), ~s(\\"))}")
-
-  defp exact_suffix(opts) when is_list(opts), do: opts |> Keyword.get(:exact, false) |> exact_suffix()
-
-  defp exact_suffix(true), do: "s"
-  defp exact_suffix(false), do: "i"
+  # Playwright's `getBy*` options.
+  defp exact(opts), do: %{exact: Keyword.get(opts, :exact, false)}
 end
