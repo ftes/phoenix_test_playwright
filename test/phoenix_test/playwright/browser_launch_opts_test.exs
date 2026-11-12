@@ -15,7 +15,8 @@ defmodule PhoenixTest.Playwright.BrowserLaunchOptsTest do
       ]
     ]
 
-  @moduletag skip: !!Application.compile_env!(:phoenix_test, :playwright)[:ws_endpoint]
+  # A remote browser loads the app from a non-localhost http URL: not a secure context, no `navigator.mediaDevices`.
+  @moduletag :skip_websocket
 
   test "getUserMedia succeeds with fake media device flags", %{conn: conn} do
     conn
@@ -39,7 +40,8 @@ defmodule PhoenixTest.Playwright.BrowserLaunchOptsWithoutFlagsTest do
 
   use PhoenixTest.Playwright.Case, async: true
 
-  @moduletag skip: !!Application.compile_env!(:phoenix_test, :playwright)[:ws_endpoint]
+  # A remote browser loads the app from a non-localhost http URL: not a secure context, no `navigator.mediaDevices`.
+  @moduletag :skip_websocket
 
   test "getUserMedia fails without fake media device flags", %{conn: conn} do
     conn

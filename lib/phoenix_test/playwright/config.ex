@@ -71,20 +71,6 @@ schema_opts = [
     Many operations accept a `timeout:` option to override it.
     Also bounds closing browser contexts. See [Timeouts](#module-timeouts).
     """
-  ],
-  ws_endpoint: [
-    type: :string,
-    doc: """
-    WebSocket endpoint URL for connecting to a remote Playwright server.
-    If provided, browsers run on that server instead of being launched locally.
-    The connection goes through a local Playwright driver that PlaywrightEx downloads on first use.
-    Example: "ws://localhost:3000"
-
-    This is useful for:
-    - Containers without browser system dependencies
-    - Containerized CI environments with a separate Playwright server
-    - Connecting to remote/shared Playwright instances
-    """
   ]
 ]
 

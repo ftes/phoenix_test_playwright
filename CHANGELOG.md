@@ -9,7 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Breaking
 Built on PlaywrightEx's test runner (`PlaywrightEx.Test`, `PlaywrightEx.Test.BrowserPool`), which replaces ptp's own
 browser pools, driver supervision and recording. To upgrade:
-- Remove `PhoenixTest.Playwright.Supervisor.start_link()` from `test/test_helper.exs` (keep it only with `ws_endpoint`).
+- Remove `PhoenixTest.Playwright.Supervisor.start_link()` from `test/test_helper.exs`: the module is gone.
+- Replace `ws_endpoint: url` with `config :playwright_ex, :test, connect_options: [ws_endpoint: url]`.
 - Replace `browser_pools`, `browser_pool: <id>` and `browser_pool: false` with `browser:` and `browser_pool: :shared | :exclusive`
   (default `:shared`, `:exclusive` for Firefox). `browser_pool_checkout_timeout` is gone; `workers` in
   `config :playwright_ex, :test` caps exclusive browsers.
@@ -19,7 +20,6 @@ browser pools, driver supervision and recording. To upgrade:
 - Browser contexts get Playwright Test's defaults (`locale: "en-US"` instead of `"en"`, a 1280x720 viewport).
 - `assert_screenshot/3` writing a missing baseline fails the test at the end of its body, as in Playwright Test.
   `config :playwright_ex, :expect, update_snapshots: :missing` restores passing.
-- Contexts of browsers connected via `ws_endpoint` are not recorded.
 - Removed the `headless`, `slow_mo`, `executable_path` and `browser_launch_timeout` options: use
   `config :playwright_ex, :test, launch_options: [...]`, or `browser_launch_opts:` per module, which is merged over it.
   Global `browser_context_opts` belong in `config :playwright_ex, :test, context_options: [...]`; the tag stays.

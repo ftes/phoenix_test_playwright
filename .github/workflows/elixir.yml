@@ -126,16 +126,13 @@ jobs:
         run: mix assets.setup && mix assets.build
       - name: Run tests
         run: mix ${{ matrix.mix_task }} --warnings-as-errors || if [[ $? = 2 ]]; then PW_TRACE=true mix ${{ matrix.mix_task }} --failed; else false; fi
-      # PlaywrightEx.Test records contexts of pooled browsers, not of browsers connected via ws_endpoint.
       - name: Fail if screenshot on exit failed
-        if: matrix.transport == 'port'
         run: |
           if ! ls test-results/*/test-finished-*.png >/dev/null 2>&1; then
             echo "Screenshot on exit feature failed"
             exit 1
           fi
       - name: Fail if trace on exit failed
-        if: matrix.transport == 'port'
         run: |
           if ! ls test-results/*/trace.zip >/dev/null 2>&1; then
             echo "Trace on exit feature failed"

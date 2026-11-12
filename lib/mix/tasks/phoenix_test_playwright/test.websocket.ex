@@ -40,13 +40,13 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.Test.Websocket do
     host_port = Testcontainers.Container.mapped_port(container, 3000)
     ws_endpoint = "ws://localhost:#{host_port}"
 
-    # Update playwright config with ws_endpoint
-    playwright_config =
-      :phoenix_test
-      |> Application.get_env(:playwright, [])
-      |> Keyword.put(:ws_endpoint, ws_endpoint)
+    # Connect PlaywrightEx.Test.BrowserPool's browsers to the container
+    test_config =
+      :playwright_ex
+      |> Application.get_env(:test, [])
+      |> Keyword.put(:connect_options, ws_endpoint: ws_endpoint)
 
-    Application.put_env(:phoenix_test, :playwright, playwright_config)
+    Application.put_env(:playwright_ex, :test, test_config)
 
     # Set base_url so container can reach the Phoenix server
     docker_host = docker_host_address()

@@ -281,26 +281,21 @@ Cache both directories in CI. Keep the install step on a cache hit, as `--with-d
 Run browsers on a remote Playwright server instead of launching them locally.
 Useful for containerized CI.
 
+`PlaywrightEx.Test.BrowserPool` connects instead of launching when `connect_options` are configured
+(Playwright Test's `connectOptions`). Traces, screenshots and videos are recorded as for local browsers.
+
 The connection goes through a local Playwright driver, which PlaywrightEx downloads on
 first use. Its Node.js binary needs glibc: on Alpine Linux, install `nodejs` and set
-`PLAYWRIGHT_NODEJS_PATH` to it. The server must run the same Playwright version and
-be listening before tests start, as connecting is not retried.
+`PLAYWRIGHT_NODEJS_PATH` to it. The server must run the same Playwright version.
 
 ```elixir
 # config/test.exs
-config :phoenix_test, playwright: [ws_endpoint: "ws://localhost:3000"]
+config :playwright_ex, :test, connect_options: [ws_endpoint: "ws://localhost:3000"]
 
 # or, to enable via environment variable
-config :phoenix_test, playwright: [ws_endpoint: System.get_env("PLAYWRIGHT_WS_ENDPOINT")]
+config :playwright_ex, :test,
+  connect_options: if(url = System.get_env("PLAYWRIGHT_WS_ENDPOINT"), do: [ws_endpoint: url])
 ```
-
-```elixir
-# test/test_helper.exs, starts the local driver that connects
-{:ok, _} = PhoenixTest.Playwright.Supervisor.start_link()
-```
-
-Connected browsers bypass `PlaywrightEx.Test.BrowserPool`, so their contexts are not recorded:
-traces, screenshots and videos (`config :playwright_ex, :test`) need local browsers.
 
 ```sh
 # Start Playwright server
