@@ -226,7 +226,11 @@ config :playwright_ex, :test,
   browser_name: :chromium,
   launch_options: [timeout: 10_000],
   context_options: [locale: "de-DE"],
+  action_timeout: 2_000,
   trace: :retain_on_failure
+
+# Assertion timeout, 5 seconds by default
+config :playwright_ex, :expect, timeout: 2_000
 ```
 
 See `PhoenixTest.Playwright.Config` for more details, including timeout semantics.
@@ -420,7 +424,7 @@ end)
 ### Test failure in CI (timeout)
 
 - Limit concurrency: `mix test --max-cases 1` for GitHub CI shared runners, or `browser_pool: :exclusive` with `config :playwright_ex, :test, workers: 1`
-- Increase timeout: `config :phoenix_test, playwright: [timeout: :timer.seconds(4)]`
+- Increase timeouts: `config :playwright_ex, :expect, timeout: 10_000` for assertions, `config :playwright_ex, :test, action_timeout: ...` for actions
 - More compute power: e.g. `x64 8-core` [GitHub runner](https://docs.github.com/en/enterprise-cloud@latest/actions/using-github-hosted-runners/using-larger-runners/about-larger-runners#machine-sizes-for-larger-runners)
 
 ### LiveView not connected

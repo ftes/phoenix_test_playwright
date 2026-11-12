@@ -58,7 +58,6 @@ defmodule PhoenixTest.Playwright.Case do
           assert_screenshot: 2,
           assert_screenshot: 3,
           clear_cookies: 1,
-          clear_cookies: 2,
           click: 2,
           click: 3,
           click: 4,
@@ -80,7 +79,6 @@ defmodule PhoenixTest.Playwright.Case do
         ]
 
       @moduletag Keyword.delete(unquote(opts), :async)
-      def timeout, do: PhoenixTest.Playwright.Config.global(:timeout)
     end
   end
 
@@ -134,9 +132,7 @@ defmodule PhoenixTest.Playwright.Case do
     page = BrowserContext.new_page!(browser_context)
 
     # Before the sandbox owner stops (registered earlier, so it runs later).
-    on_exit(fn ->
-      Playwright.Browser.within(config[:timeout], fn -> BrowserContext.close(browser_context) end)
-    end)
+    on_exit(fn -> BrowserContext.close(browser_context) end)
 
     Playwright.build(%{context: browser_context, page: page, config: config})
   end

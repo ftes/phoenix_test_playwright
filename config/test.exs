@@ -3,6 +3,8 @@ import Config
 alias PhoenixTest.Playwright.Repo
 alias PhoenixTest.WebApp.Endpoint
 
+pw_timeout = String.to_integer(System.get_env("PW_TIMEOUT", "500"))
+
 config :esbuild,
   version: "0.25.9",
   default: [
@@ -15,8 +17,7 @@ config :logger, level: :error
 
 config :phoenix_test,
   endpoint: Endpoint,
-  otp_app: :phoenix_test_playwright,
-  playwright: [timeout: String.to_integer(System.get_env("PW_TIMEOUT", "500"))]
+  otp_app: :phoenix_test_playwright
 
 config :phoenix_test_playwright, Endpoint,
   server: true,
@@ -41,9 +42,11 @@ config :phoenix_test_playwright,
   ecto_repos: [Repo]
 
 # Tests of assert_screenshot/3 write new baselines: pass instead of failing the test.
-config :playwright_ex, :expect, update_snapshots: :missing
+config :playwright_ex, :expect, timeout: pw_timeout, update_snapshots: :missing
 
 config :playwright_ex, :test,
+  action_timeout: pw_timeout,
+  navigation_timeout: pw_timeout,
   launch_options: [headless: System.get_env("PW_HEADLESS", "true") in ~w(t true)],
   # One directory of baselines, as before PlaywrightEx resolved them.
   snapshot_dir: "test/snapshots",

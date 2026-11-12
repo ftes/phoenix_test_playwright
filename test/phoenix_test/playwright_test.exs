@@ -475,21 +475,11 @@ defmodule PhoenixTest.PlaywrightTest do
       |> evaluate("({ a: null, b: [null] })", fn result -> assert result == %{"a" => :null, "b" => [:null]} end)
       |> evaluate("null", fn result -> assert result == :null end)
       |> evaluate("undefined", fn result -> assert result == nil end)
-      |> evaluate("1 + 2", [timeout: 5000], fn result ->
+      |> evaluate("x => x + 2", [arg: 1], fn result ->
         send(test_pid, {:result, result})
       end)
 
       assert_receive {:result, 3}
-    end
-  end
-
-  describe "timeout: 0" do
-    test "fails immediately instead of waiting forever", %{conn: conn} do
-      assert_raise ExUnit.AssertionError, fn ->
-        conn
-        |> set_html("<h1>Hello</h1>")
-        |> assert_has("h2", timeout: 0)
-      end
     end
   end
 
@@ -502,7 +492,7 @@ defmodule PhoenixTest.PlaywrightTest do
       """)
       |> unwrap(fn %{page: page} ->
         selector = Selector.role("link", "Navigate", exact: true)
-        page |> PlaywrightEx.Page.locator(selector) |> PlaywrightEx.Locator.click!(timeout: timeout())
+        page |> PlaywrightEx.Page.locator(selector) |> PlaywrightEx.Locator.click!()
       end)
       |> assert_has("#other:target", text: "Other")
     end

@@ -1,7 +1,6 @@
 defmodule PhoenixTest.Playwright.Browser do
   @moduledoc false
 
-  alias PhoenixTest.Playwright.Config
   alias PhoenixTest.Playwright.Selector.Engines
   alias PlaywrightEx.Test.BrowserPool
 
@@ -31,17 +30,5 @@ defmodule PhoenixTest.Playwright.Browser do
   defp pool_mode(config) do
     browser_name = config[:browser] || Application.get_env(:playwright_ex, :test, [])[:browser_name]
     config[:browser_pool] || if(browser_name == :firefox, do: :exclusive, else: :shared)
-  end
-
-  @doc """
-  Runs a Playwright call that takes no timeout, for at most `Config.client_timeout(timeout)`.
-  """
-  def within(timeout, fun) do
-    task = Task.async(fun)
-
-    case Task.yield(task, Config.client_timeout(timeout)) || Task.shutdown(task) do
-      {:ok, result} -> {:ok, result}
-      _timed_out_or_exited -> :timeout
-    end
   end
 end

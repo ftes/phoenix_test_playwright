@@ -62,15 +62,6 @@ schema_opts = [
     doc: """
     Define custom Playwright [selector engines](https://playwright.dev/docs/extensibility#custom-selector-engines).
     """
-  ],
-  timeout: [
-    default: to_timeout(second: 2),
-    type: :timeout,
-    doc: """
-    Default maximum time for a single browser operation, such as an action, assertion or navigation.
-    Many operations accept a `timeout:` option to override it.
-    Also bounds closing browser contexts. See [Timeouts](#module-timeouts).
-    """
   ]
 ]
 
@@ -113,25 +104,22 @@ defmodule PhoenixTest.Playwright.Config do
 
   ## Timeouts
 
-  Timeouts are in milliseconds, or `:infinity` to disable them. `0` means no waiting.
-  This applies to `timeout`
-  and the `timeout:` option of individual operations.
-  ExUnit's own test timeout (see `ExUnit.configure/1`) still applies.
+  PlaywrightEx's timeouts apply, as Playwright Test's. Actions wait up to
+  `config :playwright_ex, :test, action_timeout: ...`, navigations (`visit/3`, `reload_page/2`)
+  up to `navigation_timeout`. Both are unlimited by default: the test's ExUnit timeout bounds them.
+  Assertions (`assert_has`, `refute_has`, `assert_path`, `assert_download`, `assert_screenshot/3`)
+  retry up to `config :playwright_ex, :expect, timeout: ...`, 5 seconds by default.
+
+      config :playwright_ex, :test, action_timeout: 2_000, navigation_timeout: 5_000
+      config :playwright_ex, :expect, timeout: 2_000
+
+  An operation's `timeout:` option overrides them. Timeouts are in milliseconds,
+  `0` or `:infinity` for none. See `PlaywrightEx.Test` and `PlaywrightEx.Expect`.
   """
 
   @schema schema
   @setup_all_keys setup_all_keys
   @setup_keys setup_keys
-
-  @doc false
-  # A timeout of 0 means "don't wait" here, but "wait forever" to Playwright.
-  def driver_timeout(0), do: 1
-  def driver_timeout(timeout), do: timeout
-
-  @doc false
-  # Playwright calls that take no timeout are bounded by the caller, with grace for a busy driver.
-  def client_timeout(:infinity), do: :infinity
-  def client_timeout(timeout), do: max(to_timeout(second: 1), round(timeout * 1.5))
 
   @doc false
   def validate!(config) when is_map(config), do: config |> Keyword.new() |> validate!()

@@ -29,6 +29,11 @@ browser pools, driver supervision and recording. To upgrade:
   `config :playwright_ex, :test, snapshot_dir: "test/snapshots", snapshot_path_template: "{snapshotDir}/{arg}{ext}"`.
 - `screenshot/3` writes to the test's output dir (`PlaywrightEx.Test.output_path/1`); `screenshot_dir` is gone.
 - `step/3` is `PlaywrightEx.Test.step`: steps nest in the trace's test steps.
+- The `timeout` option is gone: PlaywrightEx's timeouts apply, as in Playwright Test. Set
+  `config :playwright_ex, :test, action_timeout: ..., navigation_timeout: ...` (unlimited by default, bounded by the
+  ExUnit test timeout) and `config :playwright_ex, :expect, timeout: ...` (assertions, 5 s by default).
+  An operation's `timeout:` option is passed to Playwright: `0` now means no timeout, as `:infinity` does.
+  `evaluate/3` and `clear_cookies/1` take no `timeout:`, as in Playwright. The `timeout/0` helper in test modules is gone.
 
 ### Changed
 - Correct and reorganise the docs: README setup examples, `with_dialog/3`, `PhoenixTest.Playwright.Selector`, `PhoenixTest.Playwright.Config`.
