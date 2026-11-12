@@ -20,6 +20,15 @@ browser pools, driver supervision and recording. To upgrade:
 - `assert_screenshot/3` writing a missing baseline fails the test at the end of its body, as in Playwright Test.
   `config :playwright_ex, :expect, update_snapshots: :missing` restores passing.
 - Contexts of browsers connected via `ws_endpoint` are not recorded.
+- Removed the `headless`, `slow_mo`, `executable_path` and `browser_launch_timeout` options: use
+  `config :playwright_ex, :test, launch_options: [...]`, or `browser_launch_opts:` per module, which is merged over it.
+  Global `browser_context_opts` belong in `config :playwright_ex, :test, context_options: [...]`; the tag stays.
+  Context options take PlaywrightEx 0.17's forms (`viewport: :null`, `extra_http_headers` as a map).
+- `assert_screenshot/3` resolves names as in Playwright Test, by default `test/<file>-snapshots/<name>-<platform>.png`.
+  `snapshot_dir` and its `__diff__/` are gone: comparison output goes to `test-results/<test>/`. To keep the old layout:
+  `config :playwright_ex, :test, snapshot_dir: "test/snapshots", snapshot_path_template: "{snapshotDir}/{arg}{ext}"`.
+- `screenshot/3` writes to the test's output dir (`PlaywrightEx.Test.output_path/1`); `screenshot_dir` is gone.
+- `step/3` is `PlaywrightEx.Test.step`: steps nest in the trace's test steps.
 
 ### Changed
 - Correct and reorganise the docs: README setup examples, `with_dialog/3`, `PhoenixTest.Playwright.Selector`, `PhoenixTest.Playwright.Config`.

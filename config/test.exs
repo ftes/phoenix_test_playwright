@@ -16,10 +16,7 @@ config :logger, level: :error
 config :phoenix_test,
   endpoint: Endpoint,
   otp_app: :phoenix_test_playwright,
-  playwright: [
-    headless: System.get_env("PW_HEADLESS", "true") in ~w(t true),
-    timeout: String.to_integer(System.get_env("PW_TIMEOUT", "500"))
-  ]
+  playwright: [timeout: String.to_integer(System.get_env("PW_TIMEOUT", "500"))]
 
 config :phoenix_test_playwright, Endpoint,
   server: true,
@@ -49,5 +46,9 @@ config :phoenix_test_playwright,
 config :playwright_ex, :expect, update_snapshots: :missing
 
 config :playwright_ex, :test,
+  launch_options: [headless: System.get_env("PW_HEADLESS", "true") in ~w(t true)],
+  # One directory of baselines, as before PlaywrightEx resolved them.
+  snapshot_dir: "test/snapshots",
+  snapshot_path_template: "{snapshotDir}/{arg}{ext}",
   screenshot: if(System.get_env("PW_SCREENSHOT", "false") in ~w(t true), do: :on, else: :off),
   trace: if(System.get_env("PW_TRACE", "false") in ~w(t true), do: :on, else: :off)

@@ -1,60 +1,35 @@
 browsers = ~w(chromium firefox webkit)a
 
 # styler:sort
-browser_opts = [
-  browser: [
-    type: {:in, browsers},
-    type_doc: "`#{Enum.map_join(browsers, " | ", &":#{&1}")}`",
-    doc: "Defaults to `config :playwright_ex, :test, browser_name: ...` (`:chromium`)."
-  ],
-  browser_launch_opts: [
-    type: :keyword_list,
-    doc: """
-    Additional arguments passed to Playwright [browserType.launch](https://playwright.dev/docs/api/class-browsertype#browser-type-launch),
-    merged over `config :playwright_ex, :test, launch_options: ...`.
-    E.g. `[args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"]]`.
-    Can't be used with remote browser (ws_endpoint).
-    """
-  ],
-  browser_launch_timeout: [
-    type: :timeout,
-    doc: "Timeout in milliseconds. `:infinity` disables the timeout. Shorthand for `browser_launch_opts: [timeout: ...]`."
-  ],
-  executable_path: [
-    type: :string,
-    doc: """
-    Path to a browser executable to run instead of the bundled one.
-    Use at your own risk. Shorthand for `browser_launch_opts: [executable_path: ...]`.
-    """
-  ],
-  headless: [
-    type: :boolean,
-    doc: "Shorthand for `browser_launch_opts: [headless: ...]`."
-  ],
-  slow_mo: [
-    type: :non_neg_integer,
-    doc: "Shorthand for `browser_launch_opts: [slow_mo: ...]`."
-  ]
-]
-
-# styler:sort
 schema_opts = [
   accept_dialogs: [
     default: true,
     type: :boolean,
     doc: "Accept browser dialogs (`alert()`, `confirm()`, `prompt()`)."
   ],
-  browser: browser_opts[:browser],
+  browser: [
+    type: {:in, browsers},
+    type_doc: "`#{Enum.map_join(browsers, " | ", &":#{&1}")}`",
+    doc: "Defaults to `config :playwright_ex, :test, browser_name: ...` (`:chromium`)."
+  ],
   browser_context_opts: [
     default: [],
     type: {:or, [{:map, :atom, :any}, :keyword_list]},
     doc: """
-    Additional arguments passed to Playwright [Browser.newContext](https://playwright.dev/docs/api/class-browser#browser-new-context).
-    E.g. `[http_credentials: %{username: "a", password: "b"}]`.
+    Additional arguments passed to Playwright [Browser.newContext](https://playwright.dev/docs/api/class-browser#browser-new-context)
+    for a test module or test, e.g. `@tag browser_context_opts: [http_credentials: %{username: "a", password: "b"}]`.
+    They win over `config :playwright_ex, :test, context_options: ...`, which is the place for global context options.
     """
   ],
-  browser_launch_opts: browser_opts[:browser_launch_opts],
-  browser_launch_timeout: browser_opts[:browser_launch_timeout],
+  browser_launch_opts: [
+    type: :keyword_list,
+    doc: """
+    Arguments passed to Playwright [browserType.launch](https://playwright.dev/docs/api/class-browsertype#browser-type-launch)
+    for a test module, merged one level deep over `config :playwright_ex, :test, launch_options: ...`,
+    which is the place for global launch options.
+    E.g. `use PhoenixTest.Playwright.Case, browser_launch_opts: [headless: false, slow_mo: 500]`.
+    """
+  ],
   browser_pool: [
     type: {:in, [:shared, :exclusive]},
     type_doc: "`:shared | :exclusive`",
@@ -75,19 +50,11 @@ schema_opts = [
     terminated.
     """
   ],
-  executable_path: browser_opts[:executable_path],
-  headless: browser_opts[:headless],
   js_logger: [
     default: PhoenixTest.Playwright.JsLogger,
     type: :atom,
     type_doc: "`module | nil`",
     doc: "`nil` to disable, or a module that implements the `PhoenixTest.Playwright.JsLogger` behaviour."
-  ],
-  screenshot_dir: [
-    default: "screenshots",
-    type: :string,
-    doc:
-      "Directory where `screenshot/3` saves files. See also `:snapshot_dir` for `assert_screenshot/3` reference images."
   ],
   selector_engines: [
     default: [],
@@ -96,27 +63,13 @@ schema_opts = [
     Define custom Playwright [selector engines](https://playwright.dev/docs/extensibility#custom-selector-engines).
     """
   ],
-  slow_mo: browser_opts[:slow_mo],
-  snapshot_dir: [
-    default: "test/snapshots",
-    type: :string,
-    doc: """
-    Directory where `assert_screenshot/3` reads and writes baseline images.
-
-    Diff images on mismatch are written to `<snapshot_dir>/__diff__/`. Add that subdirectory to `.gitignore`:
-
-    ```
-    **/__diff__/
-    ```
-    """
-  ],
   timeout: [
     default: to_timeout(second: 2),
     type: :timeout,
     doc: """
     Default maximum time for a single browser operation, such as an action, assertion or navigation.
     Many operations accept a `timeout:` option to override it.
-    Also bounds closing browser contexts and pooled browsers. See [Timeouts](#module-timeouts).
+    Also bounds closing browser contexts. See [Timeouts](#module-timeouts).
     """
   ],
   ws_endpoint: [
@@ -137,7 +90,7 @@ schema_opts = [
 
 schema = NimbleOptions.new!(schema_opts)
 
-setup_all_keys = ~w(browser_pool browser browser_launch_opts browser_launch_timeout executable_path headless slow_mo)a
+setup_all_keys = ~w(browser_pool browser browser_launch_opts)a
 setup_keys = ~w(accept_dialogs ecto_sandbox_stop_owner_delay browser_context_opts)a
 
 defmodule PhoenixTest.Playwright.Config do
@@ -163,15 +116,19 @@ defmodule PhoenixTest.Playwright.Config do
   traces, screenshots and videos (also as `@tag trace: :on`), `workers` and `output_dir`:
 
       config :playwright_ex, :test,
+        browser_name: :chromium,
+        launch_options: [headless: false, slow_mo: 500],
+        context_options: [locale: "de-DE"],
         trace: :retain_on_failure,
         screenshot: :only_on_failure
 
-  The browser options above are merged over it.
+  It also resolves `assert_screenshot/3` baselines (`snapshot_dir`, `snapshot_path_template`).
+  `browser_launch_opts` and `browser_context_opts` are merged over its `launch_options` and `context_options`.
 
   ## Timeouts
 
   Timeouts are in milliseconds, or `:infinity` to disable them. `0` means no waiting.
-  This applies to `timeout`, `browser_launch_timeout`,
+  This applies to `timeout`
   and the `timeout:` option of individual operations.
   ExUnit's own test timeout (see `ExUnit.configure/1`) still applies.
   """

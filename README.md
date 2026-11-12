@@ -219,14 +219,13 @@ label with the default `exact_option: true` behavior.
 # config/test.exs
 config :phoenix_test,
   otp_app: :your_app,
-  playwright: [
-    js_logger: nil,
-    browser_launch_timeout: 10_000
-  ]
+  playwright: [js_logger: nil]
 
-# Browser pool, traces, screenshots and videos, see PlaywrightEx.Test
+# Browsers, context options, traces, screenshots, videos and snapshot paths, see PlaywrightEx.Test
 config :playwright_ex, :test,
   browser_name: :chromium,
+  launch_options: [timeout: 10_000],
+  context_options: [locale: "de-DE"],
   trace: :retain_on_failure
 ```
 
@@ -237,17 +236,18 @@ Each test module gets its browser from `PlaywrightEx.Test.BrowserPool`: by defau
 Firefox defaults to `browser_pool: :exclusive`, one browser per running module (at most
 `config :playwright_ex, :test, workers: ...`), as a shared Firefox serializes input across its pages.
 
-You can override some options in your test:
+You can override some options per test module, merged over `config :playwright_ex, :test`:
 
 ```elixir
 defmodule DebuggingFeatureTest do
   use PhoenixTest.Playwright.Case,
     async: true,
     # Show browser and pause 1 second between every interaction
-    headless: false,
-    slow_mo: :timer.seconds(1)
+    browser_launch_opts: [headless: false, slow_mo: :timer.seconds(1)]
 end
 ```
+
+And browser context options per test: `@tag browser_context_opts: [locale: "fr-FR"]`.
 
 
 ## Playwright driver
@@ -328,8 +328,8 @@ Open it in the viewer with `mix playwright_ex.cli show-trace test-results/<test>
 
 ### Step annotations
 
-Use `PhoenixTest.Playwright.step/3` to [group labelled test steps](https://playwright.dev/docs/api/class-tracing#tracing-group)
-with their source code locations. The groups are visible in the Playwright trace viewer.
+Use `PhoenixTest.Playwright.step/3` to label test steps (`PlaywrightEx.Test.step`, Playwright Test's `test.step`)
+with their source code locations. Steps nest, and are visible in the Playwright trace viewer.
 
 ## Screenshots
 
@@ -337,8 +337,17 @@ with their source code locations. The groups are visible in the Playwright trace
 
 ```elixir
 |> visit(~p"/")
-|> screenshot("home.png")    # captures entire page by default, not just viewport
+|> screenshot("home.png")    # captures entire page by default, into test-results/<test>/home.png
 ```
+
+### Visual regression
+
+```elixir
+|> assert_screenshot("home.png")  # test/<test file>-snapshots/home-<platform>.png
+```
+
+Baselines are resolved as in Playwright Test (`snapshot_dir`, `snapshot_path_template` in
+`config :playwright_ex, :test`), and comparison output goes to `test-results/<test>/`.
 
 
 ## Traces and screenshots for failed tests in CI

@@ -27,12 +27,11 @@ phoenix_test-*.tar
 
 # Dialyzer PLTs
 /priv/plts/
-/screenshots/
 # Traces, screenshots and videos recorded by PlaywrightEx.Test.
 /test-results/
 
-# Diff images produced by assert_screenshot/3 on mismatch.
-**/__diff__/
+# New baselines of assert_screenshot/3 tests, removed after each test.
+/test/snapshots/tmp-*/
 
 # Ignore assets that are produced by build tools.
 /priv/static/assets/*

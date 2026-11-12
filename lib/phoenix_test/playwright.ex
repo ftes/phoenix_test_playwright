@@ -30,7 +30,6 @@ defmodule PhoenixTest.Playwright do
   alias PlaywrightEx.Page
   alias PlaywrightEx.PlaywrightError
   alias PlaywrightEx.TimeoutError
-  alias PlaywrightEx.Tracing
 
   defstruct [
     :context,
@@ -144,17 +143,16 @@ defmodule PhoenixTest.Playwright do
       end
   """
   defmacro step(conn, title, fun) do
-    caller_location = [file: Path.absname(__CALLER__.file), line: __CALLER__.line]
+    location = Macro.escape(%{file: __CALLER__.file, line: __CALLER__.line, column: 0})
 
-    quote bind_quoted: [conn: conn, title: title, fun: fun, caller_location: caller_location] do
-      tracing = BrowserContext.tracing(conn.context)
-      Tracing.group!(tracing, title, location: Map.new(caller_location))
-
-      try do
-        fun.(conn)
-      after
-        Tracing.group_end!(tracing)
-      end
+    quote bind_quoted: [conn: conn, title: title, fun: fun, location: location] do
+      PlaywrightEx.Test._step(
+        :pass,
+        title,
+        fn -> fun.(conn) end,
+        [location: location],
+        Map.take(location, [:file, :line])
+      )
 
       conn
     end
@@ -316,7 +314,8 @@ defmodule PhoenixTest.Playwright do
 
   The file type will be inferred from the file extension on the path you provide:
   `.png`, `.jpg`, `.jpeg` or `.webp`. Any other extension raises.
-  The file is saved in `:screenshot_dir`, see `PhoenixTest.Playwright.Config`.
+  The file is saved in the test's output dir (`PlaywrightEx.Test.output_path/1`,
+  e.g. `test-results/<test>/my-screenshot.png`), and kept when the test passes.
   Missing directories are created.
 
   ## Options
@@ -332,7 +331,7 @@ defmodule PhoenixTest.Playwright do
   def screenshot(conn, file_path, opts \\ []) do
     opts = NimbleOptions.validate!(opts, @screenshot_opts_schema)
 
-    path = Path.join(Config.global(:screenshot_dir), file_path)
+    path = PlaywrightEx.Test.output_path(file_path)
     Page.screenshot!(conn.page, ensure_timeout([path: path] ++ opts))
 
     conn
@@ -348,7 +347,7 @@ defmodule PhoenixTest.Playwright do
   # Options are passed on to `Expect.to_have_screenshot/2`. Enums also take strings there.
   @assert_screenshot_opts_schema :to_have_screenshot
                                  |> Expect.__options__()
-                                 |> Keyword.drop(~w(path signal)a)
+                                 |> Keyword.drop(~w(name path signal)a)
                                  |> Enum.map(fn {name, %{spec: spec, doc: doc}} ->
                                    nodes = spec |> Macro.prewalker() |> Enum.to_list()
 
@@ -390,10 +389,6 @@ defmodule PhoenixTest.Playwright do
                                      doc:
                                        "Specify selectors that should be masked when the screenshot is taken. Masked elements will be overlaid with a pink box `#FF00FF` (customized by `:mask_color`) that completely covers its bounding box."
                                    ],
-                                   snapshot_dir: [
-                                     type: :string,
-                                     doc: "Override the global `:snapshot_dir` config for this call."
-                                   ],
                                    timeout: @timeout_opt
                                  )
 
@@ -401,20 +396,22 @@ defmodule PhoenixTest.Playwright do
   @doc """
   Visual regression assertion: compares a screenshot of the current page against a stored baseline.
 
-  `name` is a relative path within `:snapshot_dir` (see `PhoenixTest.Playwright.Config`), including
-  the file extension, which must be `.png` or `.webp` — for example `"home.png"` or `"auth/login.png"`.
-  Subdirectories are created automatically.
+  `name` is the snapshot's name, including the file extension, which must be `.png` or `.webp`.
+  A name with `/` is a path of segments: `"auth/login.png"`.
+  It is resolved as in Playwright Test, by `config :playwright_ex, :test, snapshot_dir: ..., snapshot_path_template: ...`,
+  by default to `test/<test file>-snapshots/<name>-<platform>.png` (see `PlaywrightEx.Test`).
+  To keep all snapshots in one directory, as before 0.20:
+
+      config :playwright_ex, :test, snapshot_dir: "test/snapshots", snapshot_path_template: "{snapshotDir}/{arg}{ext}"
 
   On first run (no baseline exists), the screenshot is saved as the new baseline and the test fails
   at the end of its body, as in Playwright Test, so CI catches a baseline nobody committed.
   With `config :playwright_ex, :expect, update_snapshots: :missing`, a notice is printed and the test passes.
-  On subsequent runs, the live screenshot is compared pixel-by-pixel against the baseline.
-  On mismatch, a diff image is saved to `<snapshot_dir>/__diff__/<name>` and the test fails.
+  On mismatch, the test fails, and the `-actual`, `-expected` and `-diff` images are written to the
+  test's output dir under `test-results/`.
+  `config :playwright_ex, :expect, update_snapshots: :changed` updates baselines instead.
 
-  To update a baseline, delete the snapshot file and re-run the test.
-
-  Playwright writes its comparison output next to the snapshot, so don't name baselines
-  `<name>-actual`, `<name>-expected`, `<name>-previous` or `<name>-diff`.
+  Requires a test of `PhoenixTest.Playwright.Case` (a test registered with `PlaywrightEx.Test`).
 
   ## Options
   #{NimbleOptions.docs(@assert_screenshot_opts_schema)}
@@ -428,41 +425,14 @@ defmodule PhoenixTest.Playwright do
           t()
   def assert_screenshot(conn, name, opts \\ []) do
     opts = NimbleOptions.validate!(opts, @assert_screenshot_opts_schema)
-    {snapshot_dir, opts} = Keyword.pop(opts, :snapshot_dir, Config.global(:snapshot_dir))
-    snapshot_path = Path.join(snapshot_dir, name)
     {selector, opts} = Keyword.pop(opts, :selector)
     target = if selector, do: locator(conn, selector), else: conn.page
+    opts = opts |> ensure_timeout() |> maybe_convert_mask(conn) |> Keyword.put(:name, Path.split(name))
 
-    opts =
-      opts
-      |> ensure_timeout()
-      |> maybe_convert_mask(conn)
-      |> Keyword.put(:path, snapshot_path)
-
-    actual_existed? = snapshot_path |> snapshot_output_path("-actual") |> File.exists?()
-    result = Expect.to_have_screenshot(target, opts)
-    output_files = snapshot_output_files(result, actual_existed?, snapshot_path)
-    diff_written? = keep_only_diff_file(output_files, snapshot_path, Path.join([snapshot_dir, "__diff__", name]))
-
-    case result do
-      :ok ->
-        conn
-
-      {:error, %ExpectError{message: msg}} when diff_written? ->
-        flunk("Screenshot mismatch for #{name}: #{screenshot_diff_summary(msg)}")
-
-      {:error, %ExpectError{message: msg}} ->
-        flunk(msg)
-
-      {:error, error} ->
-        raise error
-    end
-  end
-
-  defp screenshot_diff_summary(message) do
-    case Regex.run(~r/^\s*(.+ are different\.)\s*$/m, message) do
-      [_, summary] -> summary
-      nil -> message
+    case Expect.to_have_screenshot(target, opts) do
+      :ok -> conn
+      {:error, %ExpectError{message: msg}} -> flunk(msg)
+      {:error, error} -> raise error
     end
   end
 
@@ -471,41 +441,6 @@ defmodule PhoenixTest.Playwright do
       {nil, opts} -> opts
       {selectors, opts} -> Keyword.put(opts, :mask, Enum.map(selectors, &locator(conn, &1)))
     end
-  end
-
-  # The files Playwright wrote next to the snapshot: `-actual` when it writes a baseline, the attachments on failure.
-  defp snapshot_output_files(:ok, true = _actual_existed?, _snapshot_path), do: []
-
-  defp snapshot_output_files(:ok, false = _actual_existed?, snapshot_path) do
-    [snapshot_output_path(snapshot_path, "-actual")]
-  end
-
-  defp snapshot_output_files(
-         {:error, %ExpectError{matcherResult: %{attachments: attachments}}},
-         _actual_existed?,
-         snapshot_path
-       ) do
-    Enum.map(attachments, &Path.join(Path.dirname(snapshot_path), &1.name))
-  end
-
-  defp snapshot_output_files(_result, _actual_existed?, _snapshot_path), do: []
-
-  # Only the diff is of interest, and it goes in a directory that can be gitignored.
-  defp keep_only_diff_file(output_files, snapshot_path, diff_path) do
-    playwright_diff_path = snapshot_output_path(snapshot_path, "-diff")
-    for file <- output_files -- [playwright_diff_path], do: File.rm(file)
-
-    if playwright_diff_path in output_files do
-      File.mkdir_p!(Path.dirname(diff_path))
-      File.rename!(playwright_diff_path, diff_path)
-      true
-    else
-      false
-    end
-  end
-
-  defp snapshot_output_path(snapshot_path, suffix) do
-    Path.rootname(snapshot_path) <> suffix <> Path.extname(snapshot_path)
   end
 
   @type_opts_schema [

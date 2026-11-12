@@ -39,13 +39,13 @@ defmodule PhoenixTest.PlaywrightTest do
     test "takes a screenshot of the current page as a PNG", %{conn: conn} do
       name = "png_#{:erlang.system_time(:second)}.png"
       screenshot(conn, name, full_page: false, omit_background: true)
-      assert File.exists?("screenshots/#{name}")
+      assert File.exists?(PlaywrightEx.Test.output_path(name))
     end
 
     test "infers the image type from the file extension", %{conn: conn} do
       name = "inferred_#{System.unique_integer([:positive])}.jpg"
       screenshot(conn, name)
-      assert <<0xFF, 0xD8, 0xFF, _rest::binary>> = File.read!("screenshots/#{name}")
+      assert <<0xFF, 0xD8, 0xFF, _rest::binary>> = File.read!(PlaywrightEx.Test.output_path(name))
     end
 
     test "ignores omit_background for a JPEG", %{conn: conn} do
@@ -56,7 +56,7 @@ defmodule PhoenixTest.PlaywrightTest do
       |> screenshot(plain, omit_background: false)
       |> screenshot(omitted, omit_background: true)
 
-      assert File.read!("screenshots/#{omitted}") == File.read!("screenshots/#{plain}")
+      assert File.read!(PlaywrightEx.Test.output_path(omitted)) == File.read!(PlaywrightEx.Test.output_path(plain))
     end
 
     test "full page screenshots are larger in file size than non-full-page", %{conn: conn} do
@@ -67,8 +67,8 @@ defmodule PhoenixTest.PlaywrightTest do
       |> screenshot(full_page_name, full_page: true)
       |> screenshot(viewport_name, full_page: false)
 
-      assert {:ok, %File.Stat{size: full_page_size}} = File.stat("screenshots/#{full_page_name}")
-      assert {:ok, %File.Stat{size: viewport_size}} = File.stat("screenshots/#{viewport_name}")
+      assert {:ok, %File.Stat{size: full_page_size}} = File.stat(PlaywrightEx.Test.output_path(full_page_name))
+      assert {:ok, %File.Stat{size: viewport_size}} = File.stat(PlaywrightEx.Test.output_path(viewport_name))
 
       assert full_page_size > viewport_size
     end
@@ -76,13 +76,15 @@ defmodule PhoenixTest.PlaywrightTest do
 
   describe "assert_screenshot/3" do
     setup %{conn: conn} do
-      [conn: set_html(conn, @screenshot_html)]
+      # A dir of new baselines per test, see `config :playwright_ex, :test` in config/test.exs.
+      dir = "tmp-#{System.unique_integer([:positive])}"
+      on_exit(fn -> File.rm_rf!(Path.join("test/snapshots", dir)) end)
+      [conn: set_html(conn, @screenshot_html), dir: dir]
     end
 
-    @tag :tmp_dir
-    test "captures baseline on first run and writes file", %{conn: conn, tmp_dir: tmp_dir} do
-      assert_screenshot(conn, "capture.png", snapshot_dir: tmp_dir)
-      assert File.exists?(Path.join(tmp_dir, "capture.png"))
+    test "captures baseline on first run and writes file", %{conn: conn, dir: dir} do
+      assert_screenshot(conn, "#{dir}/capture.png")
+      assert File.exists?("test/snapshots/#{dir}/capture.png")
     end
 
     test "passes silently when screenshot matches baseline", %{conn: conn} do
@@ -92,110 +94,83 @@ defmodule PhoenixTest.PlaywrightTest do
 
     test "raises when screenshot does not match baseline", %{conn: conn} do
       assert_raise ExUnit.AssertionError,
-                   ~r"Screenshot mismatch for baseline\.png: \d+ pixels \(ratio \d+(?:\.\d+)? of all image pixels\) are different\.",
+                   ~r"\d+ pixels \(ratio \d+(?:\.\d+)? of all image pixels\) are different\.",
                    fn ->
                      conn
                      |> set_html("<h1>Different screenshot</h1>")
                      |> assert_screenshot("baseline.png")
                    end
 
-      on_exit(fn -> File.rm!("test/snapshots/__diff__/baseline.png") end)
+      assert [_diff] = output_files("baseline-diff.png")
+      refute File.exists?("test/snapshots/baseline-diff.png")
     end
 
-    @tag :tmp_dir
-    test "raises on invalid clip option", %{conn: conn, tmp_dir: tmp_dir} do
+    test "raises on invalid clip option", %{conn: conn, dir: dir} do
       assert_raise ExUnit.AssertionError,
                    ~r"Expected options.clip.width to be greater than 0.",
-                   fn ->
-                     assert_screenshot(conn, "clip.png",
-                       snapshot_dir: tmp_dir,
-                       clip: %{x: 0, y: 0, width: 0, height: 100}
-                     )
-                   end
+                   fn -> assert_screenshot(conn, "#{dir}/clip.png", clip: %{x: 0, y: 0, width: 0, height: 100}) end
     end
 
-    @tag :tmp_dir
-    test "accepts enum options as strings and atoms", %{conn: conn, tmp_dir: tmp_dir} do
-      assert_screenshot(conn, "strings.png", snapshot_dir: tmp_dir, animations: "disabled", caret: "hide", scale: "css")
-      assert_screenshot(conn, "atoms.png", snapshot_dir: tmp_dir, animations: :allow, caret: :initial, scale: :device)
+    test "accepts enum options as strings and atoms", %{conn: conn, dir: dir} do
+      assert_screenshot(conn, "#{dir}/strings.png", animations: "disabled", caret: "hide", scale: "css")
+      assert_screenshot(conn, "#{dir}/atoms.png", animations: :allow, caret: :initial, scale: :device)
     end
 
-    @tag :tmp_dir
-    test "creates subdirectory for nested name", %{conn: conn, tmp_dir: tmp_dir} do
-      assert_screenshot(conn, "subdir/nested.png", snapshot_dir: tmp_dir)
-      assert File.exists?(Path.join(tmp_dir, "subdir/nested.png"))
+    test "creates subdirectory for nested name", %{conn: conn, dir: dir} do
+      assert_screenshot(conn, "#{dir}/subdir/nested.png")
+      assert File.exists?("test/snapshots/#{dir}/subdir/nested.png")
     end
 
-    @tag :tmp_dir
-    test "scopes screenshot to element when selector opt is given", %{conn: conn, tmp_dir: tmp_dir} do
-      assert_screenshot(conn, "selector.png", selector: "h1", snapshot_dir: tmp_dir)
+    test "scopes screenshot to element when selector opt is given", %{conn: conn, dir: dir} do
+      assert_screenshot(conn, "#{dir}/selector.png", selector: "h1")
 
       # Change the color of a sibling element — full-page screenshot would differ, but scoped to h1 it still matches
       conn
       |> evaluate("document.querySelector('#sibling').style.backgroundColor = 'blue'")
-      |> assert_screenshot("selector.png", selector: "h1", snapshot_dir: tmp_dir)
+      |> assert_screenshot("#{dir}/selector.png", selector: "h1")
     end
 
-    @tag :tmp_dir
-    test "masks elements so changes within them don't cause mismatch", %{conn: conn, tmp_dir: tmp_dir} do
-      assert_screenshot(conn, "mask.png", mask: ["h1"], snapshot_dir: tmp_dir)
+    test "masks elements so changes within them don't cause mismatch", %{conn: conn, dir: dir} do
+      assert_screenshot(conn, "#{dir}/mask.png", mask: ["h1"])
 
       # Change the h1 text — masked element differs, but screenshot still matches
       conn
       |> evaluate("document.querySelector('h1').textContent = 'changed'")
-      |> assert_screenshot("mask.png", mask: ["h1"], snapshot_dir: tmp_dir)
+      |> assert_screenshot("#{dir}/mask.png", mask: ["h1"])
     end
 
-    @tag :tmp_dir
-    test "writes diff file when mismatch produces a diff image", %{conn: conn, tmp_dir: tmp_dir} do
-      assert_screenshot(conn, "diff.png", selector: "h1", snapshot_dir: tmp_dir)
+    test "leaves only the baseline next to a new snapshot", %{conn: conn, dir: dir} do
+      assert_screenshot(conn, "#{dir}/only.png")
 
-      assert_raise ExUnit.AssertionError,
-                   ~r/Screenshot mismatch for diff\.png: \d+ pixels \(ratio \d+(?:\.\d+)? of all image pixels\) are different./,
-                   fn ->
-                     conn
-                     |> evaluate("document.querySelector('h1').style.color = 'red'")
-                     |> assert_screenshot("diff.png", selector: "h1", snapshot_dir: tmp_dir)
-                   end
-
-      assert File.exists?(Path.join([tmp_dir, "__diff__", "diff.png"]))
+      assert File.ls!("test/snapshots/#{dir}") == ["only.png"]
     end
 
-    @tag :tmp_dir
-    test "leaves only the baseline next to a new snapshot", %{conn: conn, tmp_dir: tmp_dir} do
-      assert_screenshot(conn, "only.png", snapshot_dir: tmp_dir)
-
-      assert File.ls!(tmp_dir) == ["only.png"]
-    end
-
-    @tag :tmp_dir
-    test "keeps other files next to a matching snapshot", %{conn: conn, tmp_dir: tmp_dir} do
-      assert_screenshot(conn, "kept.png", snapshot_dir: tmp_dir)
-      siblings = Enum.map(~w(kept-previous.png kept-actual.png), &Path.join(tmp_dir, &1))
+    test "keeps other files next to a matching snapshot", %{conn: conn, dir: dir} do
+      assert_screenshot(conn, "#{dir}/kept.png")
+      siblings = Enum.map(~w(kept-previous.png kept-actual.png), &Path.join("test/snapshots/#{dir}", &1))
       Enum.each(siblings, &File.write!(&1, "unrelated"))
 
-      assert_screenshot(conn, "kept.png", snapshot_dir: tmp_dir)
+      assert_screenshot(conn, "#{dir}/kept.png")
 
       assert Enum.map(siblings, &File.read!/1) == ["unrelated", "unrelated"]
     end
 
     @tag :tmp_dir
-    test "applies the :style_path stylesheet", %{conn: conn, tmp_dir: tmp_dir} do
+    test "applies the :style_path stylesheet", %{conn: conn, dir: dir, tmp_dir: tmp_dir} do
       style_path = Path.join(tmp_dir, "hide.css")
       File.write!(style_path, "#sibling { visibility: hidden; }")
-      assert_screenshot(conn, "styled.png", snapshot_dir: tmp_dir, style_path: style_path)
+      assert_screenshot(conn, "#{dir}/styled.png", style_path: style_path)
 
       # The hidden sibling changes, so this only matches because the stylesheet is applied.
       conn
       |> evaluate("document.querySelector('#sibling').style.backgroundColor = 'blue'")
-      |> assert_screenshot("styled.png", snapshot_dir: tmp_dir, style_path: style_path)
+      |> assert_screenshot("#{dir}/styled.png", style_path: style_path)
     end
 
-    @tag :tmp_dir
-    test "rejects invalid option values", %{conn: conn, tmp_dir: tmp_dir} do
-      for opt <- [animations: false, caret: "bogus", full_page: "yes", threshold: "0.1"] do
+    test "rejects invalid option values", %{conn: conn, dir: dir} do
+      for opt <- [animations: false, caret: "bogus", full_page: "yes", threshold: "0.1", snapshot_dir: "test"] do
         assert_raise NimbleOptions.ValidationError, fn ->
-          assert_screenshot(conn, "invalid.png", [snapshot_dir: tmp_dir] ++ [opt])
+          assert_screenshot(conn, "#{dir}/invalid.png", [opt])
         end
       end
     end
@@ -207,9 +182,11 @@ defmodule PhoenixTest.PlaywrightTest do
         |> assert_screenshot("baseline.png", timeout: 1)
       end
 
-      refute File.exists?("test/snapshots/__diff__/baseline.png")
+      assert output_files("baseline-diff.png") == []
     end
   end
+
+  defp output_files(name), do: Path.wildcard(Path.join(PlaywrightEx.Test.info().output_dir, "**/#{name}"))
 
   describe "browser dialog handling: accept_dialogs config and with_dialog/3" do
     @dialog_html """

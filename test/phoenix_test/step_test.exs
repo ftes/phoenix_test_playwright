@@ -1,10 +1,43 @@
-defmodule PhoenixTest.StepTest do
-  use PhoenixTest.Playwright.Case, async: true, trace: false
+defmodule PhoenixTest.StepTest.TraceCase do
+  @moduledoc false
+  # A template's own `setup` runs before those its `using` brings in, so this `on_exit` runs
+  # after the one of `use PlaywrightEx.Test`, which writes `trace.zip`.
+  use ExUnit.CaseTemplate
 
+  using do
+    quote do
+      use PlaywrightEx.Test
+    end
+  end
+
+  setup do
+    {:ok, trace_checks} = Agent.start(fn -> nil end)
+
+    on_exit(fn ->
+      {output_dir, check} = Agent.get(trace_checks, & &1)
+      {:ok, handle} = :zip.zip_open(String.to_charlist(Path.join(output_dir, "trace.zip")), [:memory])
+      {:ok, {_, trace}} = :zip.zip_get(~c"test.trace", handle)
+      :ok = :zip.zip_close(handle)
+      check.(trace)
+    end)
+
+    [trace_checks: trace_checks]
+  end
+end
+
+defmodule PhoenixTest.StepTest do
+  use PhoenixTest.StepTest.TraceCase, async: true
+
+  import PhoenixTest
+  import PhoenixTest.Playwright, only: [step: 3, type: 3]
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 
-  alias PlaywrightEx.BrowserContext
-  alias PlaywrightEx.Tracing
+  alias PhoenixTest.Playwright.Case, as: PlaywrightCase
+
+  setup_all :do_setup_all
+  setup :do_setup
+
+  @moduletag trace: :on
 
   @html """
   <input
@@ -15,8 +48,20 @@ defmodule PhoenixTest.StepTest do
   """
 
   describe "step/3" do
-    test "produces labels that can be seen in the trace viewer", %{conn: conn} do
-      start_tracing(conn)
+    test "produces nested labels at their call site in the trace", %{conn: conn, trace_checks: trace_checks} do
+      output_dir = PlaywrightEx.Test.info().output_dir
+
+      Agent.update(trace_checks, fn _ ->
+        {output_dir,
+         fn trace ->
+           steps = for line <- String.split(trace, "\n"), line =~ ~s("method":"test.step"), do: JSON.decode!(line)
+           [outer, inner1, inner2] = steps
+           assert outer["title"] == "Fill in form with test data"
+           assert [inner1["title"], inner2["title"]] == ["Type into text input", "Verify form data changed"]
+           assert inner1["parentId"] == outer["callId"] and inner2["parentId"] == outer["callId"]
+           assert Enum.all?(steps, &String.ends_with?(hd(&1["stack"])["file"], "test/phoenix_test/step_test.exs"))
+         end}
+      end)
 
       conn
       |> set_html(@html)
@@ -29,28 +74,9 @@ defmodule PhoenixTest.StepTest do
           assert_has(conn, "#changed-form-data", text: "text: Hello from custom step!")
         end)
       end)
-
-      trace = stop_tracing(conn)
-      assert trace =~ ~r/Fill in form with test data.*step_test.exs.*"line":23/
-      assert trace =~ ~r/Type into text input.*step_test.exs.*"line":25/
-      assert trace =~ ~r/Verify form data changed.*step_test.exs.*"line":28/
     end
   end
 
-  defp start_tracing(conn) do
-    tracing = BrowserContext.tracing(conn.context)
-    Tracing.start!(tracing)
-  end
-
-  defp stop_tracing(conn) do
-    tracing = BrowserContext.tracing(conn.context)
-    zip_file = Path.join(System.tmp_dir!(), "step-test-#{System.unique_integer([:positive])}.zip")
-    Tracing.stop!(tracing, path: zip_file)
-
-    {:ok, handle} = :zip.zip_open(String.to_charlist(zip_file), [:memory])
-    {:ok, {_, trace_contents}} = :zip.zip_get(~c"trace.trace", handle)
-    :ok = :zip.zip_close(handle)
-
-    trace_contents
-  end
+  defp do_setup_all(context), do: PlaywrightCase.do_setup_all(context)
+  defp do_setup(context), do: PlaywrightCase.do_setup(context)
 end

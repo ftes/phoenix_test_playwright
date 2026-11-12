@@ -6,15 +6,12 @@ defmodule PhoenixTest.Playwright.TimeoutTest do
 
   test "configuration accepts zero, finite, and infinite timeouts" do
     for timeout <- [0, 100, :infinity] do
-      config = Config.validate!(timeout: timeout, browser_launch_timeout: timeout)
-
-      assert config[:timeout] == timeout
-      assert config[:browser_launch_timeout] == timeout
+      assert Config.validate!(timeout: timeout)[:timeout] == timeout
     end
   end
 
   test "configuration rejects invalid timeouts" do
-    for key <- [:timeout, :browser_launch_timeout], value <- [-1, :forever] do
+    for key <- [:timeout], value <- [-1, :forever] do
       assert_raise NimbleOptions.ValidationError, fn -> Config.validate!([{key, value}]) end
     end
   end

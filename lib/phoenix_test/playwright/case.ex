@@ -127,7 +127,7 @@ defmodule PhoenixTest.Playwright.Case do
     user_agent = checkout_ecto_repos(config, context)
     base_url = Application.fetch_env!(:phoenix_test, :base_url)
     context_opts_defaults = [base_url: base_url, user_agent: user_agent]
-    context_opts = context_opts_defaults |> Keyword.merge(config[:browser_context_opts]) |> normalize_context_opts()
+    context_opts = Keyword.merge(context_opts_defaults, config[:browser_context_opts])
     browser_context = Browser.new_context!(context.playwright_browser, context_opts)
     JsLogger.attach(browser_context, Playwright.Config.global(:js_logger))
 
@@ -140,18 +140,6 @@ defmodule PhoenixTest.Playwright.Case do
 
     Playwright.build(%{context: browser_context, page: page, config: config})
   end
-
-  # Forms that PlaywrightEx 0.15 accepted and 0.17 would silently ignore.
-  defp normalize_context_opts(opts) do
-    Enum.map(opts, fn
-      {:viewport, nil} -> {:viewport, :null}
-      {:extra_http_headers, headers} -> {:extra_http_headers, Map.new(headers, &normalize_header/1)}
-      opt -> opt
-    end)
-  end
-
-  defp normalize_header(%{name: name, value: value}), do: {to_string(name), to_string(value)}
-  defp normalize_header({name, value}), do: {to_string(name), to_string(value)}
 
   @includes_ecto Code.ensure_loaded?(EctoSandbox) && Code.ensure_loaded?(PhoenixSandbox)
 
