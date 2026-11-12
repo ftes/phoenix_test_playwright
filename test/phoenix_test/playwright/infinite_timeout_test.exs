@@ -14,8 +14,7 @@ defmodule PhoenixTest.Playwright.InfiniteTimeoutTest do
     config =
       Keyword.merge(original,
         timeout: :infinity,
-        browser_launch_timeout: :infinity,
-        browser_pool_checkout_timeout: :infinity
+        browser_launch_timeout: :infinity
       )
 
     Application.put_env(:phoenix_test, :playwright, config)
@@ -25,7 +24,7 @@ defmodule PhoenixTest.Playwright.InfiniteTimeoutTest do
     PlaywrightCase.do_setup(context)
   end
 
-  @tag browser_pool: false
+  @tag browser_pool: :exclusive
   test "global infinity covers browser launch, commands, assertions, and download saves", %{conn: conn} do
     download_url = Application.fetch_env!(:phoenix_test, :base_url) <> "/pw/download"
 

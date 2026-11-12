@@ -405,8 +405,9 @@ defmodule PhoenixTest.Playwright do
   the file extension, which must be `.png` or `.webp` — for example `"home.png"` or `"auth/login.png"`.
   Subdirectories are created automatically.
 
-  On first run (no baseline exists), the screenshot is saved as the new baseline, a notice is printed
-  and the test passes.
+  On first run (no baseline exists), the screenshot is saved as the new baseline and the test fails
+  at the end of its body, as in Playwright Test, so CI catches a baseline nobody committed.
+  With `config :playwright_ex, :expect, update_snapshots: :missing`, a notice is printed and the test passes.
   On subsequent runs, the live screenshot is compared pixel-by-pixel against the baseline.
   On mismatch, a diff image is saved to `<snapshot_dir>/__diff__/<name>` and the test fails.
 

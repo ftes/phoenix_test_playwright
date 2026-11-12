@@ -18,14 +18,7 @@ config :phoenix_test,
   otp_app: :phoenix_test_playwright,
   playwright: [
     headless: System.get_env("PW_HEADLESS", "true") in ~w(t true),
-    screenshot: System.get_env("PW_SCREENSHOT", "false") in ~w(t true),
-    trace: System.get_env("PW_TRACE", "false") in ~w(t true),
-    timeout: String.to_integer(System.get_env("PW_TIMEOUT", "500")),
-    browser_pool: :chromium_pool,
-    browser_pools: [
-      [id: :chromium_pool, browser: :chromium],
-      [id: :firefox_pool, browser: :firefox]
-    ]
+    timeout: String.to_integer(System.get_env("PW_TIMEOUT", "500"))
   ]
 
 config :phoenix_test_playwright, Endpoint,
@@ -51,3 +44,10 @@ config :phoenix_test_playwright, Repo,
 
 config :phoenix_test_playwright,
   ecto_repos: [Repo]
+
+# Tests of assert_screenshot/3 write new baselines: pass instead of failing the test.
+config :playwright_ex, :expect, update_snapshots: :missing
+
+config :playwright_ex, :test,
+  screenshot: if(System.get_env("PW_SCREENSHOT", "false") in ~w(t true), do: :on, else: :off),
+  trace: if(System.get_env("PW_TRACE", "false") in ~w(t true), do: :on, else: :off)

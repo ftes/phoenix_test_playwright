@@ -1,11 +1,13 @@
 defmodule PhoenixTest.Playwright.Supervisor do
   @moduledoc """
-  Supervises the Playwright driver and browser pools.
+  Runs the local Playwright driver that connects to a remote Playwright server,
+  when `ws_endpoint` is configured.
 
-  Runs a local Node.js Playwright driver. Browsers are launched by the driver, or,
-  when `ws_endpoint` is configured, the driver connects to a remote Playwright server.
+  Not needed otherwise: `PlaywrightEx.Test.BrowserPool` starts the drivers of local
+  browsers on first use and stops them after the suite. Without `ws_endpoint`, this
+  supervisor starts nothing.
 
-  Start it in `test/test_helper.exs`:
+  With `ws_endpoint`, start it in `test/test_helper.exs`:
 
       {:ok, _} = PhoenixTest.Playwright.Supervisor.start_link()
   """
@@ -13,6 +15,8 @@ defmodule PhoenixTest.Playwright.Supervisor do
   use Supervisor
 
   alias PhoenixTest.Playwright.Config
+
+  @driver PhoenixTest.Playwright.Driver
 
   @doc """
   Starts the supervisor with the global `config :phoenix_test, :playwright`, and raises if that is invalid.
@@ -25,13 +29,23 @@ defmodule PhoenixTest.Playwright.Supervisor do
     Supervisor.start_link(__MODULE__, Config.global(), name: __MODULE__)
   end
 
+  @doc false
+  def driver do
+    if !Process.whereis(__MODULE__) do
+      raise "ws_endpoint needs `{:ok, _} = PhoenixTest.Playwright.Supervisor.start_link()` in test/test_helper.exs"
+    end
+
+    @driver
+  end
+
   @impl true
-  def init(_config) do
-    children = [
-      PlaywrightEx.Supervisor,
-      PhoenixTest.Playwright.DriverWatcher,
-      PhoenixTest.Playwright.BrowserPoolSupervisor
-    ]
+  def init(config) do
+    children =
+      if config[:ws_endpoint] do
+        [{PlaywrightEx.Supervisor, name: @driver}, {PhoenixTest.Playwright.DriverWatcher, @driver}]
+      else
+        []
+      end
 
     Supervisor.init(children, strategy: :rest_for_one)
   end

@@ -1,59 +1,41 @@
-screenshot_opts_schema = [
-  full_page: [type: :boolean, default: true],
-  omit_background: [type: :boolean, default: false]
-]
-
 browsers = ~w(chromium firefox webkit)a
 
 # styler:sort
 browser_opts = [
   browser: [
-    default: :chromium,
     type: {:in, browsers},
     type_doc: "`#{Enum.map_join(browsers, " | ", &":#{&1}")}`",
-    doc: "Browser to run the tests in."
+    doc: "Defaults to `config :playwright_ex, :test, browser_name: ...` (`:chromium`)."
   ],
   browser_launch_opts: [
-    default: [],
     type: :keyword_list,
     doc: """
-    Additional arguments passed to Playwright [browserType.launch](https://playwright.dev/docs/api/class-browsertype#browser-type-launch).
+    Additional arguments passed to Playwright [browserType.launch](https://playwright.dev/docs/api/class-browsertype#browser-type-launch),
+    merged over `config :playwright_ex, :test, launch_options: ...`.
     E.g. `[args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"]]`.
     Can't be used with remote browser (ws_endpoint).
     """
   ],
   browser_launch_timeout: [
-    default: to_timeout(second: 4),
     type: :timeout,
-    doc: """
-    Maximum time to launch a browser, or to connect to the remote one (`ws_endpoint`).
-    Also bounds closing a non-pooled browser after its tests. See [Timeouts](#module-timeouts).
-    """
+    doc: "Timeout in milliseconds. `:infinity` disables the timeout. Shorthand for `browser_launch_opts: [timeout: ...]`."
   ],
   executable_path: [
     type: :string,
     doc: """
     Path to a browser executable to run instead of the bundled one.
-    Use at your own risk.
+    Use at your own risk. Shorthand for `browser_launch_opts: [executable_path: ...]`.
     """
   ],
   headless: [
-    default: true,
     type: :boolean,
-    doc: "Run the browser without a visible window. Set to `false` to watch tests run."
+    doc: "Shorthand for `browser_launch_opts: [headless: ...]`."
   ],
   slow_mo: [
-    default: to_timeout(second: 0),
     type: :non_neg_integer,
-    doc: "Pause in milliseconds between browser operations."
+    doc: "Shorthand for `browser_launch_opts: [slow_mo: ...]`."
   ]
 ]
-
-browser_pool_opts =
-  [
-    id: [required: true, type: :atom],
-    size: [required: false, type: :integer, doc: "The default value is `System.schedulers_online() / 2`."]
-  ] ++ browser_opts
 
 # styler:sort
 schema_opts = [
@@ -74,29 +56,13 @@ schema_opts = [
   browser_launch_opts: browser_opts[:browser_launch_opts],
   browser_launch_timeout: browser_opts[:browser_launch_timeout],
   browser_pool: [
-    default: :default_pool,
-    type: {:or, [:atom, {:in, [false, nil]}]},
-    type_doc: "`atom | false`",
+    type: {:in, [:shared, :exclusive]},
+    type_doc: "`:shared | :exclusive`",
     doc: """
-    Reuse a browser from this pool instead of launching a new browser per test suite.
-    `false` to disable pooling and launch a new browser per test suite.
-    """
-  ],
-  browser_pool_checkout_timeout: [
-    default: to_timeout(minute: 1),
-    type: :timeout,
-    doc: """
-    Maximum time a test module waits in `setup_all` for a browser from its pool,
-    including launching one if needed. See [Timeouts](#module-timeouts).
-    """
-  ],
-  browser_pools: [
-    required: false,
-    default: [[id: :default_pool]],
-    type: {:list, {:non_empty_keyword_list, browser_pool_opts}},
-    doc: """
-    Supported keys:
-    #{NimbleOptions.docs(browser_pool_opts, nest_level: 1)}
+    How to get a browser from `PlaywrightEx.Test.BrowserPool`:
+    `:shared` (one browser for all test modules at once) or
+    `:exclusive` (one browser per test module, at most `config :playwright_ex, :test, workers: ...` at once).
+    Defaults to `:exclusive` for Firefox and `:shared` otherwise.
     """
   ],
   ecto_sandbox_stop_owner_delay: [
@@ -116,16 +82,6 @@ schema_opts = [
     type: :atom,
     type_doc: "`module | nil`",
     doc: "`nil` to disable, or a module that implements the `PhoenixTest.Playwright.JsLogger` behaviour."
-  ],
-  screenshot: [
-    default: false,
-    type: {:or, [:boolean, non_empty_keyword_list: screenshot_opts_schema]},
-    type_doc: "`boolean | keyword`",
-    doc: """
-    Either a boolean or a keyword list:
-
-    #{NimbleOptions.docs(screenshot_opts_schema, nest_level: 1)}
-    """
   ],
   screenshot_dir: [
     default: "screenshots",
@@ -163,18 +119,6 @@ schema_opts = [
     Also bounds closing browser contexts and pooled browsers. See [Timeouts](#module-timeouts).
     """
   ],
-  trace: [
-    default: false,
-    type: {:in, [false, true, :open]},
-    type_doc: "`boolean | :open`",
-    doc:
-      "`true` records a [trace](https://playwright.dev/docs/trace-viewer) of each test, `:open` also opens it in the viewer."
-  ],
-  trace_dir: [
-    default: "traces",
-    type: :string,
-    doc: "Directory where traces are saved."
-  ],
   ws_endpoint: [
     type: :string,
     doc: """
@@ -182,8 +126,6 @@ schema_opts = [
     If provided, browsers run on that server instead of being launched locally.
     The connection goes through a local Playwright driver that PlaywrightEx downloads on first use.
     Example: "ws://localhost:3000"
-
-    `browser_pool` should be set to `false`.
 
     This is useful for:
     - Containers without browser system dependencies
@@ -196,8 +138,7 @@ schema_opts = [
 schema = NimbleOptions.new!(schema_opts)
 
 setup_all_keys = ~w(browser_pool browser browser_launch_opts browser_launch_timeout executable_path headless slow_mo)a
-setup_keys = ~w(accept_dialogs ecto_sandbox_stop_owner_delay screenshot trace browser_context_opts)a
-merge_global_into_browser_pool_keys = ~w(browser browser_launch_opts browser_launch_timeout headless slow_mo)a
+setup_keys = ~w(accept_dialogs ecto_sandbox_stop_owner_delay browser_context_opts)a
 
 defmodule PhoenixTest.Playwright.Config do
   @moduledoc """
@@ -215,18 +156,28 @@ defmodule PhoenixTest.Playwright.Config do
   Options that can be overridden per test via ExUnit `@tag`:
   #{Enum.map_join(setup_keys, "\n", &"- `:#{&1}`")}
 
+  ## PlaywrightEx options
+
+  Browsers come from `PlaywrightEx.Test.BrowserPool`, and each test is registered with
+  `PlaywrightEx.Test`. So `config :playwright_ex, :test` applies too, e.g. for
+  traces, screenshots and videos (also as `@tag trace: :on`), `workers` and `output_dir`:
+
+      config :playwright_ex, :test,
+        trace: :retain_on_failure,
+        screenshot: :only_on_failure
+
+  The browser options above are merged over it.
+
   ## Timeouts
 
   Timeouts are in milliseconds, or `:infinity` to disable them. `0` means no waiting.
-  This applies to `timeout`, `browser_launch_timeout`, `browser_pool_checkout_timeout`,
+  This applies to `timeout`, `browser_launch_timeout`,
   and the `timeout:` option of individual operations.
   ExUnit's own test timeout (see `ExUnit.configure/1`) still applies.
   """
 
   @schema schema
-  @screenshot_opts_schema screenshot_opts_schema
   @setup_all_keys setup_all_keys
-  @merge_global_into_browser_pool_keys merge_global_into_browser_pool_keys
   @setup_keys setup_keys
 
   @doc false
@@ -257,20 +208,6 @@ defmodule PhoenixTest.Playwright.Config do
     |> normalize()
   end
 
-  @doc false
-  def global(:browser_pools) do
-    all = Application.get_env(:phoenix_test, :playwright, [])
-    global = Keyword.take(all, @merge_global_into_browser_pool_keys)
-
-    all
-    |> Keyword.replace_lazy(:browser_pools, fn pools ->
-      Enum.map(pools, fn p -> Keyword.merge(global, p) end)
-    end)
-    |> NimbleOptions.validate!(@schema)
-    |> normalize()
-    |> Keyword.fetch!(:browser_pools)
-  end
-
   def global(key), do: Keyword.fetch!(global(), key)
 
   @doc false
@@ -281,12 +218,6 @@ defmodule PhoenixTest.Playwright.Config do
 
   defp normalize(config), do: Keyword.new(config, fn {key, value} -> {key, normalize(key, value)} end)
 
-  defp normalize(:browser_pool, nil) do
-    IO.warn("browser_pool: nil is deprecated, use browser_pool: false instead")
-    false
-  end
-
   defp normalize(:browser_context_opts, value), do: Keyword.new(value)
-  defp normalize(:screenshot, true), do: NimbleOptions.validate!([], @screenshot_opts_schema)
   defp normalize(_key, value), do: value
 end

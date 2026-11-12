@@ -4,25 +4,17 @@ defmodule PhoenixTest.Playwright.TimeoutTest do
   alias PhoenixTest.Playwright
   alias PhoenixTest.Playwright.Config
 
-  test "configuration accepts zero, finite, and infinite timeouts, including pools" do
+  test "configuration accepts zero, finite, and infinite timeouts" do
     for timeout <- [0, 100, :infinity] do
-      config =
-        Config.validate!(
-          timeout: timeout,
-          browser_launch_timeout: timeout,
-          browser_pool_checkout_timeout: timeout,
-          browser_pools: [[id: :test_pool, browser_launch_timeout: timeout]]
-        )
+      config = Config.validate!(timeout: timeout, browser_launch_timeout: timeout)
 
       assert config[:timeout] == timeout
       assert config[:browser_launch_timeout] == timeout
-      assert config[:browser_pool_checkout_timeout] == timeout
-      assert hd(config[:browser_pools])[:browser_launch_timeout] == timeout
     end
   end
 
   test "configuration rejects invalid timeouts" do
-    for key <- [:timeout, :browser_launch_timeout, :browser_pool_checkout_timeout], value <- [-1, :forever] do
+    for key <- [:timeout, :browser_launch_timeout], value <- [-1, :forever] do
       assert_raise NimbleOptions.ValidationError, fn -> Config.validate!([{key, value}]) end
     end
   end

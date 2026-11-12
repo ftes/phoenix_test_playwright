@@ -1,29 +1,23 @@
 defmodule PhoenixTest.Playwright.DriverWatcher do
   @moduledoc false
-  # Selector engines are registered per driver, and browsers die with it. PlaywrightEx restarts a
-  # crashed driver on its own, so this stops with the driver: the `rest_for_one` supervisor then
-  # registers the engines again and replaces the browser pools.
+  # Selector engines are registered per driver. PlaywrightEx restarts a crashed driver on its
+  # own, so this stops with the driver: the `rest_for_one` supervisor then registers the engines
+  # again. Only for the `ws_endpoint` driver: `PlaywrightEx.Test.BrowserPool` runs `on_start`.
 
   use GenServer
 
   alias PhoenixTest.Playwright.Selector.Engines
-  alias PlaywrightEx.Playwright
-  alias PlaywrightEx.Selectors
 
-  def start_link(_opts), do: GenServer.start_link(__MODULE__, nil)
+  def start_link(driver), do: GenServer.start_link(__MODULE__, driver)
 
   # Blocks until registered, so that the first browser context can use the engines.
   @impl GenServer
-  def init(nil) do
+  def init(driver) do
     # Blocks while the driver restarts, so the monitor below finds it.
-    selectors = Playwright.selectors(PlaywrightEx.playwright())
+    playwright = PlaywrightEx.playwright(driver)
     # Before registering: a driver replaced from here on must not go unnoticed.
-    ref = Process.monitor(PlaywrightEx.Supervisor.out_of_process(PlaywrightEx))
-
-    for {name, source} <- Engines.custom() do
-      Selectors.register!(selectors, to_string(name), %{content: source})
-    end
-
+    ref = Process.monitor(PlaywrightEx.Supervisor.out_of_process(driver))
+    Engines.register(playwright)
     {:ok, ref}
   end
 

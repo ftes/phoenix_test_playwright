@@ -13,11 +13,11 @@ defmodule Features.RegisterTest do
   use PhoenixTest.Playwright.Case,
     async: true,                         # async with Ecto sandbox
     parameterize: [                      # run in multiple browsers in parallel
-      %{browser_pool: :chromium_pool},   # pools defined in config, see Configuration
-      %{browser_pool: :firefox_pool}
+      %{browser: :chromium},
+      %{browser: :firefox}
     ]
 
-  @tag trace: :open                      # replay in interactive viewer
+  @tag trace: :on                        # record a trace into test-results/
   test "register", %{conn: conn} do
     conn
     |> visit("/")
@@ -63,13 +63,11 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
 
     ```elixir
     # test/test_helper.exs
-    {:ok, _} = PhoenixTest.Playwright.Supervisor.start_link()
     Application.put_env(:phoenix_test, :base_url, YourAppWeb.Endpoint.url())
     ```
 
-    Graceful ExUnit and application shutdown waits for browser contexts and
-    browsers to close. Abrupt termination such as `SIGKILL` cannot run this
-    cleanup.
+    Browsers come from `PlaywrightEx.Test.BrowserPool`: launched on first use, and stopped
+    after the suite.
 
 5. Use in test
 
@@ -222,17 +220,22 @@ label with the default `exact_option: true` behavior.
 config :phoenix_test,
   otp_app: :your_app,
   playwright: [
-    browser_pool: :chromium_pool,
-    browser_pools: [
-      [id: :chromium_pool, browser: :chromium],
-      [id: :firefox_pool, browser: :firefox]
-    ],
     js_logger: nil,
     browser_launch_timeout: 10_000
   ]
+
+# Browser pool, traces, screenshots and videos, see PlaywrightEx.Test
+config :playwright_ex, :test,
+  browser_name: :chromium,
+  trace: :retain_on_failure
 ```
 
 See `PhoenixTest.Playwright.Config` for more details, including timeout semantics.
+
+Each test module gets its browser from `PlaywrightEx.Test.BrowserPool`: by default one
+`:shared` browser for all modules at once (a fresh browser context per test isolates them).
+Firefox defaults to `browser_pool: :exclusive`, one browser per running module (at most
+`config :playwright_ex, :test, workers: ...`), as a shared Firefox serializes input across its pages.
 
 You can override some options in your test:
 
@@ -240,8 +243,6 @@ You can override some options in your test:
 defmodule DebuggingFeatureTest do
   use PhoenixTest.Playwright.Case,
     async: true,
-    # Launch new browser for this test suite with custom options below
-    browser_pool: false,
     # Show browser and pause 1 second between every interaction
     headless: false,
     slow_mo: :timer.seconds(1)
@@ -287,11 +288,19 @@ be listening before tests start, as connecting is not retried.
 
 ```elixir
 # config/test.exs
-config :phoenix_test, playwright: [ws_endpoint: "ws://localhost:3000", browser_pool: false]
+config :phoenix_test, playwright: [ws_endpoint: "ws://localhost:3000"]
 
 # or, to enable via environment variable
-config :phoenix_test, playwright: [ws_endpoint: System.get_env("PLAYWRIGHT_WS_ENDPOINT"), browser_pool: false]
+config :phoenix_test, playwright: [ws_endpoint: System.get_env("PLAYWRIGHT_WS_ENDPOINT")]
 ```
+
+```elixir
+# test/test_helper.exs, starts the local driver that connects
+{:ok, _} = PhoenixTest.Playwright.Supervisor.start_link()
+```
+
+Connected browsers bypass `PlaywrightEx.Test.BrowserPool`, so their contexts are not recorded:
+traces, screenshots and videos (`config :playwright_ex, :test`) need local browsers.
 
 ```sh
 # Start Playwright server
@@ -306,12 +315,16 @@ The browser type is sent in the `x-playwright-browser` header when connecting.
 Playwright traces record a full browser history, including 'user' interaction, browser console, network transfers etc.
 Traces can be explored in an interactive viewer for debugging purposes.
 
-### Manually
+Traces are recorded by `PlaywrightEx.Test`, as configured by `config :playwright_ex, :test, trace: ...`
+(`:off` by default, `:on`, `:retain_on_failure`) and the `trace` tag:
 
 ```elixir
-@tag trace: :open
-test "record a trace and open it automatically in the viewer" do
+@tag trace: :on
+test "record a trace into test-results/<test>/trace.zip" do
 ```
+
+Open it in the viewer with `mix playwright_ex.cli show-trace test-results/<test>/trace.zip`
+(a failed test that keeps a trace prints this command).
 
 ### Step annotations
 
@@ -332,16 +345,23 @@ with their source code locations. The groups are visible in the Playwright trace
 
 ```elixir
 # config/test.exs
-config :phoenix_test,
-  playwright: [
-    trace: System.get_env("PW_TRACE", "false") in ~w(t true),
-    screenshot: System.get_env("PW_SCREENSHOT", "false") in ~w(t true)
-  ]
+config :playwright_ex, :test,
+  trace: :retain_on_failure,
+  screenshot: :only_on_failure
+```
+
+Failed tests keep their files in `test-results/<test>/`, including an `error-context.md`.
+Add `test-results/` to `.gitignore` and upload it as a CI artifact on failure.
+Tracing slows every test, so you may prefer to trace only when re-running failures:
+
+```elixir
+# config/test.exs
+config :playwright_ex, :test, trace: if(System.get_env("PW_TRACE"), do: :on, else: :off)
 ```
 
 ```yaml
 # .github/workflows/elixir.yml
-run: "mix test || if [[ $? = 2 ]]; then PW_TRACE=true PW_SCREENSHOT=true mix test --failed; else false; fi"
+run: "mix test || if [[ $? = 2 ]]; then PW_TRACE=true mix test --failed; else false; fi"
 ```
 
 
@@ -395,7 +415,7 @@ end)
 
 ### Test failure in CI (timeout)
 
-- Limit concurrency: `config :phoenix_test, playwright: [browser_pools: [[id: :default_pool, size: 1]]]` or `mix test --max-cases 1` for GitHub CI shared runners
+- Limit concurrency: `mix test --max-cases 1` for GitHub CI shared runners, or `browser_pool: :exclusive` with `config :playwright_ex, :test, workers: 1`
 - Increase timeout: `config :phoenix_test, playwright: [timeout: :timer.seconds(4)]`
 - More compute power: e.g. `x64 8-core` [GitHub runner](https://docs.github.com/en/enterprise-cloud@latest/actions/using-github-hosted-runners/using-larger-runners/about-larger-runners#machine-sizes-for-larger-runners)
 

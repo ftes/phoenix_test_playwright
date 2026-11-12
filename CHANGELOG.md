@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
 ## [Unreleased]
+### Breaking
+Built on PlaywrightEx's test runner (`PlaywrightEx.Test`, `PlaywrightEx.Test.BrowserPool`), which replaces ptp's own
+browser pools, driver supervision and recording. To upgrade:
+- Remove `PhoenixTest.Playwright.Supervisor.start_link()` from `test/test_helper.exs` (keep it only with `ws_endpoint`).
+- Replace `browser_pools`, `browser_pool: <id>` and `browser_pool: false` with `browser:` and `browser_pool: :shared | :exclusive`
+  (default `:shared`, `:exclusive` for Firefox). `browser_pool_checkout_timeout` is gone; `workers` in
+  `config :playwright_ex, :test` caps exclusive browsers.
+- Move `trace`, `screenshot` and `trace_dir` to `config :playwright_ex, :test` (`trace: :on | :retain_on_failure`,
+  `screenshot: :on | :only_on_failure`, `video`, `output_dir`). The tags keep their names with PlaywrightEx's values;
+  `trace: :open` is gone (`mix playwright_ex.cli show-trace <path>`). Files go to `test-results/<test>/`.
+- Browser contexts get Playwright Test's defaults (`locale: "en-US"` instead of `"en"`, a 1280x720 viewport).
+- `assert_screenshot/3` writing a missing baseline fails the test at the end of its body, as in Playwright Test.
+  `config :playwright_ex, :expect, update_snapshots: :missing` restores passing.
+- Contexts of browsers connected via `ws_endpoint` are not recorded.
+
 ### Changed
 - Correct and reorganise the docs: README setup examples, `with_dialog/3`, `PhoenixTest.Playwright.Selector`, `PhoenixTest.Playwright.Config`.
 - `PhoenixTest.Playwright.Supervisor` is now in the API docs.

@@ -126,31 +126,27 @@ jobs:
         run: mix assets.setup && mix assets.build
       - name: Run tests
         run: mix ${{ matrix.mix_task }} --warnings-as-errors || if [[ $? = 2 ]]; then PW_TRACE=true mix ${{ matrix.mix_task }} --failed; else false; fi
+      # PlaywrightEx.Test records contexts of pooled browsers, not of browsers connected via ws_endpoint.
       - name: Fail if screenshot on exit failed
+        if: matrix.transport == 'port'
         run: |
-          if ! ls screenshots/PhoenixTest.Playwright.CaseTest.test__tag__screenshot_saves_screenshot_on_test_exit* >/dev/null 2>&1; then
+          if ! ls test-results/*/test-finished-*.png >/dev/null 2>&1; then
             echo "Screenshot on exit feature failed"
             exit 1
           fi
       - name: Fail if trace on exit failed
+        if: matrix.transport == 'port'
         run: |
-          if ! ls traces/PhoenixTest.Playwright.CaseTest.test__tag__trace_saves_trace_on_test_exit* >/dev/null 2>&1; then
+          if ! ls test-results/*/trace.zip >/dev/null 2>&1; then
             echo "Trace on exit feature failed"
             exit 1
           fi
-      - name: Upload failure traces
+      - name: Upload test results (traces, screenshots)
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
-          name: Traces-${{ matrix.transport }}
-          path: ./traces
-          if-no-files-found: ignore
-      - name: Upload verification screenshots
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        if: failure()
-        with:
-          name: screenshots-${{ matrix.transport }}
-          path: ./screenshots
+          name: test-results-${{ matrix.transport }}
+          path: ./test-results
           if-no-files-found: ignore
 
   # Reports the required `Test (...)` checks on a draft or a PR below the top of its stack: the
