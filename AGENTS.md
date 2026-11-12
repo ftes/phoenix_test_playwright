@@ -6,7 +6,6 @@
 - When feature is complete run `mix check`.
 - When feature is complete, update `CHANGELOG.md`.
 - Always keep docs up to date (exdoc `@doc` + `@moduledoc`, `README.md`)
-- If you changed browser transport / websocket behavior, also run `mix test.websocket`.
 
 ## Reference sources
 - Dependencies' source is in `deps/` at the versions `mix.lock` pins, for example `deps/phoenix_test` and `deps/playwright_ex`.

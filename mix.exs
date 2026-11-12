@@ -48,7 +48,6 @@ defmodule PhoenixTestPlaywright.MixProject do
       {:phoenix_ecto, "~> 4.5", optional: true},
       {:ecto_sql, "~> 3.10", optional: true},
       {:postgrex, ">= 0.0.0", only: :test},
-      {:testcontainers, "~> 2.0", only: :test},
       {:usage_rules, "~> 1.3", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:styler, "~> 1.3", only: [:dev, :test], runtime: false},
@@ -82,7 +81,6 @@ defmodule PhoenixTestPlaywright.MixProject do
         "assets.build": :test,
         esbuild: :test,
         "esbuild.install": :test,
-        "test.websocket": :test,
         "phoenix_test_playwright.playwright_source": :test
       ]
     ]
@@ -127,7 +125,6 @@ defmodule PhoenixTestPlaywright.MixProject do
       ],
       "assets.setup.playwright": "playwright_ex.install -- chromium firefox --with-deps --only-shell",
       "assets.build": ["esbuild default"],
-      "test.websocket": "phoenix_test_playwright.test.websocket",
       check: [
         "format --check-formatted",
         "credo",
