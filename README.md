@@ -422,7 +422,10 @@ end)
 
 ### Test failure in CI (timeout)
 
-- Limit concurrency: `config :playwright_ex, :test, workers: 1` for GitHub CI shared runners
+- Tune concurrency: `config :playwright_ex, :test, workers: ...` (browsers, half the cores by default) and `mix test --max-cases ...`.
+  For suites that wait on the app, `workers` near the core count with `--max-cases` about the core count tends to be fastest;
+  more starves the app and causes timeouts. On small GitHub CI shared runners, try `workers: 1`.
+- Run one browser per `mix test` (e.g. `--only` a tag, or CI partitions): switching browser or launch options restarts a worker.
 - Increase timeouts: `config :playwright_ex, :expect, timeout: 10_000` for assertions, `config :playwright_ex, :test, action_timeout: ...` for actions
 - More compute power: e.g. `x64 8-core` [GitHub runner](https://docs.github.com/en/enterprise-cloud@latest/actions/using-github-hosted-runners/using-larger-runners/about-larger-runners#machine-sizes-for-larger-runners)
 
