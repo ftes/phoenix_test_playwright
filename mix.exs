@@ -54,7 +54,7 @@ defmodule PhoenixTestPlaywright.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:makeup_diff, ">= 0.1.0 and < 1.0.0", only: :dev},
       {:nimble_options, "~> 1.1"},
-      {:playwright_ex, github: "ftes/playwright_ex", ref: "09a95e9a0f1dbf3548da8b161716897c49f666ea"}
+      {:playwright_ex, github: "ftes/playwright_ex", ref: "f5854b14dc027e828698080dfb930a456759484d"}
     ]
   end
 
