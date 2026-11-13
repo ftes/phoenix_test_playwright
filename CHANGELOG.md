@@ -37,8 +37,6 @@ browser pools, driver supervision and recording. To upgrade:
 
 ### Changed
 - Correct and reorganise the docs: README setup examples, `with_dialog/3`, `PhoenixTest.Playwright.Selector`, `PhoenixTest.Playwright.Config`.
-- `PhoenixTest.Playwright.Supervisor` is now in the API docs.
-- Hide the `test.websocket` mix task from the docs.
 - Add upgrade steps from 0.19 to the 0.20.0-rc.0 changelog.
 
 ## [0.20.0-rc.0] 2026-11-09

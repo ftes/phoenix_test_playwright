@@ -6,6 +6,8 @@ defmodule PhoenixTest.Playwright.InfiniteTimeoutTest do
   for timeout <- [0, :infinity] do
     test "timeout: #{inspect(timeout)} waits without limit", %{conn: conn} do
       timeout = unquote(timeout)
+      # Past the default timeouts, so only `timeout` lets the assertions pass.
+      delay = PlaywrightEx.Test.config().expect.timeout + 500
       conn = Playwright.visit(conn, "/page/index", timeout: timeout)
 
       conn
@@ -13,11 +15,11 @@ defmodule PhoenixTest.Playwright.InfiniteTimeoutTest do
       setTimeout(() => {
         document.body.innerHTML = '<h1>Ready</h1>';
         history.replaceState({}, '', '?ready=true');
-      }, 1000)
+      }, #{delay})
       """)
       |> assert_has("h1", text: "Ready", timeout: timeout)
       |> assert_path("/page/index", query_params: %{ready: true}, timeout: timeout)
-      |> Playwright.evaluate("setTimeout(() => history.replaceState({}, '', '?ready=false'), 1000)")
+      |> Playwright.evaluate("setTimeout(() => history.replaceState({}, '', '?ready=false'), #{delay})")
       |> refute_path("/page/index", query_params: %{ready: true}, timeout: timeout)
     end
   end

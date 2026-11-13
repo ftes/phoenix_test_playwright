@@ -123,7 +123,10 @@ defmodule PhoenixTest.Playwright.Case do
   """
   def new_session(config, context) do
     user_agent = checkout_ecto_repos(config, context)
-    base_url = Application.fetch_env!(:phoenix_test, :base_url)
+    # A call's options win over `config :playwright_ex, :test, context_options`: pass `base_url` only if that has none.
+    base_url =
+      PlaywrightEx.Test.config().context_options[:base_url] || Application.fetch_env!(:phoenix_test, :base_url)
+
     context_opts_defaults = [base_url: base_url, user_agent: user_agent]
     context_opts = Keyword.merge(context_opts_defaults, config[:browser_context_opts])
     browser_context = Browser.new_context!(context.playwright_browser, context_opts)

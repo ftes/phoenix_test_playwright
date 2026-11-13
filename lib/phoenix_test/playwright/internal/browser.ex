@@ -10,6 +10,9 @@ defmodule PhoenixTest.Playwright.Browser do
   Call it in `setup_all`: the test module holds it until it ends.
   """
   def browser!(config) do
+    # A dependency of `runtime: false` (as the README installs this library) doesn't start its own.
+    {:ok, _apps} = Application.ensure_all_started(:playwright_ex)
+
     opts =
       Enum.reject(
         [

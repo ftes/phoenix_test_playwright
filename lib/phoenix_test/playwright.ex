@@ -129,14 +129,9 @@ defmodule PhoenixTest.Playwright do
     location = Macro.escape(%{file: __CALLER__.file, line: __CALLER__.line, column: 0})
 
     quote bind_quoted: [conn: conn, title: title, fun: fun, location: location] do
-      PlaywrightEx.Test._step(
-        :pass,
-        title,
-        fn -> fun.(conn) end,
-        [location: location],
-        Map.take(location, [:file, :line])
-      )
+      require PlaywrightEx.Test
 
+      PlaywrightEx.Test.step(title, fn -> fun.(conn) end, location: location)
       conn
     end
   end
