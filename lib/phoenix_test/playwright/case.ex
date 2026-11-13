@@ -17,7 +17,7 @@ defmodule PhoenixTest.Playwright.Case do
       end
 
   Options other than `:async` become module tags, so they can override config per module,
-  e.g. `browser_pool: :exclusive`. `:parameterize` is the `ExUnit.Case` option:
+  e.g. `browser: :firefox`. `:parameterize` is the `ExUnit.Case` option:
   it runs the module once per map, and the maps can set config too.
 
   Browsers come from `PlaywrightEx.Test.BrowserPool`, and each test is registered with
@@ -88,7 +88,7 @@ defmodule PhoenixTest.Playwright.Case do
   @doc """
   Merges the ExUnit context with `PhoenixTest.Playwright.Config` opts.
   Uses the result to get a browser from `PlaywrightEx.Test.BrowserPool`
-  (an exclusive one is held by the test module).
+  (held by the test module until it ends).
   Adds `:playwright_browser` to the context.
   """
   def do_setup_all(context) do

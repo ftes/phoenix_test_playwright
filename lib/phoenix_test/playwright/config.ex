@@ -30,16 +30,6 @@ schema_opts = [
     E.g. `use PhoenixTest.Playwright.Case, browser_launch_opts: [headless: false, slow_mo: 500]`.
     """
   ],
-  browser_pool: [
-    type: {:in, [:shared, :exclusive]},
-    type_doc: "`:shared | :exclusive`",
-    doc: """
-    How to get a browser from `PlaywrightEx.Test.BrowserPool`:
-    `:shared` (one browser for all test modules at once) or
-    `:exclusive` (one browser per test module, at most `config :playwright_ex, :test, workers: ...` at once).
-    Defaults to `:exclusive` for Firefox and `:shared` otherwise.
-    """
-  ],
   ecto_sandbox_stop_owner_delay: [
     default: 0,
     type: :non_neg_integer,
@@ -67,7 +57,7 @@ schema_opts = [
 
 schema = NimbleOptions.new!(schema_opts)
 
-setup_all_keys = ~w(browser_pool browser browser_launch_opts)a
+setup_all_keys = ~w(browser browser_launch_opts)a
 setup_keys = ~w(accept_dialogs ecto_sandbox_stop_owner_delay browser_context_opts)a
 
 defmodule PhoenixTest.Playwright.Config do

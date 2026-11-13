@@ -5,7 +5,7 @@ defmodule PhoenixTest.Playwright.FirefoxTest do
 
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 
-  test "uses an exclusive firefox browser", %{conn: conn} do
+  test "uses a firefox browser", %{conn: conn} do
     conn
     |> set_html("<h1>Firefox</h1>")
     |> assert_has("h1")

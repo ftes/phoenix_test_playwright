@@ -11,9 +11,9 @@ Built on PlaywrightEx's test runner (`PlaywrightEx.Test`, `PlaywrightEx.Test.Bro
 browser pools, driver supervision and recording. To upgrade:
 - Remove `PhoenixTest.Playwright.Supervisor.start_link()` from `test/test_helper.exs`: the module is gone.
 - Replace `ws_endpoint: url` with `config :playwright_ex, :test, connect_options: [ws_endpoint: url]`.
-- Replace `browser_pools`, `browser_pool: <id>` and `browser_pool: false` with `browser:` and `browser_pool: :shared | :exclusive`
-  (default `:shared`, `:exclusive` for Firefox). `browser_pool_checkout_timeout` is gone; `workers` in
-  `config :playwright_ex, :test` caps exclusive browsers.
+- Replace `browser_pools` and `browser_pool: <id>` with `browser:`, and drop `browser_pool: false` and
+  `browser_pool_checkout_timeout`. Each test module holds a browser of its own, as a Playwright Test worker:
+  `workers` in `config :playwright_ex, :test` caps them (half the schedulers by default).
 - Move `trace`, `screenshot` and `trace_dir` to `config :playwright_ex, :test` (`trace: :on | :retain_on_failure`,
   `screenshot: :on | :only_on_failure`, `video`, `output_dir`). The tags keep their names with PlaywrightEx's values;
   `trace: :open` is gone (`mix playwright_ex.cli show-trace <path>`). Files go to `test-results/<test>/`.

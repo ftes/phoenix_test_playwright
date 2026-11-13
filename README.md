@@ -235,10 +235,9 @@ config :playwright_ex, :expect, timeout: 2_000
 
 See `PhoenixTest.Playwright.Config` for more details, including timeout semantics.
 
-Each test module gets its browser from `PlaywrightEx.Test.BrowserPool`: by default one
-`:shared` browser for all modules at once (a fresh browser context per test isolates them).
-Firefox defaults to `browser_pool: :exclusive`, one browser per running module (at most
-`config :playwright_ex, :test, workers: ...`), as a shared Firefox serializes input across its pages.
+Each test module gets a browser of its own from `PlaywrightEx.Test.BrowserPool`, as a Playwright Test
+worker does: at most `config :playwright_ex, :test, workers: ...` at once (half the schedulers by default),
+reused warm by the next module. Each test gets a fresh browser context.
 
 You can override some options per test module, merged over `config :playwright_ex, :test`:
 
@@ -423,7 +422,7 @@ end)
 
 ### Test failure in CI (timeout)
 
-- Limit concurrency: `mix test --max-cases 1` for GitHub CI shared runners, or `browser_pool: :exclusive` with `config :playwright_ex, :test, workers: 1`
+- Limit concurrency: `config :playwright_ex, :test, workers: 1` for GitHub CI shared runners
 - Increase timeouts: `config :playwright_ex, :expect, timeout: 10_000` for assertions, `config :playwright_ex, :test, action_timeout: ...` for actions
 - More compute power: e.g. `x64 8-core` [GitHub runner](https://docs.github.com/en/enterprise-cloud@latest/actions/using-github-hosted-runners/using-larger-runners/about-larger-runners#machine-sizes-for-larger-runners)
 

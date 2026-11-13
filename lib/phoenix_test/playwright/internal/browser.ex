@@ -5,9 +5,9 @@ defmodule PhoenixTest.Playwright.Browser do
   alias PlaywrightEx.Test.BrowserPool
 
   @doc """
-  A browser of `PlaywrightEx.Test.BrowserPool` (`config[:browser_pool]`), launched locally or,
-  with `config :playwright_ex, :test, connect_options: ...`, connected to a remote server.
-  Call it in `setup_all`: an exclusive browser is held by the calling scope.
+  A browser of `PlaywrightEx.Test.BrowserPool`, launched locally or, with
+  `config :playwright_ex, :test, connect_options: ...`, connected to a remote server.
+  Call it in `setup_all`: the test module holds it until it ends.
   """
   def browser!(config) do
     opts =
@@ -20,15 +20,6 @@ defmodule PhoenixTest.Playwright.Browser do
         fn {_key, value} -> is_nil(value) end
       )
 
-    case pool_mode(config) do
-      :shared -> BrowserPool.shared(opts)
-      :exclusive -> BrowserPool.exclusive(opts)
-    end
-  end
-
-  # A shared Firefox browser serializes input across its pages, see `PlaywrightEx.Test.BrowserPool`.
-  defp pool_mode(config) do
-    browser_name = config[:browser] || Application.get_env(:playwright_ex, :test, [])[:browser_name]
-    config[:browser_pool] || if(browser_name == :firefox, do: :exclusive, else: :shared)
+    BrowserPool.browser(opts)
   end
 end
