@@ -111,7 +111,7 @@ jobs:
       - name: Install browsers and build assets
         run: mix setup
       - name: Run tests
-        run: mix test --warnings-as-errors --formatter ExUnit.CLIFormatter --formatter PlaywrightEx.Test.GitHubFormatter || if [[ $? = 2 ]]; then PW_TRACE=true mix test --failed; else false; fi
+        run: mix test --warnings-as-errors --formatter ExUnit.CLIFormatter --formatter PlaywrightEx.Test.GitHubFormatter || if [[ $? = 2 ]]; then mix test --failed; else false; fi
       - name: Fail if screenshot on exit failed
         run: |
           if ! ls test-results/*/test-finished-*.png >/dev/null 2>&1; then

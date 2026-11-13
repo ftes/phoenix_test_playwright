@@ -52,4 +52,5 @@ config :playwright_ex, :test,
   snapshot_dir: "test/snapshots",
   snapshot_path_template: "{snapshotDir}/{arg}{ext}",
   screenshot: if(System.get_env("PW_SCREENSHOT", "false") in ~w(t true), do: :on, else: :off),
-  trace: if(System.get_env("PW_TRACE", "false") in ~w(t true), do: :on, else: :off)
+  # `mix test --failed` is Playwright's first retry: CI traces the failures' rerun.
+  trace: if(System.get_env("PW_TRACE", "false") in ~w(t true), do: :on, else: :on_first_retry)

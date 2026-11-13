@@ -359,16 +359,17 @@ config :playwright_ex, :test,
 
 Failed tests keep their files in `test-results/<test>/`, including an `error-context.md`.
 Add `test-results/` to `.gitignore` and upload it as a CI artifact on failure.
-Tracing slows every test, so you may prefer to trace only when re-running failures:
+Tracing slows every test, so you may prefer to trace only when re-running failures, as Playwright's
+`on-first-retry`: a test under `mix test --failed` is its first retry, with files in `test-results/<test>-retry1/`.
 
 ```elixir
 # config/test.exs
-config :playwright_ex, :test, trace: if(System.get_env("PW_TRACE"), do: :on, else: :off)
+config :playwright_ex, :test, trace: :on_first_retry
 ```
 
 ```yaml
 # .github/workflows/elixir.yml
-run: "mix test || if [[ $? = 2 ]]; then PW_TRACE=true mix test --failed; else false; fi"
+run: "mix test || if [[ $? = 2 ]]; then mix test --failed; else false; fi"
 ```
 
 
