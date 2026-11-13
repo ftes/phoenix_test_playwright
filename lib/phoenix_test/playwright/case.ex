@@ -87,8 +87,7 @@ defmodule PhoenixTest.Playwright.Case do
   Adds `:playwright_browser` to the context.
   """
   def do_setup_all(context) do
-    keys = Playwright.Config.setup_all_keys()
-    config = context |> Map.take(keys) |> Playwright.Config.validate!() |> Keyword.take(keys)
+    config = context |> Map.take(Playwright.Config.setup_all_keys()) |> Playwright.Config.validate!()
 
     if pool = config[:browser_pool] do
       [playwright_browser: BrowserPool.checkout(pool)]
