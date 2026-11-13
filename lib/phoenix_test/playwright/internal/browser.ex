@@ -11,11 +11,13 @@ defmodule PhoenixTest.Playwright.Browser do
   with helpful error messages on failure.
   """
   def launch_browser!(config) do
-    {launch_timeout, opts} = Keyword.pop!(config, :browser_launch_timeout)
-    {browser, opts} = Keyword.pop!(opts, :browser)
-    {launch_opts, opts} = Keyword.pop!(opts, :browser_launch_opts)
-    opts = opts |> Keyword.put(:timeout, Config.driver_timeout(launch_timeout)) |> Keyword.delete(:browser_pool)
-    opts = Keyword.merge(opts, launch_opts)
+    browser = Keyword.fetch!(config, :browser)
+
+    opts =
+      config
+      |> Keyword.take(~w(executable_path headless slow_mo)a)
+      |> Keyword.put(:timeout, Config.driver_timeout(Keyword.fetch!(config, :browser_launch_timeout)))
+      |> Keyword.merge(Keyword.fetch!(config, :browser_launch_opts))
 
     case launch_or_connect(browser_type(browser), Config.global()[:ws_endpoint], opts) do
       {:ok, browser} ->

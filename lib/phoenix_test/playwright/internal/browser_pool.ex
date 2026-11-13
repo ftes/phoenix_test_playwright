@@ -92,7 +92,7 @@ defmodule PhoenixTest.Playwright.BrowserPool do
   end
 
   defp launch(config) do
-    config |> Config.validate!() |> Keyword.take(Config.setup_all_keys()) |> Browser.launch_browser!()
+    config |> Config.validate!() |> Browser.launch_browser!()
   end
 
   defp do_checkout(state, from, browser) do
