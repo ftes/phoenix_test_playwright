@@ -6,10 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
 ## [Unreleased]
+### Breaking
+Built on PlaywrightEx's test runner (`PlaywrightEx.Test`, `PlaywrightEx.Test.BrowserPool`), which replaces ptp's own
+browser pools, driver supervision and recording. To upgrade:
+- Remove `PhoenixTest.Playwright.Supervisor.start_link()` from `test/test_helper.exs`: the module is gone.
+- Replace `ws_endpoint: url` with `config :playwright_ex, :test, connect_options: [ws_endpoint: url]`.
+- Replace `browser_pools` and `browser_pool: <id>` with `browser:`, and drop `browser_pool: false` and
+  `browser_pool_checkout_timeout`. Each test module holds a browser of its own, as a Playwright Test worker:
+  `workers` in `config :playwright_ex, :test` caps them (half the schedulers by default).
+- Move `trace`, `screenshot` and `trace_dir` to `config :playwright_ex, :test` (`trace: :on | :retain_on_failure`,
+  `screenshot: :on | :only_on_failure`, `video`, `output_dir`). The tags keep their names with PlaywrightEx's values;
+  `trace: :open` is gone (`mix playwright_ex.cli show-trace <path>`). Files go to `test-results/<test>/`.
+- Browser contexts get Playwright Test's defaults (`locale: "en-US"` instead of `"en"`, a 1280x720 viewport).
+- `assert_screenshot/3` writing a missing baseline fails the test at the end of its body, as in Playwright Test.
+  `config :playwright_ex, :expect, update_snapshots: :missing` restores passing.
+- Removed the `headless`, `slow_mo`, `executable_path` and `browser_launch_timeout` options: use
+  `config :playwright_ex, :test, launch_options: [...]`, or `browser_launch_opts:` per module, which is merged over it.
+  Global `browser_context_opts` belong in `config :playwright_ex, :test, context_options: [...]`; the tag stays.
+  Context options take PlaywrightEx 0.17's forms (`viewport: :null`, `extra_http_headers` as a map).
+- `assert_screenshot/3` resolves names as in Playwright Test, by default `test/<file>-snapshots/<name>-<platform>.png`.
+  `snapshot_dir` and its `__diff__/` are gone: comparison output goes to `test-results/<test>/`. To keep the old layout:
+  `config :playwright_ex, :test, snapshot_dir: "test/snapshots", snapshot_path_template: "{snapshotDir}/{arg}{ext}"`.
+- `screenshot/3` writes to the test's output dir (`PlaywrightEx.Test.output_path/1`); `screenshot_dir` is gone.
+- `step/3` is `PlaywrightEx.Test.step`: steps nest in the trace's test steps.
+- The `timeout` option is gone: PlaywrightEx's timeouts apply, as in Playwright Test. Set
+  `config :playwright_ex, :test, action_timeout: ..., navigation_timeout: ...` (unlimited by default, bounded by the
+  ExUnit test timeout) and `config :playwright_ex, :expect, timeout: ...` (assertions, 5 s by default).
+  An operation's `timeout:` option is passed to Playwright: `0` now means no timeout, as `:infinity` does.
+  `evaluate/3` and `clear_cookies/1` take no `timeout:`, as in Playwright. The `timeout/0` helper in test modules is gone.
+
 ### Changed
 - Correct and reorganise the docs: README setup examples, `with_dialog/3`, `PhoenixTest.Playwright.Selector`, `PhoenixTest.Playwright.Config`.
-- `PhoenixTest.Playwright.Supervisor` is now in the API docs.
-- Hide the `test.websocket` mix task from the docs.
 - Add upgrade steps from 0.19 to the 0.20.0-rc.0 changelog.
 
 ## [0.20.0-rc.0] 2026-11-09

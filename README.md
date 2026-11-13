@@ -13,11 +13,11 @@ defmodule Features.RegisterTest do
   use PhoenixTest.Playwright.Case,
     async: true,                         # async with Ecto sandbox
     parameterize: [                      # run in multiple browsers in parallel
-      %{browser_pool: :chromium_pool},   # pools defined in config, see Configuration
-      %{browser_pool: :firefox_pool}
+      %{browser: :chromium},
+      %{browser: :firefox}
     ]
 
-  @tag trace: :open                      # replay in interactive viewer
+  @tag trace: :on                        # record a trace into test-results/
   test "register", %{conn: conn} do
     conn
     |> visit("/")
@@ -63,13 +63,11 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
 
     ```elixir
     # test/test_helper.exs
-    {:ok, _} = PhoenixTest.Playwright.Supervisor.start_link()
     Application.put_env(:phoenix_test, :base_url, YourAppWeb.Endpoint.url())
     ```
 
-    Graceful ExUnit and application shutdown waits for browser contexts and
-    browsers to close. Abrupt termination such as `SIGKILL` cannot run this
-    cleanup.
+    Browsers come from `PlaywrightEx.Test.BrowserPool`: launched on first use, and stopped
+    after the suite.
 
 5. Use in test
 
@@ -221,32 +219,38 @@ label with the default `exact_option: true` behavior.
 # config/test.exs
 config :phoenix_test,
   otp_app: :your_app,
-  playwright: [
-    browser_pool: :chromium_pool,
-    browser_pools: [
-      [id: :chromium_pool, browser: :chromium],
-      [id: :firefox_pool, browser: :firefox]
-    ],
-    js_logger: nil,
-    browser_launch_timeout: 10_000
-  ]
+  playwright: [js_logger: nil]
+
+# Browsers, context options, traces, screenshots, videos and snapshot paths, see PlaywrightEx.Test
+config :playwright_ex, :test,
+  browser_name: :chromium,
+  launch_options: [timeout: 10_000],
+  context_options: [locale: "de-DE"],
+  action_timeout: 2_000,
+  trace: :retain_on_failure
+
+# Assertion timeout, 5 seconds by default
+config :playwright_ex, :expect, timeout: 2_000
 ```
 
 See `PhoenixTest.Playwright.Config` for more details, including timeout semantics.
 
-You can override some options in your test:
+Each test module gets a browser of its own from `PlaywrightEx.Test.BrowserPool`, as a Playwright Test
+worker does: at most `config :playwright_ex, :test, workers: ...` at once (half the schedulers by default),
+reused warm by the next module. Each test gets a fresh browser context.
+
+You can override some options per test module, merged over `config :playwright_ex, :test`:
 
 ```elixir
 defmodule DebuggingFeatureTest do
   use PhoenixTest.Playwright.Case,
     async: true,
-    # Launch new browser for this test suite with custom options below
-    browser_pool: false,
     # Show browser and pause 1 second between every interaction
-    headless: false,
-    slow_mo: :timer.seconds(1)
+    browser_launch_opts: [headless: false, slow_mo: :timer.seconds(1)]
 end
 ```
+
+And browser context options per test: `@tag browser_context_opts: [locale: "fr-FR"]`.
 
 
 ## Playwright driver
@@ -280,17 +284,20 @@ Cache both directories in CI. Keep the install step on a cache hit, as `--with-d
 Run browsers on a remote Playwright server instead of launching them locally.
 Useful for containerized CI.
 
+`PlaywrightEx.Test.BrowserPool` connects instead of launching when `connect_options` are configured
+(Playwright Test's `connectOptions`). Traces, screenshots and videos are recorded as for local browsers.
+
 The connection goes through a local Playwright driver, which PlaywrightEx downloads on
 first use. Its Node.js binary needs glibc: on Alpine Linux, install `nodejs` and set
-`PLAYWRIGHT_NODEJS_PATH` to it. The server must run the same Playwright version and
-be listening before tests start, as connecting is not retried.
+`PLAYWRIGHT_NODEJS_PATH` to it. The server must run the same Playwright version.
 
 ```elixir
 # config/test.exs
-config :phoenix_test, playwright: [ws_endpoint: "ws://localhost:3000", browser_pool: false]
+config :playwright_ex, :test, connect_options: [ws_endpoint: "ws://localhost:3000"]
 
 # or, to enable via environment variable
-config :phoenix_test, playwright: [ws_endpoint: System.get_env("PLAYWRIGHT_WS_ENDPOINT"), browser_pool: false]
+config :playwright_ex, :test,
+  connect_options: if(url = System.get_env("PLAYWRIGHT_WS_ENDPOINT"), do: [ws_endpoint: url])
 ```
 
 ```sh
@@ -306,17 +313,21 @@ The browser type is sent in the `x-playwright-browser` header when connecting.
 Playwright traces record a full browser history, including 'user' interaction, browser console, network transfers etc.
 Traces can be explored in an interactive viewer for debugging purposes.
 
-### Manually
+Traces are recorded by `PlaywrightEx.Test`, as configured by `config :playwright_ex, :test, trace: ...`
+(`:off` by default, `:on`, `:retain_on_failure`) and the `trace` tag:
 
 ```elixir
-@tag trace: :open
-test "record a trace and open it automatically in the viewer" do
+@tag trace: :on
+test "record a trace into test-results/<test>/trace.zip" do
 ```
+
+Open it in the viewer with `mix playwright_ex.cli show-trace test-results/<test>/trace.zip`
+(a failed test that keeps a trace prints this command).
 
 ### Step annotations
 
-Use `PhoenixTest.Playwright.step/3` to [group labelled test steps](https://playwright.dev/docs/api/class-tracing#tracing-group)
-with their source code locations. The groups are visible in the Playwright trace viewer.
+Use `PhoenixTest.Playwright.step/3` to label test steps (`PlaywrightEx.Test.step`, Playwright Test's `test.step`)
+with their source code locations. Steps nest, and are visible in the Playwright trace viewer.
 
 ## Screenshots
 
@@ -324,24 +335,41 @@ with their source code locations. The groups are visible in the Playwright trace
 
 ```elixir
 |> visit(~p"/")
-|> screenshot("home.png")    # captures entire page by default, not just viewport
+|> screenshot("home.png")    # captures entire page by default, into test-results/<test>/home.png
 ```
+
+### Visual regression
+
+```elixir
+|> assert_screenshot("home.png")  # test/<test file>-snapshots/home-<platform>.png
+```
+
+Baselines are resolved as in Playwright Test (`snapshot_dir`, `snapshot_path_template` in
+`config :playwright_ex, :test`), and comparison output goes to `test-results/<test>/`.
 
 
 ## Traces and screenshots for failed tests in CI
 
 ```elixir
 # config/test.exs
-config :phoenix_test,
-  playwright: [
-    trace: System.get_env("PW_TRACE", "false") in ~w(t true),
-    screenshot: System.get_env("PW_SCREENSHOT", "false") in ~w(t true)
-  ]
+config :playwright_ex, :test,
+  trace: :retain_on_failure,
+  screenshot: :only_on_failure
+```
+
+Failed tests keep their files in `test-results/<test>/`, including an `error-context.md`.
+Add `test-results/` to `.gitignore` and upload it as a CI artifact on failure.
+Tracing slows every test, so you may prefer to trace only when re-running failures, as Playwright's
+`on-first-retry`: a test under `mix test --failed` is its first retry, with files in `test-results/<test>-retry1/`.
+
+```elixir
+# config/test.exs
+config :playwright_ex, :test, trace: :on_first_retry
 ```
 
 ```yaml
 # .github/workflows/elixir.yml
-run: "mix test || if [[ $? = 2 ]]; then PW_TRACE=true PW_SCREENSHOT=true mix test --failed; else false; fi"
+run: "mix test || if [[ $? = 2 ]]; then mix test --failed; else false; fi"
 ```
 
 
@@ -395,8 +423,11 @@ end)
 
 ### Test failure in CI (timeout)
 
-- Limit concurrency: `config :phoenix_test, playwright: [browser_pools: [[id: :default_pool, size: 1]]]` or `mix test --max-cases 1` for GitHub CI shared runners
-- Increase timeout: `config :phoenix_test, playwright: [timeout: :timer.seconds(4)]`
+- Tune concurrency: `config :playwright_ex, :test, workers: ...` (browsers, half the cores by default) and `mix test --max-cases ...`.
+  For suites that wait on the app, `workers` near the core count with `--max-cases` about the core count tends to be fastest;
+  more starves the app and causes timeouts. On small GitHub CI shared runners, try `workers: 1`.
+- Run one browser per `mix test` (e.g. `--only` a tag, or CI partitions): switching browser or launch options restarts a worker.
+- Increase timeouts: `config :playwright_ex, :expect, timeout: 10_000` for assertions, `config :playwright_ex, :test, action_timeout: ...` for actions
 - More compute power: e.g. `x64 8-core` [GitHub runner](https://docs.github.com/en/enterprise-cloud@latest/actions/using-github-hosted-runners/using-larger-runners/about-larger-runners#machine-sizes-for-larger-runners)
 
 ### LiveView not connected

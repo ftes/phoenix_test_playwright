@@ -3,6 +3,8 @@ import Config
 alias PhoenixTest.Playwright.Repo
 alias PhoenixTest.WebApp.Endpoint
 
+pw_timeout = String.to_integer(System.get_env("PW_TIMEOUT", "500"))
+
 config :esbuild,
   version: "0.25.9",
   default: [
@@ -15,18 +17,7 @@ config :logger, level: :error
 
 config :phoenix_test,
   endpoint: Endpoint,
-  otp_app: :phoenix_test_playwright,
-  playwright: [
-    headless: System.get_env("PW_HEADLESS", "true") in ~w(t true),
-    screenshot: System.get_env("PW_SCREENSHOT", "false") in ~w(t true),
-    trace: System.get_env("PW_TRACE", "false") in ~w(t true),
-    timeout: String.to_integer(System.get_env("PW_TIMEOUT", "500")),
-    browser_pool: :chromium_pool,
-    browser_pools: [
-      [id: :chromium_pool, browser: :chromium],
-      [id: :firefox_pool, browser: :firefox]
-    ]
-  ]
+  otp_app: :phoenix_test_playwright
 
 config :phoenix_test_playwright, Endpoint,
   server: true,
@@ -34,8 +25,6 @@ config :phoenix_test_playwright, Endpoint,
   live_view: [signing_salt: "112345678212345678312345678412"],
   secret_key_base: String.duplicate("57689", 50),
   pubsub_server: PhoenixTest.PubSub,
-  # Disable origin check to allow connections from Docker containers
-  check_origin: false,
   render_errors: [
     formats: [html: PhoenixTest.WebApp.ErrorView],
     layout: false
@@ -51,3 +40,17 @@ config :phoenix_test_playwright, Repo,
 
 config :phoenix_test_playwright,
   ecto_repos: [Repo]
+
+# Tests of assert_screenshot/3 write new baselines: pass instead of failing the test.
+config :playwright_ex, :expect, timeout: pw_timeout, update_snapshots: :missing
+
+config :playwright_ex, :test,
+  action_timeout: pw_timeout,
+  navigation_timeout: pw_timeout,
+  launch_options: [headless: System.get_env("PW_HEADLESS", "true") in ~w(t true)],
+  # One directory of baselines, as before PlaywrightEx resolved them.
+  snapshot_dir: "test/snapshots",
+  snapshot_path_template: "{snapshotDir}/{arg}{ext}",
+  screenshot: if(System.get_env("PW_SCREENSHOT", "false") in ~w(t true), do: :on, else: :off),
+  # `mix test --failed` is Playwright's first retry: CI traces the failures' rerun.
+  trace: if(System.get_env("PW_TRACE", "false") in ~w(t true), do: :on, else: :on_first_retry)

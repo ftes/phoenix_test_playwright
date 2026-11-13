@@ -49,8 +49,9 @@ When calling `PlaywrightEx` directly, follow its [usage rules](deps/playwright_e
 
 ## Debugging
 
-- `@tag trace: :open` — record and open interactive trace viewer
-- `@tag screenshot: true` — auto-capture screenshot on failure
+- `@tag trace: :on` — record a trace into `test-results/<test>/trace.zip` (open with `mix playwright_ex.cli show-trace <path>`)
+- `@tag screenshot: :only_on_failure` — keep a screenshot of failed tests in `test-results/<test>/`
+- `test-results/<test>/error-context.md` — errors, source and aria snapshot of a failed test
 - `open_browser/1` — open current page in system browser
 
 ## Logging in

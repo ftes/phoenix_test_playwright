@@ -8,15 +8,12 @@ defmodule PhoenixTest.Playwright.BrowserLaunchOptsTest do
 
   use PhoenixTest.Playwright.Case,
     async: true,
-    browser_pool: false,
     browser_launch_opts: [
       args: [
         "--use-fake-ui-for-media-stream",
         "--use-fake-device-for-media-stream"
       ]
     ]
-
-  @moduletag skip: !!Application.compile_env!(:phoenix_test, :playwright)[:ws_endpoint]
 
   test "getUserMedia succeeds with fake media device flags", %{conn: conn} do
     conn
@@ -38,11 +35,7 @@ defmodule PhoenixTest.Playwright.BrowserLaunchOptsWithoutFlagsTest do
   This proves the flags in BrowserLaunchOptsTest actually have an effect.
   """
 
-  use PhoenixTest.Playwright.Case,
-    async: true,
-    browser_pool: false
-
-  @moduletag skip: !!Application.compile_env!(:phoenix_test, :playwright)[:ws_endpoint]
+  use PhoenixTest.Playwright.Case, async: true
 
   test "getUserMedia fails without fake media device flags", %{conn: conn} do
     conn

@@ -83,19 +83,9 @@ jobs:
         run: mix docs --warnings-as-errors
 
   test:
-    name: Test (${{ matrix.transport }})
+    name: Test
     runs-on: ubuntu-latest
     needs: build
-
-    strategy:
-      fail-fast: false
-      matrix:
-        transport: [port, websocket]
-        include:
-          - transport: port
-            mix_task: test
-          - transport: websocket
-            mix_task: test.websocket
 
     services:
       postgres:
@@ -119,50 +109,25 @@ jobs:
       - name: Install dependencies
         run: mix "do" deps.get, deps.compile
       - name: Install browsers and build assets
-        if: matrix.transport == 'port'
         run: mix setup
-      - name: Build assets
-        if: matrix.transport == 'websocket'
-        run: mix assets.setup && mix assets.build
       - name: Run tests
-        run: mix ${{ matrix.mix_task }} --warnings-as-errors || if [[ $? = 2 ]]; then PW_TRACE=true mix ${{ matrix.mix_task }} --failed; else false; fi
+        run: mix test --warnings-as-errors --formatter ExUnit.CLIFormatter --formatter PlaywrightEx.Test.GitHubFormatter || if [[ $? = 2 ]]; then mix test --failed; else false; fi
       - name: Fail if screenshot on exit failed
         run: |
-          if ! ls screenshots/PhoenixTest.Playwright.CaseTest.test__tag__screenshot_saves_screenshot_on_test_exit* >/dev/null 2>&1; then
+          if ! ls test-results/*/test-finished-*.png >/dev/null 2>&1; then
             echo "Screenshot on exit feature failed"
             exit 1
           fi
       - name: Fail if trace on exit failed
         run: |
-          if ! ls traces/PhoenixTest.Playwright.CaseTest.test__tag__trace_saves_trace_on_test_exit* >/dev/null 2>&1; then
+          if ! ls test-results/*/trace.zip >/dev/null 2>&1; then
             echo "Trace on exit feature failed"
             exit 1
           fi
-      - name: Upload failure traces
+      - name: Upload test results (traces, screenshots)
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
-          name: Traces-${{ matrix.transport }}
-          path: ./traces
+          name: test-results
+          path: ./test-results
           if-no-files-found: ignore
-      - name: Upload verification screenshots
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        if: failure()
-        with:
-          name: screenshots-${{ matrix.transport }}
-          path: ./screenshots
-          if-no-files-found: ignore
-
-  # Reports the required `Test (...)` checks on a draft or a PR below the top of its stack: the
-  # skipped matrix job above reports its name unexpanded, which would leave them pending.
-  test-below-stack-top:
-    name: Test (${{ matrix.transport }})
-    if: ${{ github.event.pull_request.draft || (github.event.pull_request.stack != null && github.event.pull_request.stack.position != github.event.pull_request.stack.size) }}
-    runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        transport: [port, websocket]
-
-    steps:
-      - run: echo "Draft, or covered by the top PR of the stack"
