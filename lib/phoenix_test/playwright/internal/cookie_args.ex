@@ -57,17 +57,9 @@ defmodule PhoenixTest.Playwright.CookieArgs do
 
   defp ensure_value_is_valid_plug_conn_cookie(cookie) do
     Keyword.update(cookie, :value, "", fn value ->
-      otp_app = Application.get_env(:phoenix_test, :otp_app)
-      endpoint = Application.get_env(:phoenix_test, :endpoint)
-      secret_key_base = Application.get_env(otp_app, endpoint)[:secret_key_base]
-
       opts = Keyword.take(cookie, [:domain, :encrypt, :extra, :http_only, :max_age, :path, :secure, :sign, :same_site])
       name = cookie[:name]
-
-      plug_cookie =
-        Conn.put_resp_cookie(%Conn{secret_key_base: secret_key_base, remote_ip: {127, 0, 0, 1}}, name, value, opts)
-
-      plug_cookie.resp_cookies[name].value
+      Conn.put_resp_cookie(pseudo_conn(), name, value, opts).resp_cookies[name].value
     end)
   end
 
@@ -88,29 +80,32 @@ defmodule PhoenixTest.Playwright.CookieArgs do
   end
 
   defp build_pseudo_conn_with_session(value, session_options) do
-    otp_app = Application.get_env(:phoenix_test, :otp_app)
-    endpoint = Application.get_env(:phoenix_test, :endpoint)
-    secret_key_base = Application.get_env(otp_app, endpoint)[:secret_key_base]
     name = session_options[:key]
 
-    %Conn{secret_key_base: secret_key_base, owner: self(), remote_ip: {127, 0, 0, 1}}
+    pseudo_conn()
     |> Session.call(Session.init(session_options))
     |> Conn.fetch_session()
     |> put_map_value_in_session(value)
     |> Conn.fetch_cookies(signed: [name], encrypted: [name])
-    |> use_pseudo_adapter()
     |> Conn.send_resp(200, "")
+  end
+
+  defp pseudo_conn do
+    otp_app = Application.get_env(:phoenix_test, :otp_app)
+    endpoint = Application.get_env(:phoenix_test, :endpoint)
+    secret_key_base = Application.get_env(otp_app, endpoint)[:secret_key_base]
+
+    %Conn{
+      adapter: {PhoenixTest.Playwright.CookieArgs.PseudoAdapter, nil},
+      secret_key_base: secret_key_base,
+      owner: self(),
+      remote_ip: {127, 0, 0, 1}
+    }
   end
 
   defp put_map_value_in_session(plug_conn, value) do
     Enum.reduce(value, plug_conn, fn {key, val}, plug_conn ->
       Conn.put_session(plug_conn, key, val)
-    end)
-  end
-
-  defp use_pseudo_adapter(plug_conn) do
-    Map.update!(plug_conn, :adapter, fn {_adapter, nil} ->
-      {PhoenixTest.Playwright.CookieArgs.PseudoAdapter, nil}
     end)
   end
 
