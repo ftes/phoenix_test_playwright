@@ -46,10 +46,18 @@ defmodule PhoenixTest.Playwright do
   @typedoc "A CSS string, or a Playwright selector typically built with `PhoenixTest.Playwright.Selector`."
   @type selector :: playwright_selector() | css_selector()
 
+  # An action can't check once: at 1 ms it would time out before it acts.
   @timeout_opt [
+    type: {:or, [:pos_integer, {:in, [:infinity]}]},
+    type_doc: "`t:pos_integer/0` or `:infinity`",
+    doc:
+      "Maximum time in milliseconds, or `:infinity` for none. Defaults to PlaywrightEx's, see [Timeouts](`PhoenixTest.Playwright.Config#module-timeouts`)."
+  ]
+
+  @assertion_timeout_opt [
     type: :timeout,
     doc:
-      "Maximum time in milliseconds, `0` or `:infinity` for none. Defaults to PlaywrightEx's, see [Timeouts](`PhoenixTest.Playwright.Config#module-timeouts`)."
+      "Maximum time in milliseconds to retry, `0` to check once, or `:infinity` for no limit. Defaults to PlaywrightEx's, see [Timeouts](`PhoenixTest.Playwright.Config#module-timeouts`)."
   ]
 
   @exact_opt_schema [type: :boolean, default: false, doc: "Exact or substring text match."]
@@ -531,7 +539,7 @@ defmodule PhoenixTest.Playwright do
       type: {:map, :any, :any},
       doc: "Map of query params to match exactly."
     ],
-    timeout: @timeout_opt
+    timeout: @assertion_timeout_opt
   ]
 
   @doc false
@@ -548,7 +556,8 @@ defmodule PhoenixTest.Playwright do
   # phoenix_test's `assert_path`, which reads the frame's URL: the predicate runs in this process.
   # On timeout, `assertion` fails with phoenix_test's message.
   defp expect_path(conn, page, path, opts, assertion) do
-    {expect_opts, opts} = opts |> NimbleOptions.validate!(@path_assertion_opts_schema) |> Keyword.split([:timeout])
+    opts = NimbleOptions.validate!(opts, @path_assertion_opts_schema)
+    {expect_opts, opts} = {timeout(opts), Keyword.delete(opts, :timeout)}
 
     at_path? = fn _url ->
       try do
@@ -617,7 +626,7 @@ defmodule PhoenixTest.Playwright do
       required: true
     ],
     exact: @exact_opt_schema,
-    timeout: @timeout_opt
+    timeout: @assertion_timeout_opt
   ]
 
   @assertion_opts_schema [
@@ -643,7 +652,7 @@ defmodule PhoenixTest.Playwright do
     at: [
       type: :integer
     ],
-    timeout: @timeout_opt
+    timeout: @assertion_timeout_opt
   ]
   @content_assertion_opts [:text, :value, :selected, :checked]
 
@@ -1237,7 +1246,15 @@ defmodule PhoenixTest.Playwright do
   end
 
   # A `timeout:` option, if given: otherwise PlaywrightEx's default applies.
-  defp timeout(opts), do: Keyword.take(opts, [:timeout])
+  # phoenix_test's `0` checks once. Playwright's `0` is no timeout, but its expect makes one
+  # check before its timeout applies, so 1 ms does. Action options reject `0`.
+  defp timeout(opts) do
+    case Keyword.fetch(opts, :timeout) do
+      {:ok, 0} -> [timeout: 1]
+      {:ok, timeout} -> [timeout: timeout]
+      :error -> []
+    end
+  end
 end
 
 defimpl PhoenixTest.Driver, for: PhoenixTest.Playwright do

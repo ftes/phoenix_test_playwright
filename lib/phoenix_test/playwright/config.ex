@@ -103,8 +103,10 @@ defmodule PhoenixTest.Playwright.Config do
       config :playwright_ex, :test, action_timeout: 2_000, navigation_timeout: 5_000
       config :playwright_ex, :expect, timeout: 2_000
 
-  An operation's `timeout:` option overrides them. Timeouts are in milliseconds,
-  `0` or `:infinity` for none. See `PlaywrightEx.Test` and `PlaywrightEx.Expect`.
+  An operation's `timeout:` option overrides them, in milliseconds or `:infinity` for no limit.
+  As in phoenix_test, an assertion's `timeout: 0` checks once; actions and `assert_screenshot/3`
+  reject `0`. In `config :playwright_ex`, `0` is Playwright's no timeout.
+  See `PlaywrightEx.Test` and `PlaywrightEx.Expect`.
   """
 
   @schema schema
