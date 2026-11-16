@@ -4,7 +4,7 @@ defmodule PhoenixTest.Playwright.JsLoggerTest do
   import ExUnit.CaptureLog
 
   alias PhoenixTest.Playwright.JsLogger
-  alias PlaywrightEx.WebError
+  alias Playwright.WebError
 
   @url "http://localhost:4002/assets/app.js"
 
