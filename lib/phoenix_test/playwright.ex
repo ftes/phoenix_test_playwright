@@ -19,15 +19,15 @@ defmodule PhoenixTest.Playwright do
   alias PhoenixTest.OpenBrowser
   alias PhoenixTest.Playwright.CookieArgs
   alias PhoenixTest.Playwright.Selector
-  alias PlaywrightEx.BrowserContext
-  alias PlaywrightEx.Dialog
-  alias PlaywrightEx.Download
-  alias PlaywrightEx.Expect
-  alias PlaywrightEx.ExpectError
-  alias PlaywrightEx.Locator
-  alias PlaywrightEx.Page
-  alias PlaywrightEx.PlaywrightError
-  alias PlaywrightEx.TimeoutError
+  alias Playwright.BrowserContext
+  alias Playwright.Dialog
+  alias Playwright.Download
+  alias Playwright.Expect
+  alias Playwright.ExpectError
+  alias Playwright.Locator
+  alias Playwright.Page
+  alias Playwright.PlaywrightError
+  alias Playwright.TimeoutError
 
   defstruct [
     :context,
@@ -51,13 +51,13 @@ defmodule PhoenixTest.Playwright do
     type: {:or, [:pos_integer, {:in, [:infinity]}]},
     type_doc: "`t:pos_integer/0` or `:infinity`",
     doc:
-      "Maximum time in milliseconds, or `:infinity` for none. Defaults to PlaywrightEx's, see [Timeouts](`PhoenixTest.Playwright.Config#module-timeouts`)."
+      "Maximum time in milliseconds, or `:infinity` for none. Defaults to Playwright's, see [Timeouts](`PhoenixTest.Playwright.Config#module-timeouts`)."
   ]
 
   @assertion_timeout_opt [
     type: :timeout,
     doc:
-      "Maximum time in milliseconds to retry, `0` to check once, or `:infinity` for no limit. Defaults to PlaywrightEx's, see [Timeouts](`PhoenixTest.Playwright.Config#module-timeouts`)."
+      "Maximum time in milliseconds to retry, `0` to check once, or `:infinity` for no limit. Defaults to Playwright's, see [Timeouts](`PhoenixTest.Playwright.Config#module-timeouts`)."
   ]
 
   @exact_opt_schema [type: :boolean, default: false, doc: "Exact or substring text match."]
@@ -137,9 +137,9 @@ defmodule PhoenixTest.Playwright do
     location = Macro.escape(%{file: __CALLER__.file, line: __CALLER__.line, column: 0})
 
     quote bind_quoted: [conn: conn, title: title, fun: fun, location: location] do
-      require PlaywrightEx.Test
+      require Playwright.Test
 
-      PlaywrightEx.Test.step(title, fn -> fun.(conn) end, location: location)
+      Playwright.Test.step(title, fn -> fun.(conn) end, location: location)
       conn
     end
   end
@@ -152,7 +152,7 @@ defmodule PhoenixTest.Playwright do
     referer: [
       type: :string,
       doc:
-        "Referer header value. If provided, takes preference over the referer header set via the `extra_http_headers` option to `PlaywrightEx.Browser.new_context/2`."
+        "Referer header value. If provided, takes preference over the referer header set via the `extra_http_headers` option to `Playwright.Browser.new_context/2`."
     ],
     wait_until: [
       type: {:in, ["load", "domcontentloaded", "networkidle", "commit"]},
@@ -294,7 +294,7 @@ defmodule PhoenixTest.Playwright do
 
   The file type will be inferred from the file extension on the path you provide:
   `.png`, `.jpg`, `.jpeg` or `.webp`. Any other extension raises.
-  The file is saved in the test's output dir (`PlaywrightEx.Test.output_path/1`,
+  The file is saved in the test's output dir (`Playwright.Test.output_path/1`,
   e.g. `test-results/<test>/my-screenshot.png`), and kept when the test passes.
   Missing directories are created.
 
@@ -311,7 +311,7 @@ defmodule PhoenixTest.Playwright do
   def screenshot(conn, file_path, opts \\ []) do
     opts = NimbleOptions.validate!(opts, @screenshot_opts_schema)
 
-    path = PlaywrightEx.Test.output_path(file_path)
+    path = Playwright.Test.output_path(file_path)
     Page.screenshot!(conn.page, [path: path] ++ opts)
 
     conn
@@ -378,20 +378,20 @@ defmodule PhoenixTest.Playwright do
 
   `name` is the snapshot's name, including the file extension, which must be `.png` or `.webp`.
   A name with `/` is a path of segments: `"auth/login.png"`.
-  It is resolved as in Playwright Test, by `config :playwright_ex, :test, snapshot_dir: ..., snapshot_path_template: ...`,
-  by default to `test/<test file>-snapshots/<name>-<platform>.png` (see `PlaywrightEx.Test`).
+  It is resolved as in Playwright Test, by `config :playwright, :test, snapshot_dir: ..., snapshot_path_template: ...`,
+  by default to `test/<test file>-snapshots/<name>-<platform>.png` (see `Playwright.Test`).
   To keep all snapshots in one directory, as before 0.20:
 
-      config :playwright_ex, :test, snapshot_dir: "test/snapshots", snapshot_path_template: "{snapshotDir}/{arg}{ext}"
+      config :playwright, :test, snapshot_dir: "test/snapshots", snapshot_path_template: "{snapshotDir}/{arg}{ext}"
 
   On first run (no baseline exists), the screenshot is saved as the new baseline and the test fails
   at the end of its body, as in Playwright Test, so CI catches a baseline nobody committed.
-  With `config :playwright_ex, :expect, update_snapshots: :missing`, a notice is printed and the test passes.
+  With `config :playwright, :expect, update_snapshots: :missing`, a notice is printed and the test passes.
   On mismatch, the test fails, and the `-actual`, `-expected` and `-diff` images are written to the
   test's output dir under `test-results/`.
-  `config :playwright_ex, :expect, update_snapshots: :changed` updates baselines instead.
+  `config :playwright, :expect, update_snapshots: :changed` updates baselines instead.
 
-  Requires a test of `PhoenixTest.Playwright.Case` (a test registered with `PlaywrightEx.Test`).
+  Requires a test of `PhoenixTest.Playwright.Case` (a test registered with `Playwright.Test`).
 
   ## Options
   #{NimbleOptions.docs(@assert_screenshot_opts_schema)}
@@ -808,7 +808,7 @@ defmodule PhoenixTest.Playwright do
 
   ## Callback return values
   The callback receives a map with `:message` (the dialog text) and `:dialog`
-  (a `t:PlaywrightEx.Dialog.t/0`), and may return one of these values:
+  (a `t:Playwright.Dialog.t/0`), and may return one of these values:
   - `:accept` -> accepts confirmation dialog
   - `{:accept, prompt_text}` -> accepts prompt dialog with text
   - `:dismiss` -> dismisses dialog
@@ -1226,12 +1226,12 @@ defmodule PhoenixTest.Playwright do
   See `PhoenixTest.unwrap/2`.
 
   Invokes `fun` with the Playwright
-  [`BrowserContext`](`PlaywrightEx.BrowserContext`),
-  [`Page`](`PlaywrightEx.Page`) and
-  [`Frame`](`PlaywrightEx.Frame`).
+  [`BrowserContext`](`Playwright.BrowserContext`),
+  [`Page`](`Playwright.Page`) and
+  [`Frame`](`Playwright.Frame`).
 
   ## Examples
-      |> unwrap(fn %{page: page} -> PlaywrightEx.Page.bring_to_front!(page) end)
+      |> unwrap(fn %{page: page} -> Playwright.Page.bring_to_front!(page) end)
   """
   @spec unwrap(t(), (%{context: any(), page: any(), frame: any()} -> any())) :: t()
   def unwrap(conn, fun) do
@@ -1245,7 +1245,7 @@ defmodule PhoenixTest.Playwright do
     if uri.query in [nil, ""], do: uri.path, else: "#{uri.path}?#{uri.query}"
   end
 
-  # A `timeout:` option, if given: otherwise PlaywrightEx's default applies.
+  # A `timeout:` option, if given: otherwise Playwright's default applies.
   # phoenix_test's `0` checks once. Playwright's `0` is no timeout, but its expect makes one
   # check before its timeout applies, so 1 ms does. Action options reject `0`.
   defp timeout(opts) do

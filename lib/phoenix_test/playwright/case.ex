@@ -20,33 +20,33 @@ defmodule PhoenixTest.Playwright.Case do
   e.g. `browser: :firefox`. `:parameterize` is the `ExUnit.Case` option:
   it runs the module once per map, and the maps can set config too.
 
-  Browsers come from `PlaywrightEx.Test.BrowserPool`, and each test is registered with
-  `PlaywrightEx.Test`: traces, screenshots and videos are recorded as
-  `config :playwright_ex, :test` and the `trace`, `screenshot` and `video` tags say,
+  Browsers come from `Playwright.Test.BrowserPool`, and each test is registered with
+  `Playwright.Test`: traces, screenshots and videos are recorded as
+  `config :playwright, :test` and the `trace`, `screenshot` and `video` tags say,
   into `test-results/` (see `PhoenixTest.Playwright.Config`).
 
   If the default setup behaviour and order does not suit you, consider
-  - using config opt `browser_context_opts`, which are passed to `PlaywrightEx.Browser.new_context/2`
+  - using config opt `browser_context_opts`, which are passed to `Playwright.Browser.new_context/2`
   - implementing your own `Case` (the setup functions in this module are public for your convenience).
-    `use PlaywrightEx.Test` must be the first line of its body, so tests are registered
+    `use Playwright.Test` must be the first line of its body, so tests are registered
     before `do_setup/1` creates their browser context.
 
   Browser contexts are closed before their ExUnit teardown callbacks return.
   """
 
   use ExUnit.CaseTemplate
-  use PlaywrightEx.Test
+  use Elixir.Playwright.Test
 
   alias Ecto.Adapters.SQL.Sandbox, as: EctoSandbox
+  alias Elixir.Playwright.Browser
+  alias Elixir.Playwright.BrowserContext
   alias Phoenix.Ecto.SQL.Sandbox, as: PhoenixSandbox
   alias PhoenixTest.Playwright
   alias PhoenixTest.Playwright.JsLogger
-  alias PlaywrightEx.Browser
-  alias PlaywrightEx.BrowserContext
 
   using opts do
     quote do
-      use PlaywrightEx.Test
+      use Elixir.Playwright.Test
 
       import PhoenixTest
 
@@ -87,7 +87,7 @@ defmodule PhoenixTest.Playwright.Case do
 
   @doc """
   Merges the ExUnit context with `PhoenixTest.Playwright.Config` opts.
-  Uses the result to get a browser from `PlaywrightEx.Test.BrowserPool`
+  Uses the result to get a browser from `Playwright.Test.BrowserPool`
   (held by the test module until it ends).
   Adds `:playwright_browser` to the context.
   """
@@ -123,9 +123,9 @@ defmodule PhoenixTest.Playwright.Case do
   """
   def new_session(config, context) do
     user_agent = checkout_ecto_repos(config, context)
-    # A call's options win over `config :playwright_ex, :test, context_options`: pass `base_url` only if that has none.
+    # A call's options win over `config :playwright, :test, context_options`: pass `base_url` only if that has none.
     base_url =
-      PlaywrightEx.Test.config().context_options[:base_url] || Application.fetch_env!(:phoenix_test, :base_url)
+      Elixir.Playwright.Test.config().context_options[:base_url] || Application.fetch_env!(:phoenix_test, :base_url)
 
     context_opts_defaults = [base_url: base_url, user_agent: user_agent]
     context_opts = Keyword.merge(context_opts_defaults, config[:browser_context_opts])

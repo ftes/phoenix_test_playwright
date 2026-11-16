@@ -4,8 +4,7 @@ defmodule PhoenixTest.Playwright.Selector.Engines do
   https://playwright.dev/docs/extensibility#custom-selector-engines
   """
 
-  alias PlaywrightEx.Playwright
-  alias PlaywrightEx.Selectors
+  alias Playwright.Selectors
 
   @path Path.join(__DIR__, "engines/phoenix_test_value.js")
   @external_resource @path
@@ -17,7 +16,7 @@ defmodule PhoenixTest.Playwright.Selector.Engines do
   end
 
   @doc false
-  # `PlaywrightEx.Test.BrowserPool`'s `on_start`: engines are registered per driver.
+  # `Playwright.Test.BrowserPool`'s `on_start`: engines are registered per driver.
   def register(playwright) do
     selectors = Playwright.selectors(playwright)
 

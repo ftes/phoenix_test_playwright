@@ -54,7 +54,7 @@ defmodule PhoenixTest.Playwright.CaseTest do
 
     @tag browser_context_opts: [viewport: :null]
     test "viewport: :null disables the default viewport", %{conn: conn} do
-      refute is_map(PlaywrightEx.Page.viewport_size(conn.page))
+      refute is_map(Playwright.Page.viewport_size(conn.page))
     end
   end
 end

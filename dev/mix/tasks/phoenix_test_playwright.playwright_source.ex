@@ -1,8 +1,8 @@
 defmodule Mix.Tasks.PhoenixTestPlaywright.PlaywrightSource do
-  @shortdoc "Fetches the Playwright source of the driver version PlaywrightEx pins"
+  @shortdoc "Fetches the Playwright source of the driver version Playwright pins"
   @moduledoc """
   Clones Playwright's source at the tag of the pinned driver (`v<version>`, see
-  `PlaywrightEx.Driver.version/0`) into gitignored `tmp/playwright-<version>`, unless that
+  `Playwright.Driver.version/0`) into gitignored `tmp/playwright-<version>`, unless that
   exists. The clone is shallow, blobless and sparse, checking out only `@paths`.
 
       mix phoenix_test_playwright.playwright_source
@@ -16,7 +16,7 @@ defmodule Mix.Tasks.PhoenixTestPlaywright.PlaywrightSource do
 
   @impl Mix.Task
   def run(_args) do
-    version = PlaywrightEx.Driver.version()
+    version = Playwright.Driver.version()
     dir = "tmp/playwright-#{version}"
 
     if not File.dir?(dir) do

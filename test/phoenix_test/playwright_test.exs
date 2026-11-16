@@ -13,8 +13,8 @@ defmodule PhoenixTest.PlaywrightTest do
   alias PhoenixTest.Playwright.Config
   alias PhoenixTest.Playwright.JsLogger
   alias PhoenixTest.Playwright.Selector
-  alias PlaywrightEx.ConsoleMessage
-  alias PlaywrightEx.WebError
+  alias Playwright.ConsoleMessage
+  alias Playwright.WebError
 
   defmodule ForwardingJsLogger do
     @moduledoc false
@@ -39,13 +39,13 @@ defmodule PhoenixTest.PlaywrightTest do
     test "takes a screenshot of the current page as a PNG", %{conn: conn} do
       name = "png_#{:erlang.system_time(:second)}.png"
       screenshot(conn, name, full_page: false, omit_background: true)
-      assert File.exists?(PlaywrightEx.Test.output_path(name))
+      assert File.exists?(Playwright.Test.output_path(name))
     end
 
     test "infers the image type from the file extension", %{conn: conn} do
       name = "inferred_#{System.unique_integer([:positive])}.jpg"
       screenshot(conn, name)
-      assert <<0xFF, 0xD8, 0xFF, _rest::binary>> = File.read!(PlaywrightEx.Test.output_path(name))
+      assert <<0xFF, 0xD8, 0xFF, _rest::binary>> = File.read!(Playwright.Test.output_path(name))
     end
 
     test "ignores omit_background for a JPEG", %{conn: conn} do
@@ -56,7 +56,7 @@ defmodule PhoenixTest.PlaywrightTest do
       |> screenshot(plain, omit_background: false)
       |> screenshot(omitted, omit_background: true)
 
-      assert File.read!(PlaywrightEx.Test.output_path(omitted)) == File.read!(PlaywrightEx.Test.output_path(plain))
+      assert File.read!(Playwright.Test.output_path(omitted)) == File.read!(Playwright.Test.output_path(plain))
     end
 
     test "full page screenshots are larger in file size than non-full-page", %{conn: conn} do
@@ -67,8 +67,8 @@ defmodule PhoenixTest.PlaywrightTest do
       |> screenshot(full_page_name, full_page: true)
       |> screenshot(viewport_name, full_page: false)
 
-      assert {:ok, %File.Stat{size: full_page_size}} = File.stat(PlaywrightEx.Test.output_path(full_page_name))
-      assert {:ok, %File.Stat{size: viewport_size}} = File.stat(PlaywrightEx.Test.output_path(viewport_name))
+      assert {:ok, %File.Stat{size: full_page_size}} = File.stat(Playwright.Test.output_path(full_page_name))
+      assert {:ok, %File.Stat{size: viewport_size}} = File.stat(Playwright.Test.output_path(viewport_name))
 
       assert full_page_size > viewport_size
     end
@@ -76,7 +76,7 @@ defmodule PhoenixTest.PlaywrightTest do
 
   describe "assert_screenshot/3" do
     setup %{conn: conn} do
-      # A dir of new baselines per test, see `config :playwright_ex, :test` in config/test.exs.
+      # A dir of new baselines per test, see `config :playwright, :test` in config/test.exs.
       dir = "tmp-#{System.unique_integer([:positive])}"
       on_exit(fn -> File.rm_rf!(Path.join("test/snapshots", dir)) end)
       [conn: set_html(conn, @screenshot_html), dir: dir]
@@ -186,7 +186,7 @@ defmodule PhoenixTest.PlaywrightTest do
     end
   end
 
-  defp output_files(name), do: Path.wildcard(Path.join(PlaywrightEx.Test.info().output_dir, "**/#{name}"))
+  defp output_files(name), do: Path.wildcard(Path.join(Playwright.Test.info().output_dir, "**/#{name}"))
 
   describe "browser dialog handling: accept_dialogs config and with_dialog/3" do
     @dialog_html """
@@ -278,8 +278,8 @@ defmodule PhoenixTest.PlaywrightTest do
     test "raises the underlying error for an invalid selector", %{conn: conn} do
       session = set_html(conn, "<h1>Playwright</h1>")
 
-      assert_raise PlaywrightEx.ExpectError, fn -> assert_has(session, "h1[") end
-      assert_raise PlaywrightEx.ExpectError, fn -> refute_has(session, "h1[") end
+      assert_raise Playwright.ExpectError, fn -> assert_has(session, "h1[") end
+      assert_raise Playwright.ExpectError, fn -> refute_has(session, "h1[") end
     end
 
     test "raises for unsupported assert_has/refute_has options", %{conn: conn} do
@@ -492,7 +492,7 @@ defmodule PhoenixTest.PlaywrightTest do
       """)
       |> unwrap(fn %{page: page} ->
         selector = Selector.role("link", "Navigate", exact: true)
-        page |> PlaywrightEx.Page.locator(selector) |> PlaywrightEx.Locator.click!()
+        page |> Playwright.Page.locator(selector) |> Playwright.Locator.click!()
       end)
       |> assert_has("#other:target", text: "Other")
     end
@@ -743,7 +743,7 @@ defmodule PhoenixTest.PlaywrightTest do
         capture_log(fn ->
           conn
           |> set_html("<h1>Console log fixture</h1>")
-          |> tap(&PlaywrightEx.Page.evaluate(&1.page, "console.error('TESTME 42')"))
+          |> tap(&Playwright.Page.evaluate(&1.page, "console.error('TESTME 42')"))
         end)
 
       assert log =~ "TESTME 42"
@@ -751,14 +751,14 @@ defmodule PhoenixTest.PlaywrightTest do
     end
 
     @tag :capture_log
-    test "passes PlaywrightEx objects to a custom logger", %{conn: conn} do
+    test "passes Playwright objects to a custom logger", %{conn: conn} do
       Process.register(self(), PhoenixTest.PlaywrightTest)
       JsLogger.attach(conn.context, ForwardingJsLogger)
 
       conn
       |> set_html("<h1>Console log fixture</h1>")
-      |> tap(&PlaywrightEx.Page.evaluate(&1.page, "console.error('TESTME 42')"))
-      |> tap(&PlaywrightEx.Page.evaluate(&1.page, "setTimeout(() => { throw new Error('TESTME 43') })"))
+      |> tap(&Playwright.Page.evaluate(&1.page, "console.error('TESTME 42')"))
+      |> tap(&Playwright.Page.evaluate(&1.page, "setTimeout(() => { throw new Error('TESTME 43') })"))
 
       assert_receive {:js_log, :error, "TESTME 42", %ConsoleMessage{}}, 5_000
       assert_receive {:js_log, :error, "TESTME 43", %WebError{}}, 5_000

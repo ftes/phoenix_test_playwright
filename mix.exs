@@ -54,7 +54,7 @@ defmodule PhoenixTestPlaywright.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:makeup_diff, ">= 0.1.0 and < 1.0.0", only: :dev},
       {:nimble_options, "~> 1.1"},
-      {:playwright_ex, github: "ftes/playwright_ex", branch: "main"}
+      {:playwright, github: "ftes/playwright_ex", branch: "main"}
     ]
   end
 
@@ -95,6 +95,8 @@ defmodule PhoenixTestPlaywright.MixProject do
         "CHANGELOG.md": [title: "Changelog"]
       ],
       nest_modules_by_prefix: [PhoenixTest.Playwright],
+      # ex_doc links a dependency by app name; `playwright` on Hex is another library.
+      deps: [playwright: "https://hexdocs.pm/playwright_ex"],
       filter_modules: fn _, metadata -> not String.contains?(to_string(metadata.source_path), "/internal/") end
     ]
   end
@@ -105,7 +107,7 @@ defmodule PhoenixTestPlaywright.MixProject do
       file: "AGENTS.md",
       usage_rules: [
         {:usage_rules, sub_rules: []},
-        {:playwright_ex, link: :markdown}
+        {:playwright, link: :markdown}
       ]
     ]
   end
@@ -123,7 +125,7 @@ defmodule PhoenixTestPlaywright.MixProject do
       "assets.setup": [
         "esbuild.install --if-missing"
       ],
-      "assets.setup.playwright": "playwright_ex.install -- chromium firefox --with-deps --only-shell",
+      "assets.setup.playwright": "playwright.install -- chromium firefox --with-deps --only-shell",
       "assets.build": ["esbuild default"],
       check: [
         "format --check-formatted",

@@ -36,7 +36,7 @@ defmodule PhoenixTest.Playwright.Selector do
       click(conn, edit_alice)
   """
 
-  alias PlaywrightEx.Isomorphic.LocatorUtils
+  alias Playwright.Isomorphic.LocatorUtils
 
   @typedoc "A selector string that Playwright understands."
   @type built :: String.t()

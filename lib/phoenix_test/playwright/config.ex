@@ -10,7 +10,7 @@ schema_opts = [
   browser: [
     type: {:in, browsers},
     type_doc: "`#{Enum.map_join(browsers, " | ", &":#{&1}")}`",
-    doc: "Defaults to `config :playwright_ex, :test, browser_name: ...` (`:chromium`)."
+    doc: "Defaults to `config :playwright, :test, browser_name: ...` (`:chromium`)."
   ],
   browser_context_opts: [
     default: [],
@@ -18,14 +18,14 @@ schema_opts = [
     doc: """
     Additional arguments passed to Playwright [Browser.newContext](https://playwright.dev/docs/api/class-browser#browser-new-context)
     for a test module or test, e.g. `@tag browser_context_opts: [http_credentials: %{username: "a", password: "b"}]`.
-    They win over `config :playwright_ex, :test, context_options: ...`, which is the place for global context options.
+    They win over `config :playwright, :test, context_options: ...`, which is the place for global context options.
     """
   ],
   browser_launch_opts: [
     type: :keyword_list,
     doc: """
     Arguments passed to Playwright [browserType.launch](https://playwright.dev/docs/api/class-browsertype#browser-type-launch)
-    for a test module, merged one level deep over `config :playwright_ex, :test, launch_options: ...`,
+    for a test module, merged one level deep over `config :playwright, :test, launch_options: ...`,
     which is the place for global launch options.
     E.g. `use PhoenixTest.Playwright.Case, browser_launch_opts: [headless: false, slow_mo: 500]`.
     """
@@ -76,13 +76,13 @@ defmodule PhoenixTest.Playwright.Config do
   Options that can be overridden per test via ExUnit `@tag`:
   #{Enum.map_join(setup_keys, "\n", &"- `:#{&1}`")}
 
-  ## PlaywrightEx options
+  ## Playwright options
 
-  Browsers come from `PlaywrightEx.Test.BrowserPool`, and each test is registered with
-  `PlaywrightEx.Test`. So `config :playwright_ex, :test` applies too, e.g. for
+  Browsers come from `Playwright.Test.BrowserPool`, and each test is registered with
+  `Playwright.Test`. So `config :playwright, :test` applies too, e.g. for
   traces, screenshots and videos (also as `@tag trace: :on`), `workers` and `output_dir`:
 
-      config :playwright_ex, :test,
+      config :playwright, :test,
         browser_name: :chromium,
         launch_options: [headless: false, slow_mo: 500],
         context_options: [locale: "de-DE"],
@@ -94,19 +94,19 @@ defmodule PhoenixTest.Playwright.Config do
 
   ## Timeouts
 
-  PlaywrightEx's timeouts apply, as Playwright Test's. Actions wait up to
-  `config :playwright_ex, :test, action_timeout: ...`, navigations (`visit/3`, `reload_page/2`)
+  Playwright's timeouts apply, as Playwright Test's. Actions wait up to
+  `config :playwright, :test, action_timeout: ...`, navigations (`visit/3`, `reload_page/2`)
   up to `navigation_timeout`. Both are unlimited by default: the test's ExUnit timeout bounds them.
   Assertions (`assert_has`, `refute_has`, `assert_path`, `assert_download`, `assert_screenshot/3`)
-  retry up to `config :playwright_ex, :expect, timeout: ...`, 5 seconds by default.
+  retry up to `config :playwright, :expect, timeout: ...`, 5 seconds by default.
 
-      config :playwright_ex, :test, action_timeout: 2_000, navigation_timeout: 5_000
-      config :playwright_ex, :expect, timeout: 2_000
+      config :playwright, :test, action_timeout: 2_000, navigation_timeout: 5_000
+      config :playwright, :expect, timeout: 2_000
 
   An operation's `timeout:` option overrides them, in milliseconds or `:infinity` for no limit.
   As in phoenix_test, an assertion's `timeout: 0` checks once; actions and `assert_screenshot/3`
-  reject `0`. In `config :playwright_ex`, `0` is Playwright's no timeout.
-  See `PlaywrightEx.Test` and `PlaywrightEx.Expect`.
+  reject `0`. In `config :playwright`, `0` is Playwright's no timeout.
+  See `Playwright.Test` and `Playwright.Expect`.
   """
 
   @schema schema

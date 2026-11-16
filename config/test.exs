@@ -42,13 +42,13 @@ config :phoenix_test_playwright,
   ecto_repos: [Repo]
 
 # Tests of assert_screenshot/3 write new baselines: pass instead of failing the test.
-config :playwright_ex, :expect, timeout: pw_timeout, update_snapshots: :missing
+config :playwright, :expect, timeout: pw_timeout, update_snapshots: :missing
 
-config :playwright_ex, :test,
+config :playwright, :test,
   action_timeout: pw_timeout,
   navigation_timeout: pw_timeout,
   launch_options: [headless: System.get_env("PW_HEADLESS", "true") in ~w(t true)],
-  # One directory of baselines, as before PlaywrightEx resolved them.
+  # One directory of baselines, as before Playwright resolved them.
   snapshot_dir: "test/snapshots",
   snapshot_path_template: "{snapshotDir}/{arg}{ext}",
   screenshot: if(System.get_env("PW_SCREENSHOT", "false") in ~w(t true), do: :on, else: :off),

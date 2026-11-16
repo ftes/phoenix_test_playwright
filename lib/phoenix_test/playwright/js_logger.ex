@@ -2,8 +2,8 @@ defmodule PhoenixTest.Playwright.JsLogger do
   @moduledoc """
   Default javascript logger, and the behaviour for custom ones (config opt `js_logger`).
 
-  `c:log/3` receives the PlaywrightEx object as its third argument: a `PlaywrightEx.ConsoleMessage`
-  for console messages, or a `PlaywrightEx.WebError` for uncaught errors.
+  `c:log/3` receives the Playwright object as its third argument: a `Playwright.ConsoleMessage`
+  for console messages, or a `Playwright.WebError` for uncaught errors.
 
   ## Custom logger
 
@@ -18,9 +18,9 @@ defmodule PhoenixTest.Playwright.JsLogger do
         def log(_level, _text, _message), do: :ok
       end
   """
-  alias PlaywrightEx.BrowserContext
-  alias PlaywrightEx.ConsoleMessage
-  alias PlaywrightEx.WebError
+  alias Playwright.BrowserContext
+  alias Playwright.ConsoleMessage
+  alias Playwright.WebError
 
   require Logger
 
@@ -30,7 +30,7 @@ defmodule PhoenixTest.Playwright.JsLogger do
   @typedoc "The console message text, or the error message."
   @type text :: binary()
 
-  @typedoc "The underlying PlaywrightEx object."
+  @typedoc "The underlying Playwright object."
   @type message :: ConsoleMessage.t() | WebError.t()
 
   @doc """

@@ -27,7 +27,7 @@ phoenix_test-*.tar
 
 # Dialyzer PLTs
 /priv/plts/
-# Traces, screenshots and videos recorded by PlaywrightEx.Test.
+# Traces, screenshots and videos recorded by Playwright.Test.
 /test-results/
 
 # New baselines of assert_screenshot/3 tests, removed after each test.

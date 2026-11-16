@@ -1,20 +1,20 @@
 defmodule PhoenixTest.StepTest.TraceCase do
   @moduledoc false
   # A template's own `setup` runs before those its `using` brings in, so this `on_exit` runs
-  # after the one of `use PlaywrightEx.Test`, which writes `trace.zip`.
+  # after the one of `use Playwright.Test`, which writes `trace.zip`.
   use ExUnit.CaseTemplate
 
   import ExUnit.Assertions
 
   using do
     quote do
-      use PlaywrightEx.Test
+      use Playwright.Test
     end
   end
 
   setup %{test_pid: test_pid} do
     on_exit(fn ->
-      trace_zip = Path.join(PlaywrightEx.Test.info(test_pid).output_dir, "trace.zip")
+      trace_zip = Path.join(Playwright.Test.info(test_pid).output_dir, "trace.zip")
       {:ok, handle} = :zip.zip_open(String.to_charlist(trace_zip), [:memory])
       {:ok, {_, trace}} = :zip.zip_get(~c"test.trace", handle)
       :ok = :zip.zip_close(handle)

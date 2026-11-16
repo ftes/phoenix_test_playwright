@@ -5,7 +5,7 @@ defmodule PhoenixTest.Playwright.InfiniteTimeoutTest do
 
   test "timeout: :infinity waits without limit", %{conn: conn} do
     # Past the default timeouts, so only `timeout` lets the assertions pass.
-    delay = PlaywrightEx.Test.config().expect.timeout + 500
+    delay = Elixir.Playwright.Test.config().expect.timeout + 500
     conn = Playwright.visit(conn, "/page/index", timeout: :infinity)
 
     conn

@@ -34,7 +34,7 @@ Please [get in touch](https://ftes.de) with feedback of any shape and size.
 
 Enjoy! Freddy.
 
-P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://github.com/ftes/playwright_ex).
+P.S. Looking for a standalone Playwright client? See [Playwright](https://github.com/ftes/playwright_ex).
 
 ## Getting started
 
@@ -48,7 +48,7 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
 2. Install the Playwright driver and browser (no Node.js or npm needed, see [Playwright driver](#playwright-driver))
 
     ```sh
-    MIX_ENV=test mix playwright_ex.install -- chromium --with-deps
+    MIX_ENV=test mix playwright.install -- chromium --with-deps
     ```
 
 3. Config
@@ -66,7 +66,7 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
     Application.put_env(:phoenix_test, :base_url, YourAppWeb.Endpoint.url())
     ```
 
-    Browsers come from `PlaywrightEx.Test.BrowserPool`: launched on first use, and stopped
+    Browsers come from `Playwright.Test.BrowserPool`: launched on first use, and stopped
     after the suite.
 
 5. Use in test
@@ -103,11 +103,11 @@ P.S. Looking for a standalone Playwright client? See [PlaywrightEx](https://gith
       [
         # Option A: inline into a rules file
         file: "AGENTS.md", # or "CLAUDE.md"
-        usage_rules: [~r/^phoenix/, :playwright_ex],
+        usage_rules: [~r/^phoenix/, :playwright],
         # Option B: generate as skill (can be used instead of or in addition to file)
         skills: [
           location: ".agents/skills", # or ".claude/skills"
-          deps: [:phoenix_test_playwright, :playwright_ex]
+          deps: [:phoenix_test_playwright, :playwright]
         ]
       ]
     end
@@ -221,8 +221,8 @@ config :phoenix_test,
   otp_app: :your_app,
   playwright: [js_logger: nil]
 
-# Browsers, context options, traces, screenshots, videos and snapshot paths, see PlaywrightEx.Test
-config :playwright_ex, :test,
+# Browsers, context options, traces, screenshots, videos and snapshot paths, see Playwright.Test
+config :playwright, :test,
   browser_name: :chromium,
   launch_options: [timeout: 10_000],
   context_options: [locale: "de-DE"],
@@ -230,16 +230,16 @@ config :playwright_ex, :test,
   trace: :retain_on_failure
 
 # Assertion timeout, 5 seconds by default
-config :playwright_ex, :expect, timeout: 2_000
+config :playwright, :expect, timeout: 2_000
 ```
 
 See `PhoenixTest.Playwright.Config` for more details, including timeout semantics.
 
-Each test module gets a browser of its own from `PlaywrightEx.Test.BrowserPool`, as a Playwright Test
-worker does: at most `config :playwright_ex, :test, workers: ...` at once (half the schedulers by default),
+Each test module gets a browser of its own from `Playwright.Test.BrowserPool`, as a Playwright Test
+worker does: at most `config :playwright, :test, workers: ...` at once (half the schedulers by default),
 reused warm by the next module. Each test gets a fresh browser context.
 
-You can override some options per test module, merged over `config :playwright_ex, :test`:
+You can override some options per test module, merged over `config :playwright, :test`:
 
 ```elixir
 defmodule DebuggingFeatureTest do
@@ -255,13 +255,14 @@ And browser context options per test: `@tag browser_context_opts: [locale: "fr-F
 
 ## Playwright driver
 
-PlaywrightEx pins the Playwright version and downloads its driver (Node.js and `playwright-core`)
-to `PLAYWRIGHT_EX_CACHE_DIR` (default: `playwright_ex` in the user cache directory) on first use.
-Browsers go to `PLAYWRIGHT_BROWSERS_PATH` (default: `ms-playwright` in the user cache directory).
+Playwright (the `playwright_ex` package) pins the Playwright version and downloads its driver (Node.js and
+`playwright-core`) to `config :playwright, :driver, cache_dir: ...` (default: `playwright` in the user cache
+directory) on first use. Browsers go to `PLAYWRIGHT_BROWSERS_PATH` (default: `ms-playwright` in the user cache directory).
 
-To bring your own, set one of these environment variables:
-- `PLAYWRIGHT_EX_EXECUTABLE`: a `playwright` CLI, e.g. `assets/node_modules/.bin/playwright`. Its version must match `PlaywrightEx.Driver.version/0`.
-- `PLAYWRIGHT_NODEJS_PATH`: a Node.js binary to run the pinned driver with, e.g. on Alpine Linux.
+To bring your own, set one of these in `config :playwright, :driver` (in `config/config.exs`, reading an
+environment variable there if you need one):
+- `executable:` a `playwright` CLI, e.g. `assets/node_modules/.bin/playwright`. Its version must match `Playwright.Driver.version/0`.
+- `node:` a Node.js binary to run the pinned driver with, e.g. on Alpine Linux.
 
 Cache both directories in CI. Keep the install step on a cache hit, as `--with-deps` installs system packages.
 
@@ -270,10 +271,10 @@ Cache both directories in CI. Keep the install step on a cache hit, as `--with-d
 - uses: actions/cache@v4
   with:
     path: |
-      ~/.cache/playwright_ex
+      ~/.cache/playwright
       ~/.cache/ms-playwright
     key: playwright-${{ runner.os }}-${{ hashFiles('mix.lock') }}
-- run: mix playwright_ex.install -- chromium --with-deps
+- run: mix playwright.install -- chromium --with-deps
   env:
     MIX_ENV: test
 ```
@@ -284,19 +285,19 @@ Cache both directories in CI. Keep the install step on a cache hit, as `--with-d
 Run browsers on a remote Playwright server instead of launching them locally.
 Useful for containerized CI.
 
-`PlaywrightEx.Test.BrowserPool` connects instead of launching when `connect_options` are configured
+`Playwright.Test.BrowserPool` connects instead of launching when `connect_options` are configured
 (Playwright Test's `connectOptions`). Traces, screenshots and videos are recorded as for local browsers.
 
-The connection goes through a local Playwright driver, which PlaywrightEx downloads on
+The connection goes through a local Playwright driver, which Playwright downloads on
 first use. Its Node.js binary needs glibc: on Alpine Linux, install `nodejs` and set
-`PLAYWRIGHT_NODEJS_PATH` to it. The server must run the same Playwright version.
+`config :playwright, :driver, node: ...` to it. The server must run the same Playwright version.
 
 ```elixir
 # config/test.exs
-config :playwright_ex, :test, connect_options: [ws_endpoint: "ws://localhost:3000"]
+config :playwright, :test, connect_options: [ws_endpoint: "ws://localhost:3000"]
 
 # or, to enable via environment variable
-config :playwright_ex, :test,
+config :playwright, :test,
   connect_options: if(url = System.get_env("PLAYWRIGHT_WS_ENDPOINT"), do: [ws_endpoint: url])
 ```
 
@@ -313,7 +314,7 @@ The browser type is sent in the `x-playwright-browser` header when connecting.
 Playwright traces record a full browser history, including 'user' interaction, browser console, network transfers etc.
 Traces can be explored in an interactive viewer for debugging purposes.
 
-Traces are recorded by `PlaywrightEx.Test`, as configured by `config :playwright_ex, :test, trace: ...`
+Traces are recorded by `Playwright.Test`, as configured by `config :playwright, :test, trace: ...`
 (`:off` by default, `:on`, `:retain_on_failure`) and the `trace` tag:
 
 ```elixir
@@ -321,12 +322,12 @@ Traces are recorded by `PlaywrightEx.Test`, as configured by `config :playwright
 test "record a trace into test-results/<test>/trace.zip" do
 ```
 
-Open it in the viewer with `mix playwright_ex.cli show-trace test-results/<test>/trace.zip`
+Open it in the viewer with `mix playwright.cli show-trace test-results/<test>/trace.zip`
 (a failed test that keeps a trace prints this command).
 
 ### Step annotations
 
-Use `PhoenixTest.Playwright.step/3` to label test steps (`PlaywrightEx.Test.step`, Playwright Test's `test.step`)
+Use `PhoenixTest.Playwright.step/3` to label test steps (`Playwright.Test.step`, Playwright Test's `test.step`)
 with their source code locations. Steps nest, and are visible in the Playwright trace viewer.
 
 ## Screenshots
@@ -345,14 +346,14 @@ with their source code locations. Steps nest, and are visible in the Playwright 
 ```
 
 Baselines are resolved as in Playwright Test (`snapshot_dir`, `snapshot_path_template` in
-`config :playwright_ex, :test`), and comparison output goes to `test-results/<test>/`.
+`config :playwright, :test`), and comparison output goes to `test-results/<test>/`.
 
 
 ## Traces and screenshots for failed tests in CI
 
 ```elixir
 # config/test.exs
-config :playwright_ex, :test,
+config :playwright, :test,
   trace: :retain_on_failure,
   screenshot: :only_on_failure
 ```
@@ -364,7 +365,7 @@ Tracing slows every test, so you may prefer to trace only when re-running failur
 
 ```elixir
 # config/test.exs
-config :playwright_ex, :test, trace: :on_first_retry
+config :playwright, :test, trace: :on_first_retry
 ```
 
 ```yaml
@@ -423,11 +424,11 @@ end)
 
 ### Test failure in CI (timeout)
 
-- Tune concurrency: `config :playwright_ex, :test, workers: ...` (browsers, half the cores by default) and `mix test --max-cases ...`.
+- Tune concurrency: `config :playwright, :test, workers: ...` (browsers, half the cores by default) and `mix test --max-cases ...`.
   For suites that wait on the app, `workers` near the core count with `--max-cases` about the core count tends to be fastest;
   more starves the app and causes timeouts. On small GitHub CI shared runners, try `workers: 1`.
 - Run one browser per `mix test` (e.g. `--only` a tag, or CI partitions): switching browser or launch options restarts a worker.
-- Increase timeouts: `config :playwright_ex, :expect, timeout: 10_000` for assertions, `config :playwright_ex, :test, action_timeout: ...` for actions
+- Increase timeouts: `config :playwright, :expect, timeout: 10_000` for assertions, `config :playwright, :test, action_timeout: ...` for actions
 - More compute power: e.g. `x64 8-core` [GitHub runner](https://docs.github.com/en/enterprise-cloud@latest/actions/using-github-hosted-runners/using-larger-runners/about-larger-runners#machine-sizes-for-larger-runners)
 
 ### LiveView not connected
@@ -461,9 +462,9 @@ If you've installed a browser but can't run tests
 you probably used the wrong playwright JS version to install the browser.
 
 Each playwright JS version pins a specific browser version.
-Tests are run using the driver pinned by PlaywrightEx (see `PlaywrightEx.Driver.version/0`).
+Tests are run using the driver pinned by Playwright (see `Playwright.Driver.version/0`).
 Make sure to use that same driver to install the browser,
-e.g. via `MIX_ENV=test mix playwright_ex.install -- chromium`.
+e.g. via `MIX_ENV=test mix playwright.install -- chromium`.
 
 
 ## Missing Playwright features
@@ -472,7 +473,7 @@ This library adds functions beyond the standard PhoenixTest API (e.g. `screensho
 but it does not wrap the entire Playwright API.
 
 You can add any missing functionality yourself using `unwrap/2` with
-[PlaywrightEx](https://hexdocs.pm/playwright_ex) modules (`Page`, `Locator`, `Frame`, `BrowserContext`),
+[Playwright](https://hexdocs.pm/playwright_ex) modules (`Page`, `Locator`, `Frame`, `BrowserContext`),
 which follow the [Playwright docs](https://playwright.dev/docs/api/class-playwright).
 
 If you think others might benefit, please [open a PR](https://github.com/ftes/phoenix_test_playwright/pulls).

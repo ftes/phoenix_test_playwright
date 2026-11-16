@@ -37,19 +37,19 @@ end
 
 This library adds browser-specific functions (e.g. `screenshot/3`, `evaluate/2`, `type/4`, `press/4`, `drag/3`). See the [docs](https://hexdocs.pm/phoenix_test_playwright/PhoenixTest.Playwright.md) for the full list.
 
-For anything the library doesn't cover, use `unwrap/2` to access `PlaywrightEx` modules (`Page`, `Locator`, `Frame`, `BrowserContext`) directly, or `evaluate/2` for simple JavaScript (see [Missing Playwright features](https://hexdocs.pm/phoenix_test_playwright/readme.md#missing-playwright-features)):
+For anything the library doesn't cover, use `unwrap/2` to access `Playwright` modules (`Page`, `Locator`, `Frame`, `BrowserContext`) directly, or `evaluate/2` for simple JavaScript (see [Missing Playwright features](https://hexdocs.pm/phoenix_test_playwright/readme.md#missing-playwright-features)):
 
 ```elixir
 # Listen to page-level events (e.g. console messages)
 conn
-|> unwrap(fn %{page: page} -> PlaywrightEx.Page.on(page, :console, &IO.inspect/1) end)
+|> unwrap(fn %{page: page} -> Playwright.Page.on(page, :console, &IO.inspect/1) end)
 ```
 
-When calling `PlaywrightEx` directly, follow its [usage rules](deps/playwright_ex/usage-rules.md).
+When calling `Playwright` directly, follow its [usage rules](deps/playwright/usage-rules.md).
 
 ## Debugging
 
-- `@tag trace: :on` — record a trace into `test-results/<test>/trace.zip` (open with `mix playwright_ex.cli show-trace <path>`)
+- `@tag trace: :on` — record a trace into `test-results/<test>/trace.zip` (open with `mix playwright.cli show-trace <path>`)
 - `@tag screenshot: :only_on_failure` — keep a screenshot of failed tests in `test-results/<test>/`
 - `test-results/<test>/error-context.md` — errors, source and aria snapshot of a failed test
 - `open_browser/1` — open current page in system browser
