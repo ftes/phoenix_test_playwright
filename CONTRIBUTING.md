@@ -14,7 +14,7 @@ To run the tests locally, you'll need to:
 ## Reviewing
 
 Besides correctness, review a change for simplicity, consistency and scope. This applies to
-human and Claude reviews alike.
+human and agent reviews alike.
 
 - Prefer the change that removes or shares code over one that adds a parallel path; logic several
   modules repeat belongs in one place.
