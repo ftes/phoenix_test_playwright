@@ -35,18 +35,19 @@ defmodule PhoenixTest.Playwright.Case do
   """
 
   use ExUnit.CaseTemplate
-  use Elixir.Playwright.Test
+  use Playwright.Test
 
   alias Ecto.Adapters.SQL.Sandbox, as: EctoSandbox
-  alias Elixir.Playwright.Browser
-  alias Elixir.Playwright.BrowserContext
   alias Phoenix.Ecto.SQL.Sandbox, as: PhoenixSandbox
-  alias PhoenixTest.Playwright
+  # No `alias PhoenixTest.Playwright`: `Playwright.*` here is the playwright_ex dependency.
+  alias PhoenixTest.Playwright.Config
   alias PhoenixTest.Playwright.JsLogger
+  alias Playwright.Browser
+  alias Playwright.BrowserContext
 
   using opts do
     quote do
-      use Elixir.Playwright.Test
+      use Playwright.Test
 
       import PhoenixTest
 
@@ -92,9 +93,9 @@ defmodule PhoenixTest.Playwright.Case do
   Adds `:playwright_browser` to the context.
   """
   def do_setup_all(context) do
-    keys = Playwright.Config.setup_all_keys()
-    config = context |> Map.take(keys) |> Playwright.Config.validate!() |> Keyword.take(keys)
-    [playwright_browser: Playwright.Browser.browser!(config)]
+    keys = Config.setup_all_keys()
+    config = context |> Map.take(keys) |> Config.validate!() |> Keyword.take(keys)
+    [playwright_browser: PhoenixTest.Playwright.Browser.browser!(config)]
   end
 
   @doc """
@@ -103,7 +104,7 @@ defmodule PhoenixTest.Playwright.Case do
   Adds `:conn` to the context.
   """
   def do_setup(context) do
-    config = context |> Map.take(Playwright.Config.setup_keys()) |> Playwright.Config.validate!()
+    config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
     [conn: new_session(config, context)]
   end
 
@@ -125,19 +126,19 @@ defmodule PhoenixTest.Playwright.Case do
     user_agent = checkout_ecto_repos(config, context)
     # A call's options win over `config :playwright, :test, context_options`: pass `base_url` only if that has none.
     base_url =
-      Elixir.Playwright.Test.config().context_options[:base_url] || Application.fetch_env!(:phoenix_test, :base_url)
+      Playwright.Test.config().context_options[:base_url] || Application.fetch_env!(:phoenix_test, :base_url)
 
     context_opts_defaults = [base_url: base_url, user_agent: user_agent]
     context_opts = Keyword.merge(context_opts_defaults, config[:browser_context_opts])
     browser_context = Browser.new_context!(context.playwright_browser, context_opts)
-    JsLogger.attach(browser_context, Playwright.Config.global(:js_logger))
+    JsLogger.attach(browser_context, Config.global(:js_logger))
 
     page = BrowserContext.new_page!(browser_context)
 
     # Before the sandbox owner stops (registered earlier, so it runs later).
     on_exit(fn -> BrowserContext.close(browser_context) end)
 
-    Playwright.build(%{context: browser_context, page: page, config: config})
+    PhoenixTest.Playwright.build(%{context: browser_context, page: page, config: config})
   end
 
   @includes_ecto Code.ensure_loaded?(EctoSandbox) && Code.ensure_loaded?(PhoenixSandbox)
