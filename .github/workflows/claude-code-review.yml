@@ -71,9 +71,14 @@ jobs:
                authorization or data-exposure holes, races, data loss in migrations, tests that
                don't test what they claim, and violations of the project's written rules. Use
                subagents to review large or separate areas in parallel.
+               Also review simplicity, consistency and scope, following the Reviewing guidance
+               AGENTS.md gives or links: point at the existing code a change duplicates or
+               departs from, or at the issue it goes beyond.
             4. Verify each candidate before reporting: trace the code path and state the concrete
                input or scenario that fails. Drop anything you cannot substantiate, and skip
                style, naming and formatting nits.
+               Don't ask for handling of edge cases outside the PR's issue; list them in the
+               summary as follow-ups.
             5. Don't repeat findings already posted on this PR
                (`gh api repos/REPO/pulls/PR/comments`, `gh pr view PR --comments`).
 
