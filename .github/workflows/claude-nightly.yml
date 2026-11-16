@@ -165,7 +165,7 @@ jobs:
           ref: ${{ matrix.pr.branch }}
           fetch-depth: 0
       - name: Setup languages
-        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
       - name: Install dependencies
         run: mix "do" deps.get, deps.compile
       # Compiles the project to find the task: a PR that doesn't compile still gets a Claude run.
@@ -254,7 +254,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Setup languages
-        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
       - name: Install dependencies and Playwright's source
         run: mix "do" deps.get, deps.compile, phoenix_test_playwright.playwright_source
       - run: git switch -c "$NIGHTLY_BRANCH"
@@ -367,7 +367,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Setup languages
-        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
       - name: Install dependencies and Playwright's source
         run: mix "do" deps.get, deps.compile, phoenix_test_playwright.playwright_source
       - run: git switch -c "$NIGHTLY_BRANCH"
