@@ -6,8 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
 ## [Unreleased]
+
+## [0.20.0-rc.1] 2026-11-16
 ### Breaking
-- Requires playwright_ex's `Playwright` modules (`PlaywrightEx` renamed; the Hex package stays `playwright_ex`).
+- Requires playwright_ex 0.17.0-rc.6, which renames `PlaywrightEx` to `Playwright` (the Hex package stays `playwright_ex`).
   Replace `config :playwright_ex` with `config :playwright`, `mix playwright_ex.install` with `mix playwright.install`,
   `PlaywrightEx.*` with `Playwright.*` and the driver's env vars with `config :playwright, :driver, ...`, see
   playwright_ex's changelog. Move a direct `playwright_ex` dependency to `{:playwright, ..., hex: :playwright_ex}` in
