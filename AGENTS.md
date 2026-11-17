@@ -4,6 +4,7 @@
 - If your shell is already activated by `mise`/`direnv`, plain `mix ...` commands are fine.
 - Run targeted tests often while changing files.
 - When feature is complete run `mix check`.
+- When reviewing a change or fixing review findings, follow [Reviewing](CONTRIBUTING.md#reviewing).
 - When feature is complete, update `CHANGELOG.md`.
 - Always keep docs up to date (exdoc `@doc` + `@moduledoc`, `README.md`)
 

@@ -11,6 +11,17 @@ To run the tests locally, you'll need to:
 - **Follows PhoenixTest API.** Only add new public functions when strictly necessary for browser-specific interaction (e.g., screenshots, JS evaluation).
 - **Keep upstream tests mirrored.** Files under `test/phoenix_test/upstream/` are mirrored from [phoenix_test](https://github.com/germsvel/phoenix_test). Limit local changes to compatibility skip tags; Playwright-specific behavior tests go in `test/phoenix_test/playwright_test.exs` or other files outside `upstream/`.
 
+## Reviewing
+
+Besides correctness, review a change for simplicity, consistency and scope. This applies to
+human and agent reviews alike.
+
+- Prefer the change that removes or shares code over one that adds a parallel path; logic several
+  modules repeat belongs in one place.
+- Follow how the codebase already does the same thing. A new pattern needs a reason.
+- A PR fixes its issue. Edge cases and gaps that predate it are follow-ups: note them
+  instead of adding code for them in the PR.
+
 ## Playwright internals
 
 Playwright's implementation is split between a **client** (Node.js API) and a **server** (browser protocol layer). The [Playwright docs](https://playwright.dev/docs/intro) describe the public API but don't reflect this split. When reading Playwright source code, it can help to look at the TypeScript sources directly: [client](https://github.com/microsoft/playwright/tree/main/packages/playwright-core/src/client) and [server](https://github.com/microsoft/playwright/tree/main/packages/playwright-core/src/server) (locally under `package/lib/` in `Playwright.Driver.install_dir/0`).
