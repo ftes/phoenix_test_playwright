@@ -117,19 +117,15 @@ defmodule PhoenixTest.Playwright.Config do
   def validate!(config) when is_map(config), do: config |> Keyword.new() |> validate!()
 
   def validate!(config) when is_list(config) do
-    global()
+    :phoenix_test
+    |> Application.get_env(:playwright, [])
     |> Keyword.merge(config)
     |> NimbleOptions.validate!(@schema)
-    |> normalize()
+    |> Keyword.update!(:browser_context_opts, &Keyword.new/1)
   end
 
   @doc false
-  def global do
-    :phoenix_test
-    |> Application.get_env(:playwright, [])
-    |> NimbleOptions.validate!(@schema)
-    |> normalize()
-  end
+  def global, do: validate!([])
 
   def global(key), do: Keyword.fetch!(global(), key)
 
@@ -138,9 +134,4 @@ defmodule PhoenixTest.Playwright.Config do
 
   @doc false
   def setup_keys, do: @setup_keys
-
-  defp normalize(config), do: Keyword.new(config, fn {key, value} -> {key, normalize(key, value)} end)
-
-  defp normalize(:browser_context_opts, value), do: Keyword.new(value)
-  defp normalize(_key, value), do: value
 end
