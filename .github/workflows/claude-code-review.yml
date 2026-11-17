@@ -74,6 +74,9 @@ jobs:
             4. Verify each candidate before reporting: trace the code path and state the concrete
                input or scenario that fails. Drop anything you cannot substantiate, and skip
                style, naming and formatting nits.
+               CI runs `mix format --check-formatted`, credo, `mix compile --warnings-as-errors`, dialyzer, the
+               docs build and the tests. Do not run or approximate them, and do not comment on what they cover.
+               Review what CI cannot catch: correctness, design and docs.
             5. Don't repeat findings already posted on this PR
                (`gh api repos/REPO/pulls/PR/comments`, `gh pr view PR --comments`).
 
