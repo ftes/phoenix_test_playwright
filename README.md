@@ -48,7 +48,7 @@ P.S. Looking for a standalone Playwright client? See [Playwright](https://github
 2. Install the Playwright driver and browser (no Node.js or npm needed, see [Playwright driver](#playwright-driver))
 
     ```sh
-    MIX_ENV=test mix playwright.install -- chromium --with-deps
+    MIX_ENV=test mix playwright.install chromium --with-deps
     ```
 
 3. Config
@@ -274,7 +274,7 @@ Cache both directories in CI. Keep the install step on a cache hit, as `--with-d
       ~/.cache/playwright
       ~/.cache/ms-playwright
     key: playwright-${{ runner.os }}-${{ hashFiles('mix.lock') }}
-- run: mix playwright.install -- chromium --with-deps
+- run: mix playwright.install chromium --with-deps
   env:
     MIX_ENV: test
 ```
@@ -303,7 +303,7 @@ config :playwright, :test,
 
 ```sh
 # Start Playwright server
-docker run -p 3000:3000 --rm --init -it --workdir /home/pwuser --user pwuser mcr.microsoft.com/playwright:v1.65.0-noble /bin/sh -c "npx --yes playwright@1.65.0 run-server --port 3000 --host 0.0.0.0"
+docker run -p 3000:3000 --rm --init -it --workdir /home/pwuser --user pwuser mcr.microsoft.com/playwright:v1.65.1-noble /bin/sh -c "npx --yes playwright@1.65.1 run-server --port 3000 --host 0.0.0.0"
 ```
 
 The browser type is sent in the `x-playwright-browser` header when connecting.
@@ -464,7 +464,7 @@ you probably used the wrong playwright JS version to install the browser.
 Each playwright JS version pins a specific browser version.
 Tests are run using the driver pinned by Playwright (see `Playwright.Driver.version/0`).
 Make sure to use that same driver to install the browser,
-e.g. via `MIX_ENV=test mix playwright.install -- chromium`.
+e.g. via `MIX_ENV=test mix playwright.install chromium`.
 
 
 ## Missing Playwright features

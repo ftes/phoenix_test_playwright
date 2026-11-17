@@ -54,7 +54,7 @@ defmodule PhoenixTestPlaywright.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:makeup_diff, ">= 0.1.0 and < 1.0.0", only: :dev},
       {:nimble_options, "~> 1.1"},
-      {:playwright, "~> 0.17.0-rc.6", hex: :playwright_ex}
+      {:playwright, github: "ftes/playwright_ex", branch: "main"}
     ]
   end
 
@@ -125,7 +125,7 @@ defmodule PhoenixTestPlaywright.MixProject do
       "assets.setup": [
         "esbuild.install --if-missing"
       ],
-      "assets.setup.playwright": "playwright.install -- chromium firefox --with-deps --only-shell",
+      "assets.setup.playwright": "playwright.install chromium firefox --with-deps --only-shell",
       "assets.build": ["esbuild default"],
       check: [
         "format --check-formatted",
