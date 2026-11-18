@@ -22,8 +22,9 @@ defmodule PhoenixTest.Playwright.Case do
 
   Browsers come from `Playwright.Test.BrowserPool`, and each test is registered with
   `Playwright.Test`: traces, screenshots and videos are recorded as
-  `config :playwright, :test` and the `trace`, `screenshot` and `video` tags say,
-  into `test-results/` (see `PhoenixTest.Playwright.Config`).
+  `config :playwright, :test` and `Playwright.Test.use/1` tags say (`@tag Playwright.Test.use(trace: :on)`),
+  into `test-results/` (see `PhoenixTest.Playwright.Config`). Its resolved `base_url` wins over
+  phoenix_test's.
 
   If the default setup behaviour and order does not suit you, consider
   - using config opt `browser_context_opts`, which are passed to `Playwright.Browser.new_context/2`
@@ -124,9 +125,8 @@ defmodule PhoenixTest.Playwright.Case do
   """
   def new_session(config, context) do
     user_agent = checkout_ecto_repos(config, context)
-    # A call's options win over `config :playwright, :test, context_options`: pass `base_url` only if that has none.
-    base_url =
-      Playwright.Test.config().context_options[:base_url] || Application.fetch_env!(:phoenix_test, :base_url)
+    # A call's options win over Playwright's resolved ones: pass phoenix_test's `base_url` only if they have none.
+    base_url = Playwright.Test.info().use[:base_url] || Application.fetch_env!(:phoenix_test, :base_url)
 
     context_opts_defaults = [base_url: base_url, user_agent: user_agent]
     context_opts = Keyword.merge(context_opts_defaults, config[:browser_context_opts])

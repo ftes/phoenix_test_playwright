@@ -80,7 +80,7 @@ defmodule PhoenixTest.Playwright.Config do
 
   Browsers come from `Playwright.Test.BrowserPool`, and each test is registered with
   `Playwright.Test`. So `config :playwright, :test` applies too, e.g. for
-  traces, screenshots and videos (also as `@tag trace: :on`), `workers` and `output_dir`:
+  traces, screenshots and videos (also as `@tag Playwright.Test.use(trace: :on)`), `workers` and `output_dir`:
 
       config :playwright, :test,
         browser_name: :chromium,

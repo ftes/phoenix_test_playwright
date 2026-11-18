@@ -9,6 +9,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Breaking
 - Requires playwright_ex main (Playwright 1.65.1). `mix playwright.install` takes its args without `--`:
   `mix playwright.install chromium --with-deps`.
+- Set recording per test with `Playwright.Test.use/1`: `@tag Playwright.Test.use(trace: :on)`. Plain `trace`,
+  `screenshot` and `video` tags are now ignored.
+
+### Fixed
+- A `base_url` set through Playwright (`config :playwright, :test, base_url: ...`, `use Playwright.Test` or
+  `Playwright.Test.use/1`) is no longer overridden by phoenix_test's.
 
 ## [0.20.0-rc.1] 2026-11-16
 ### Breaking

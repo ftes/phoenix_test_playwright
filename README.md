@@ -17,7 +17,7 @@ defmodule Features.RegisterTest do
       %{browser: :firefox}
     ]
 
-  @tag trace: :on                        # record a trace into test-results/
+  @tag Playwright.Test.use(trace: :on)   # record a trace into test-results/
   test "register", %{conn: conn} do
     conn
     |> visit("/")
@@ -315,10 +315,10 @@ Playwright traces record a full browser history, including 'user' interaction, b
 Traces can be explored in an interactive viewer for debugging purposes.
 
 Traces are recorded by `Playwright.Test`, as configured by `config :playwright, :test, trace: ...`
-(`:off` by default, `:on`, `:retain_on_failure`) and the `trace` tag:
+(`:off` by default, `:on`, `:retain_on_failure`) and `Playwright.Test.use/1` tags:
 
 ```elixir
-@tag trace: :on
+@tag Playwright.Test.use(trace: :on)
 test "record a trace into test-results/<test>/trace.zip" do
 ```
 

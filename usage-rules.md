@@ -49,8 +49,8 @@ When calling `Playwright` directly, follow its [usage rules](deps/playwright/usa
 
 ## Debugging
 
-- `@tag trace: :on` — record a trace into `test-results/<test>/trace.zip` (open with `mix playwright.cli show-trace <path>`)
-- `@tag screenshot: :only_on_failure` — keep a screenshot of failed tests in `test-results/<test>/`
+- `@tag Playwright.Test.use(trace: :on)` — record a trace into `test-results/<test>/trace.zip` (open with `mix playwright.cli show-trace <path>`)
+- `@tag Playwright.Test.use(screenshot: :only_on_failure)` — keep a screenshot of failed tests in `test-results/<test>/`
 - `test-results/<test>/error-context.md` — errors, source and aria snapshot of a failed test
 - `open_browser/1` — open current page in system browser
 

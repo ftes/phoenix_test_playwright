@@ -41,7 +41,7 @@ defmodule PhoenixTest.StepTest do
   setup_all :do_setup_all
   setup :do_setup
 
-  @moduletag trace: :on
+  @moduletag Playwright.Test.use(trace: :on)
 
   @html """
   <input

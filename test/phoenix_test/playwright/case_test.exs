@@ -3,8 +3,8 @@ defmodule PhoenixTest.Playwright.CaseTest do
 
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 
-  describe "@tag :screenshot" do
-    @tag :screenshot
+  describe "screenshot: :on" do
+    @tag Playwright.Test.use(screenshot: :on)
     test "saves screenshot on test exit (for verification in CI)", %{conn: conn} do
       conn
       |> set_html("<h1>Screenshot on exit</h1>")
@@ -12,12 +12,22 @@ defmodule PhoenixTest.Playwright.CaseTest do
     end
   end
 
-  describe "@tag :trace" do
-    @tag :trace
+  describe "trace: :on" do
+    @tag Playwright.Test.use(trace: :on)
     test "saves trace on test exit (for verification in CI)", %{conn: conn} do
       conn
       |> set_html("<h1>Trace on exit</h1>")
       |> assert_has("h1")
+    end
+  end
+
+  describe "base_url" do
+    # Playwright's resolved `base_url` (config, module, describe or test) wins over phoenix_test's.
+    @tag Playwright.Test.use(base_url: Application.compile_env!(:phoenix_test, :base_url) <> "/page/")
+    test "from Playwright.Test.use/1 resolves relative paths", %{conn: conn} do
+      conn
+      |> visit("index")
+      |> assert_path("/page/index")
     end
   end
 
