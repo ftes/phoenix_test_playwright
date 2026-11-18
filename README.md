@@ -318,7 +318,9 @@ Traces are recorded by `Playwright.Test`, as configured by `config :playwright, 
 (`:off` by default, `:on`, `:retain_on_failure`) and `Playwright.Test.use/1` tags:
 
 ```elixir
-@tag Playwright.Test.use(trace: :on)
+use PhoenixTest.Playwright.Case, async: true, trace: :on   # every test of the module
+
+@tag Playwright.Test.use(trace: :on)                      # one test
 test "record a trace into test-results/<test>/trace.zip" do
 ```
 

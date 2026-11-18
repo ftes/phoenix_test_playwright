@@ -19,13 +19,15 @@ defmodule PhoenixTest.Playwright.Case do
   `:trace`, `:screenshot` and `:video` go to `use Playwright.Test`, e.g. `trace: :on`.
   Other options than `:async` become module tags, so they can override config per module,
   e.g. `browser: :firefox`. `:parameterize` is the `ExUnit.Case` option:
-  it runs the module once per map, and the maps can set config too.
+  it runs the module once per map, and the maps can set config too. Recording modes in a map go
+  through `Playwright.Test.parameters/1`, as plain keys are ignored:
+  `Map.put(Playwright.Test.parameters(trace: :on), :browser, :firefox)`.
 
   Browsers come from `Playwright.Test.BrowserPool`, and each test is registered with
   `Playwright.Test`: traces, screenshots and videos are recorded as
   `config :playwright, :test` and `Playwright.Test.use/1` tags say (`@tag Playwright.Test.use(trace: :on)`),
   into `test-results/` (see `PhoenixTest.Playwright.Config`). Its resolved `base_url` wins over
-  phoenix_test's.
+  phoenix_test's, for pages and for cookies without a `url` or `domain`.
 
   If the default setup behaviour and order does not suit you, consider
   - using config opt `browser_context_opts`, which are passed to `Playwright.Browser.new_context/2`
@@ -47,11 +49,12 @@ defmodule PhoenixTest.Playwright.Case do
   alias Playwright.Browser
   alias Playwright.BrowserContext
 
-  using opts do
-    {playwright_opts, opts} = Keyword.split(opts, [:trace, :screenshot, :video])
+  # Options of `use PhoenixTest.Playwright.Case` passed to `use Playwright.Test`.
+  @playwright_keys [:trace, :screenshot, :video]
 
+  using opts do
     quote do
-      use Playwright.Test, unquote(playwright_opts)
+      use Playwright.Test, Keyword.take(unquote(opts), unquote(@playwright_keys))
 
       import PhoenixTest
 
@@ -83,7 +86,7 @@ defmodule PhoenixTest.Playwright.Case do
           with_dialog: 3
         ]
 
-      @moduletag Keyword.delete(unquote(opts), :async)
+      @moduletag Keyword.drop(unquote(opts), [:async | unquote(@playwright_keys)])
     end
   end
 
@@ -108,8 +111,25 @@ defmodule PhoenixTest.Playwright.Case do
   Adds `:conn` to the context.
   """
   def do_setup(context) do
+    warn_plain_recording_tags(context)
     config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
     [conn: new_session(config, context)]
+  end
+
+  # Playwright.Test ignores plain `trace`, `screenshot` and `video` tags, which ptp documented before.
+  defp warn_plain_recording_tags(context) do
+    for key <- @playwright_keys,
+        Map.has_key?(context, key),
+        warned = {__MODULE__, :warned, context.module, key},
+        not :persistent_term.get(warned, false) do
+      :persistent_term.put(warned, true)
+
+      IO.warn(
+        "#{inspect(context.module)}: the plain `#{key}` tag (or parameterize: key) records nothing, " <>
+          "use `@tag Playwright.Test.use(#{key}: ...)` or `Playwright.Test.parameters(#{key}: ...)`",
+        []
+      )
+    end
   end
 
   @doc """
@@ -128,11 +148,11 @@ defmodule PhoenixTest.Playwright.Case do
   """
   def new_session(config, context) do
     user_agent = checkout_ecto_repos(config, context)
-    # A call's options win over Playwright's resolved ones: pass phoenix_test's `base_url` only if they have none.
-    base_url = Playwright.Test.info().use[:base_url] || Application.fetch_env!(:phoenix_test, :base_url)
+    # A call's options win over Playwright's resolved ones, so phoenix_test's `base_url` goes in only without one.
+    playwright_base_url = playwright_base_url()
+    phoenix_base_url = if playwright_base_url, do: [], else: [base_url: Application.fetch_env!(:phoenix_test, :base_url)]
 
-    context_opts_defaults = [base_url: base_url, user_agent: user_agent]
-    context_opts = Keyword.merge(context_opts_defaults, config[:browser_context_opts])
+    context_opts = Keyword.merge([user_agent: user_agent] ++ phoenix_base_url, config[:browser_context_opts])
     browser_context = Browser.new_context!(context.playwright_browser, context_opts)
     JsLogger.attach(browser_context, Config.global(:js_logger))
 
@@ -141,7 +161,18 @@ defmodule PhoenixTest.Playwright.Case do
     # Before the sandbox owner stops (registered earlier, so it runs later).
     on_exit(fn -> BrowserContext.close(browser_context) end)
 
-    PhoenixTest.Playwright.build(%{context: browser_context, page: page, config: config})
+    base_url = context_opts[:base_url] || playwright_base_url
+    PhoenixTest.Playwright.build(%{context: browser_context, page: page, config: config, base_url: base_url})
+  end
+
+  # The test's resolved `base_url`; outside a test (e.g. `setup_all`) the config's.
+  defp playwright_base_url do
+    if Playwright.Test.in_registered_test?() do
+      Playwright.Test.info().use[:base_url]
+    else
+      config = Playwright.Test.config()
+      config.base_url || config.context_options[:base_url]
+    end
   end
 
   @includes_ecto Code.ensure_loaded?(EctoSandbox) && Code.ensure_loaded?(PhoenixSandbox)

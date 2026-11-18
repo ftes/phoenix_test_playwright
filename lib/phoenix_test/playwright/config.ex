@@ -73,6 +73,9 @@ defmodule PhoenixTest.Playwright.Config do
   Options that can be overridden per test module via the `use PhoenixTest.Playwright.Case` opts:
   #{Enum.map_join(setup_all_keys, "\n", &"- `:#{&1}`")}
 
+  The `use` opts also take Playwright's recording modes `:trace`, `:screenshot` and `:video`
+  (`use PhoenixTest.Playwright.Case, trace: :on`), passed to `use Playwright.Test`.
+
   Options that can be overridden per test via ExUnit `@tag`:
   #{Enum.map_join(setup_keys, "\n", &"- `:#{&1}`")}
 

@@ -11,11 +11,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `mix playwright.install chromium --with-deps`.
 - Set recording per test with `Playwright.Test.use/1`: `@tag Playwright.Test.use(trace: :on)`. Plain `trace`,
   `screenshot` and `video` tags are now ignored. `use PhoenixTest.Playwright.Case, trace: :on` (and `screenshot`,
-  `video`) still works: the Case passes them to `use Playwright.Test`.
+  `video`) still works: the Case passes them to `use Playwright.Test`. In a `parameterize:` map, use
+  `Map.put(Playwright.Test.parameters(trace: :on), :browser, :firefox)`, not `%{browser: :firefox, trace: :on}`.
+  The Case warns once per module about a plain `trace`, `screenshot` or `video` tag or `parameterize:` key.
 
 ### Fixed
 - A `base_url` set through Playwright (`config :playwright, :test, base_url: ...`, `use Playwright.Test` or
-  `Playwright.Test.use/1`) is no longer overridden by phoenix_test's.
+  `Playwright.Test.use/1`) is no longer overridden by phoenix_test's. `add_cookies/2` and `add_session_cookie/3` use it
+  too for a cookie without a `url` or `domain`.
 
 ## [0.20.0-rc.1] 2026-11-16
 ### Breaking

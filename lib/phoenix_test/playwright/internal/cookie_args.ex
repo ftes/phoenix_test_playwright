@@ -35,23 +35,23 @@ defmodule PhoenixTest.Playwright.CookieArgs do
   @doc """
   Converts the cookie kw list into a map suitable for posting
   """
-  @spec from_cookie(cookie()) :: playwright_cookie_args()
-  def from_cookie(cookie) do
+  @spec from_cookie(cookie(), String.t() | nil) :: playwright_cookie_args()
+  def from_cookie(cookie, base_url \\ nil) do
     cookie
     |> ensure_value_is_valid_plug_conn_cookie()
-    |> ensure_url_or_domain_path()
+    |> ensure_url_or_domain_path(base_url)
     |> plug_cookie_fields_to_playwright_cookie_fields()
   end
 
   @doc """
   Converts the session cookie kw list (with value that is a map) into a map suitable for posting
   """
-  @spec from_session_options(cookie(), Keyword.t()) :: playwright_cookie_args()
-  def from_session_options(cookie, session_options) do
+  @spec from_session_options(cookie(), Keyword.t(), String.t() | nil) :: playwright_cookie_args()
+  def from_session_options(cookie, session_options, base_url \\ nil) do
     cookie
     |> ensure_value_is_valid_session_cookie(session_options)
     |> ensure_session_cookie_name(session_options)
-    |> ensure_url_or_domain_path()
+    |> ensure_url_or_domain_path(base_url)
     |> plug_cookie_fields_to_playwright_cookie_fields()
   end
 
@@ -79,11 +79,12 @@ defmodule PhoenixTest.Playwright.CookieArgs do
     end)
   end
 
-  defp ensure_url_or_domain_path(cookie) do
+  # Without a url or domain, a cookie goes to the session's `base_url`, else phoenix_test's.
+  defp ensure_url_or_domain_path(cookie, base_url) do
     cond do
       cookie[:url] -> cookie
       cookie[:domain] && cookie[:path] -> cookie
-      true -> Keyword.put(cookie, :url, Application.fetch_env!(:phoenix_test, :base_url))
+      true -> Keyword.put(cookie, :url, base_url || Application.fetch_env!(:phoenix_test, :base_url))
     end
   end
 

@@ -23,11 +23,29 @@ defmodule PhoenixTest.Playwright.CaseTest do
 
   describe "base_url" do
     # Playwright's resolved `base_url` (config, module, describe or test) wins over phoenix_test's.
-    @tag Playwright.Test.use(base_url: Application.compile_env!(:phoenix_test, :base_url) <> "/page/")
+    @page_base_url "http://localhost:#{Application.compile_env!(:phoenix_test_playwright, [PhoenixTest.WebApp.Endpoint, :http, :port])}/page/"
+    @describetag Playwright.Test.use(base_url: @page_base_url)
+
     test "from Playwright.Test.use/1 resolves relative paths", %{conn: conn} do
       conn
       |> visit("index")
       |> assert_path("/page/index")
+    end
+
+    test "from Playwright.Test.use/1 is the default url of cookies", %{conn: conn} do
+      assert conn.base_url == @page_base_url
+    end
+  end
+
+  describe "plain recording tags" do
+    test "warn, as Playwright.Test ignores them", context do
+      output =
+        ExUnit.CaptureIO.capture_io(:stderr, fn ->
+          PhoenixTest.Playwright.Case.do_setup(Map.put(context, :video, :on))
+        end)
+
+      assert output =~ "the plain `video` tag (or parameterize: key) records nothing"
+      assert output =~ "Playwright.Test.use(video: ...)"
     end
   end
 
