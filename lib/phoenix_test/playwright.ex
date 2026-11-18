@@ -32,6 +32,7 @@ defmodule PhoenixTest.Playwright do
   defstruct [
     :context,
     :page,
+    :base_url,
     :dialog_listener,
     :last_input_selector,
     within: :none
@@ -69,14 +70,16 @@ defmodule PhoenixTest.Playwright do
   @spec build(%{
           required(:context) => BrowserContext.t(),
           required(:page) => Page.t(),
-          required(:config) => keyword()
+          required(:config) => keyword(),
+          optional(:base_url) => String.t() | nil
         }) :: t()
-  def build(%{context: context, page: page, config: config}) do
+  def build(%{context: context, page: page, config: config} = map) do
     forward_downloads(page, self())
 
     %__MODULE__{
       context: context,
       page: page,
+      base_url: Map.get(map, :base_url),
       dialog_listener: start_dialog_listener(page, config[:accept_dialogs])
     }
   end
@@ -210,9 +213,9 @@ defmodule PhoenixTest.Playwright do
   | -----------  | ----------- | ----------- |
   | `:name`      | `binary()`  | |
   | `:value`     | `binary()`  | |
-  | `:url`       | `binary()`  | *(optional)* either url or domain / path are required |
-  | `:domain`    | `binary()`  | *(optional)* either url or domain / path are required |
-  | `:path`      | `binary()`  | *(optional)* either url or domain / path are required |
+  | `:url`       | `binary()`  | *(optional)* defaults to the origin of the session's `base_url` (Playwright's, else phoenix_test's) |
+  | `:domain`    | `binary()`  | *(optional)* instead of `:url`; with `:path` but no `:url`, defaults to the `base_url`'s host |
+  | `:path`      | `binary()`  | *(optional)* with `:domain`; defaults to `/` |
   | `:max_age`   | `integer()` | *(optional)* The cookie max age, in seconds. |
   | `:http_only` | `boolean()` | *(optional)* |
   | `:secure`    | `boolean()` | *(optional)* |
@@ -232,7 +235,7 @@ defmodule PhoenixTest.Playwright do
   """
   @spec add_cookies(t(), [keyword()]) :: t()
   def add_cookies(conn, cookies) do
-    cookies = Enum.map(cookies, &CookieArgs.from_cookie/1)
+    cookies = Enum.map(cookies, &CookieArgs.from_cookie(&1, conn.base_url))
     BrowserContext.add_cookies!(conn.context, cookies)
     conn
   end
@@ -270,7 +273,7 @@ defmodule PhoenixTest.Playwright do
   """
   @spec add_session_cookie(t(), keyword(), keyword()) :: t()
   def add_session_cookie(conn, cookie, session_options) do
-    cookie = CookieArgs.from_session_options(cookie, session_options)
+    cookie = CookieArgs.from_session_options(cookie, session_options, conn.base_url)
     BrowserContext.add_cookies!(conn.context, [cookie])
     conn
   end

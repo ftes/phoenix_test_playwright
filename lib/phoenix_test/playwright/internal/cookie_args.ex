@@ -35,23 +35,23 @@ defmodule PhoenixTest.Playwright.CookieArgs do
   @doc """
   Converts the cookie kw list into a map suitable for posting
   """
-  @spec from_cookie(cookie()) :: playwright_cookie_args()
-  def from_cookie(cookie) do
+  @spec from_cookie(cookie(), String.t() | nil) :: playwright_cookie_args()
+  def from_cookie(cookie, base_url \\ nil) do
     cookie
     |> ensure_value_is_valid_plug_conn_cookie()
-    |> ensure_url_or_domain_path()
+    |> ensure_url_or_domain_path(base_url)
     |> plug_cookie_fields_to_playwright_cookie_fields()
   end
 
   @doc """
   Converts the session cookie kw list (with value that is a map) into a map suitable for posting
   """
-  @spec from_session_options(cookie(), Keyword.t()) :: playwright_cookie_args()
-  def from_session_options(cookie, session_options) do
+  @spec from_session_options(cookie(), Keyword.t(), String.t() | nil) :: playwright_cookie_args()
+  def from_session_options(cookie, session_options, base_url \\ nil) do
     cookie
     |> ensure_value_is_valid_session_cookie(session_options)
     |> ensure_session_cookie_name(session_options)
-    |> ensure_url_or_domain_path()
+    |> ensure_url_or_domain_path(base_url)
     |> plug_cookie_fields_to_playwright_cookie_fields()
   end
 
@@ -79,13 +79,27 @@ defmodule PhoenixTest.Playwright.CookieArgs do
     end)
   end
 
-  defp ensure_url_or_domain_path(cookie) do
+  # Playwright takes a url, or a domain and path. Without a url or domain, a cookie goes to the
+  # session's `base_url` (else phoenix_test's): its origin, as a url's path would scope the cookie
+  # to it, or its host for a cookie with a path. A domain's path defaults to `/`.
+  defp ensure_url_or_domain_path(cookie, base_url) do
     cond do
-      cookie[:url] -> cookie
-      cookie[:domain] && cookie[:path] -> cookie
-      true -> Keyword.put(cookie, :url, Application.fetch_env!(:phoenix_test, :base_url))
+      cookie[:url] ->
+        cookie
+
+      cookie[:domain] ->
+        Keyword.put_new(cookie, :path, "/")
+
+      cookie[:path] ->
+        uri = base_uri(base_url)
+        cookie |> Keyword.put(:domain, uri.host) |> Keyword.put_new(:secure, uri.scheme == "https")
+
+      true ->
+        Keyword.put(cookie, :url, URI.to_string(%{base_uri(base_url) | path: nil, query: nil, fragment: nil}))
     end
   end
+
+  defp base_uri(base_url), do: URI.parse(base_url || Application.fetch_env!(:phoenix_test, :base_url))
 
   defp build_pseudo_conn_with_session(value, session_options) do
     otp_app = Application.get_env(:phoenix_test, :otp_app)

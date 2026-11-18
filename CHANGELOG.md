@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
 ## [Unreleased]
+### Breaking
+- Requires playwright_ex 1.65.0-rc.2 (Playwright 1.65.1). `mix playwright.install` takes its args without `--`:
+  `mix playwright.install chromium --with-deps`.
+- Set recording per test with `Playwright.Test.use/1`: `@tag Playwright.Test.use(trace: :on)`. Plain `trace`,
+  `screenshot` and `video` tags are now ignored. `use PhoenixTest.Playwright.Case, trace: :on` (and `screenshot`,
+  `video`) still works: the Case passes them to `use Playwright.Test`. In a `parameterize:` map, use
+  `Map.put(Playwright.Test.parameters(trace: :on), :browser, :firefox)`, not `%{browser: :firefox, trace: :on}`.
+  The Case warns once per module about a plain `trace`, `screenshot` or `video` tag or `parameterize:` key.
+
+### Fixed
+- A `base_url` set through Playwright (`config :playwright, :test, base_url: ...` or `Playwright.Test.use/1`) is no
+  longer overridden by phoenix_test's. `add_cookies/2` and `add_session_cookie/3` use its
+  origin for a cookie without a `url` or `domain`. In `setup_all`, `new_session/2` sees only the config's `base_url`.
+- A cookie with a `domain` but no `path` gets path `/`, and one with a `path` but no `url` or `domain` the `base_url`'s
+  host as domain, where Playwright rejected them.
 
 ## [0.20.0-rc.1] 2026-11-16
 ### Breaking

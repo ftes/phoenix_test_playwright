@@ -73,6 +73,9 @@ defmodule PhoenixTest.Playwright.Config do
   Options that can be overridden per test module via the `use PhoenixTest.Playwright.Case` opts:
   #{Enum.map_join(setup_all_keys, "\n", &"- `:#{&1}`")}
 
+  The `use` opts also take Playwright's recording modes `:trace`, `:screenshot` and `:video`
+  (`use PhoenixTest.Playwright.Case, trace: :on`), passed to `use Playwright.Test`.
+
   Options that can be overridden per test via ExUnit `@tag`:
   #{Enum.map_join(setup_keys, "\n", &"- `:#{&1}`")}
 
@@ -80,7 +83,7 @@ defmodule PhoenixTest.Playwright.Config do
 
   Browsers come from `Playwright.Test.BrowserPool`, and each test is registered with
   `Playwright.Test`. So `config :playwright, :test` applies too, e.g. for
-  traces, screenshots and videos (also as `@tag trace: :on`), `workers` and `output_dir`:
+  traces, screenshots and videos (also as `@tag Playwright.Test.use(trace: :on)`), `workers` and `output_dir`:
 
       config :playwright, :test,
         browser_name: :chromium,
