@@ -54,6 +54,12 @@ defmodule PhoenixTest.Playwright.CookieArgsTest do
                CookieArgs.from_cookie([name: "a", value: "b"], "http://other.test:4000/page/")
     end
 
+    test "is the base_url's host as domain for a cookie with a path" do
+      cookie = CookieArgs.from_cookie([name: "a", value: "b", path: "/admin"], "http://other.test:4000/page/")
+      assert %{domain: "other.test", path: "/admin"} = cookie
+      refute Map.has_key?(cookie, :url)
+    end
+
     test "is not added to a cookie with a domain, whose path defaults to /" do
       cookie = CookieArgs.from_cookie([name: "a", value: "b", domain: "localhost"], "http://other.test")
       assert %{domain: "localhost", path: "/"} = cookie

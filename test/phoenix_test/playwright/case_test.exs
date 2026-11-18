@@ -44,13 +44,13 @@ defmodule PhoenixTest.Playwright.CaseTest do
   end
 
   describe "plain recording tags" do
-    test "warn, as Playwright.Test ignores them", context do
+    test "warn, as Playwright.Test ignores them" do
       # Warned once per module and key: forget an earlier run's warning.
       :persistent_term.erase({Case, :warned, __MODULE__, :video})
 
       output =
         ExUnit.CaptureIO.capture_io(:stderr, fn ->
-          Case.do_setup(Map.put(context, :video, :on))
+          Case.warn_plain_recording_tags(%{module: __MODULE__, video: :on})
         end)
 
       assert output =~ "the plain `video` tag (or parameterize: key) records nothing"
@@ -89,7 +89,6 @@ defmodule PhoenixTest.Playwright.CaseTest do
       end
     end
 
-    # `new_session/2` outside a registered test, without a Playwright `base_url`.
     @tag browser_context_opts: [viewport: :null]
     test "viewport: :null disables the default viewport", %{conn: conn} do
       refute is_map(Playwright.Page.viewport_size(conn.page))
@@ -97,6 +96,7 @@ defmodule PhoenixTest.Playwright.CaseTest do
   end
 end
 
+# `new_session/2` outside a registered test, without a Playwright `base_url`.
 defmodule PhoenixTest.Playwright.CaseSetupAllSessionTest do
   use PhoenixTest.Playwright.Case, async: true
 

@@ -116,8 +116,9 @@ defmodule PhoenixTest.Playwright.Case do
     [conn: new_session(config, context)]
   end
 
+  @doc false
   # Playwright.Test ignores plain `trace`, `screenshot` and `video` tags, which ptp documented before.
-  defp warn_plain_recording_tags(context) do
+  def warn_plain_recording_tags(context) do
     for key <- @playwright_keys,
         Map.has_key?(context, key),
         warned = {__MODULE__, :warned, context.module, key},
@@ -148,11 +149,10 @@ defmodule PhoenixTest.Playwright.Case do
   """
   def new_session(config, context) do
     user_agent = checkout_ecto_repos(config, context)
-    # A call's options win over Playwright's resolved ones, so phoenix_test's `base_url` goes in only without one.
-    playwright_base_url = playwright_base_url()
-    phoenix_base_url = if playwright_base_url, do: [], else: [base_url: Application.fetch_env!(:phoenix_test, :base_url)]
+    # Passed explicitly, so the context and `conn.base_url` (for cookies) agree, in any process.
+    base_url = playwright_base_url() || Application.fetch_env!(:phoenix_test, :base_url)
 
-    context_opts = Keyword.merge([user_agent: user_agent] ++ phoenix_base_url, config[:browser_context_opts])
+    context_opts = Keyword.merge([base_url: base_url, user_agent: user_agent], config[:browser_context_opts])
     browser_context = Browser.new_context!(context.playwright_browser, context_opts)
     JsLogger.attach(browser_context, Config.global(:js_logger))
 
@@ -161,12 +161,16 @@ defmodule PhoenixTest.Playwright.Case do
     # Before the sandbox owner stops (registered earlier, so it runs later).
     on_exit(fn -> BrowserContext.close(browser_context) end)
 
-    base_url = context_opts[:base_url] || playwright_base_url
-    PhoenixTest.Playwright.build(%{context: browser_context, page: page, config: config, base_url: base_url})
+    PhoenixTest.Playwright.build(%{
+      context: browser_context,
+      page: page,
+      config: config,
+      base_url: context_opts[:base_url]
+    })
   end
 
   # The test's resolved `base_url`. Outside a test (e.g. `setup_all`) only the config's: a module's
-  # or project's `base_url` isn't readable there, so phoenix_test's goes in over it.
+  # or project's `base_url` isn't readable there.
   defp playwright_base_url do
     if Playwright.Test.in_registered_test?() do
       Playwright.Test.info().use[:base_url]

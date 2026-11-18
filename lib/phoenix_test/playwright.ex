@@ -213,9 +213,9 @@ defmodule PhoenixTest.Playwright do
   | -----------  | ----------- | ----------- |
   | `:name`      | `binary()`  | |
   | `:value`     | `binary()`  | |
-  | `:url`       | `binary()`  | *(optional)* either url or domain / path are required |
-  | `:domain`    | `binary()`  | *(optional)* either url or domain / path are required |
-  | `:path`      | `binary()`  | *(optional)* either url or domain / path are required |
+  | `:url`       | `binary()`  | *(optional)* defaults to the origin of the session's `base_url` (Playwright's, else phoenix_test's) |
+  | `:domain`    | `binary()`  | *(optional)* instead of `:url`; with `:path` but no `:url`, defaults to the `base_url`'s host |
+  | `:path`      | `binary()`  | *(optional)* with `:domain`; defaults to `/` |
   | `:max_age`   | `integer()` | *(optional)* The cookie max age, in seconds. |
   | `:http_only` | `boolean()` | *(optional)* |
   | `:secure`    | `boolean()` | *(optional)* |
