@@ -121,12 +121,13 @@ defmodule PhoenixTest.Playwright.Case do
   def warn_plain_recording_tags(context) do
     for key <- @playwright_keys,
         Map.has_key?(context, key),
-        warned = {__MODULE__, :warned, context.module, key},
+        module = Map.get(context, :module),
+        warned = {__MODULE__, :warned, module, key},
         not :persistent_term.get(warned, false) do
       :persistent_term.put(warned, true)
 
       IO.warn(
-        "#{inspect(context.module)}: the plain `#{key}` tag (or parameterize: key) records nothing, " <>
+        "#{inspect(module)}: the plain `#{key}` tag (or parameterize: key) records nothing, " <>
           "use `@tag Playwright.Test.use(#{key}: ...)` or `Playwright.Test.parameters(#{key}: ...)`",
         []
       )
@@ -169,8 +170,8 @@ defmodule PhoenixTest.Playwright.Case do
     })
   end
 
-  # The test's resolved `base_url`. Outside a test (e.g. `setup_all`) only the config's: a module's
-  # or project's `base_url` isn't readable there.
+  # The test's resolved `base_url`. Outside a test (e.g. `setup_all`) only the config's: Playwright.Test
+  # has no public API resolving a module's or project's options there.
   defp playwright_base_url do
     if Playwright.Test.in_registered_test?() do
       Playwright.Test.info().use[:base_url]

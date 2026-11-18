@@ -3,8 +3,6 @@ defmodule PhoenixTest.Playwright.CaseTest do
 
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 
-  alias PhoenixTest.Playwright.Case
-
   describe "screenshot: :on" do
     @tag Playwright.Test.use(screenshot: :on)
     test "saves screenshot on test exit (for verification in CI)", %{conn: conn} do
