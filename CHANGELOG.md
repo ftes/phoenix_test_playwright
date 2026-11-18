@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 ### Breaking
-- Requires playwright_ex main (Playwright 1.65.1). `mix playwright.install` takes its args without `--`:
+- Requires playwright_ex 1.65.0-rc.2 (Playwright 1.65.1). `mix playwright.install` takes its args without `--`:
   `mix playwright.install chromium --with-deps`.
 - Set recording per test with `Playwright.Test.use/1`: `@tag Playwright.Test.use(trace: :on)`. Plain `trace`,
   `screenshot` and `video` tags are now ignored. `use PhoenixTest.Playwright.Case, trace: :on` (and `screenshot`,
