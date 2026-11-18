@@ -79,14 +79,17 @@ defmodule PhoenixTest.Playwright.CookieArgs do
     end)
   end
 
-  # Without a url or domain, a cookie goes to the session's `base_url`, else phoenix_test's.
+  # Without a url or domain, a cookie goes to the origin of the session's `base_url`, else of
+  # phoenix_test's: a url's path would scope the cookie to it. A domain's path defaults to `/`.
   defp ensure_url_or_domain_path(cookie, base_url) do
     cond do
       cookie[:url] -> cookie
-      cookie[:domain] && cookie[:path] -> cookie
-      true -> Keyword.put(cookie, :url, base_url || Application.fetch_env!(:phoenix_test, :base_url))
+      cookie[:domain] -> Keyword.put_new(cookie, :path, "/")
+      true -> Keyword.put(cookie, :url, origin(base_url || Application.fetch_env!(:phoenix_test, :base_url)))
     end
   end
+
+  defp origin(url), do: URI.to_string(%{URI.parse(url) | path: nil, query: nil, fragment: nil})
 
   defp build_pseudo_conn_with_session(value, session_options) do
     otp_app = Application.get_env(:phoenix_test, :otp_app)

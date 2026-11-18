@@ -47,4 +47,17 @@ defmodule PhoenixTest.Playwright.CookieArgsTest do
              }
     end
   end
+
+  describe "default url" do
+    test "is the origin of the session's base_url" do
+      assert %{url: "http://other.test:4000"} =
+               CookieArgs.from_cookie([name: "a", value: "b"], "http://other.test:4000/page/")
+    end
+
+    test "is not added to a cookie with a domain, whose path defaults to /" do
+      cookie = CookieArgs.from_cookie([name: "a", value: "b", domain: "localhost"], "http://other.test")
+      assert %{domain: "localhost", path: "/"} = cookie
+      refute Map.has_key?(cookie, :url)
+    end
+  end
 end

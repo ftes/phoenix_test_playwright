@@ -165,13 +165,14 @@ defmodule PhoenixTest.Playwright.Case do
     PhoenixTest.Playwright.build(%{context: browser_context, page: page, config: config, base_url: base_url})
   end
 
-  # The test's resolved `base_url`; outside a test (e.g. `setup_all`) the config's.
+  # The test's resolved `base_url`. Outside a test (e.g. `setup_all`) only the config's: a module's
+  # or project's `base_url` isn't readable there, so phoenix_test's goes in over it.
   defp playwright_base_url do
     if Playwright.Test.in_registered_test?() do
       Playwright.Test.info().use[:base_url]
     else
       config = Playwright.Test.config()
-      config.base_url || config.context_options[:base_url]
+      config[:base_url] || config[:context_options][:base_url]
     end
   end
 

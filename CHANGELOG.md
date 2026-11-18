@@ -17,8 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - A `base_url` set through Playwright (`config :playwright, :test, base_url: ...`, `use Playwright.Test` or
-  `Playwright.Test.use/1`) is no longer overridden by phoenix_test's. `add_cookies/2` and `add_session_cookie/3` use it
-  too for a cookie without a `url` or `domain`.
+  `Playwright.Test.use/1`) is no longer overridden by phoenix_test's. `add_cookies/2` and `add_session_cookie/3` use its
+  origin for a cookie without a `url` or `domain`. In `setup_all`, `new_session/2` sees only the config's `base_url`.
+- A cookie with a `domain` but no `path` gets path `/`, where Playwright rejected it.
 
 ## [0.20.0-rc.1] 2026-11-16
 ### Breaking

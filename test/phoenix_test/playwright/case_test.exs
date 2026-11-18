@@ -3,6 +3,8 @@ defmodule PhoenixTest.Playwright.CaseTest do
 
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 
+  alias PhoenixTest.Playwright.Case
+
   describe "screenshot: :on" do
     @tag Playwright.Test.use(screenshot: :on)
     test "saves screenshot on test exit (for verification in CI)", %{conn: conn} do
@@ -32,16 +34,23 @@ defmodule PhoenixTest.Playwright.CaseTest do
       |> assert_path("/page/index")
     end
 
-    test "from Playwright.Test.use/1 is the default url of cookies", %{conn: conn} do
+    test "from Playwright.Test.use/1 is the default url of cookies, at its origin", %{conn: conn} do
       assert conn.base_url == @page_base_url
+      conn = add_cookies(conn, [[name: "at_origin", value: "1"]])
+
+      assert [%{domain: "localhost", path: "/"}] =
+               for(%{name: "at_origin"} = cookie <- Playwright.BrowserContext.cookies!(conn.context), do: cookie)
     end
   end
 
   describe "plain recording tags" do
     test "warn, as Playwright.Test ignores them", context do
+      # Warned once per module and key: forget an earlier run's warning.
+      :persistent_term.erase({Case, :warned, __MODULE__, :video})
+
       output =
         ExUnit.CaptureIO.capture_io(:stderr, fn ->
-          PhoenixTest.Playwright.Case.do_setup(Map.put(context, :video, :on))
+          Case.do_setup(Map.put(context, :video, :on))
         end)
 
       assert output =~ "the plain `video` tag (or parameterize: key) records nothing"
@@ -80,9 +89,29 @@ defmodule PhoenixTest.Playwright.CaseTest do
       end
     end
 
+    # `new_session/2` outside a registered test, without a Playwright `base_url`.
     @tag browser_context_opts: [viewport: :null]
     test "viewport: :null disables the default viewport", %{conn: conn} do
       refute is_map(Playwright.Page.viewport_size(conn.page))
     end
+  end
+end
+
+defmodule PhoenixTest.Playwright.CaseSetupAllSessionTest do
+  use PhoenixTest.Playwright.Case, async: true
+
+  alias PhoenixTest.Playwright.Config
+
+  setup_all context do
+    config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
+    [shared_conn: PhoenixTest.Playwright.Case.new_session(config, context)]
+  end
+
+  test "new_session/2 in setup_all uses phoenix_test's base_url", %{shared_conn: conn} do
+    assert conn.base_url == Application.fetch_env!(:phoenix_test, :base_url)
+
+    conn
+    |> visit("/page/index")
+    |> assert_path("/page/index")
   end
 end
