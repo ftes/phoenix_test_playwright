@@ -43,21 +43,6 @@ defmodule PhoenixTest.Playwright.CaseTest do
     end
   end
 
-  describe "plain recording tags" do
-    test "warn, as Playwright.Test ignores them" do
-      # Warned once per module and key: forget an earlier run's warning.
-      :persistent_term.erase({Case, :warned, __MODULE__, :video})
-
-      output =
-        ExUnit.CaptureIO.capture_io(:stderr, fn ->
-          Case.warn_plain_recording_tags(%{module: __MODULE__, video: :on})
-        end)
-
-      assert output =~ "the plain `video` tag (or parameterize: key) records nothing"
-      assert output =~ "Playwright.Test.use(video: ...)"
-    end
-  end
-
   setup_all do
     [browser_context_opts: [locale: "de"]]
   end
@@ -113,5 +98,25 @@ defmodule PhoenixTest.Playwright.CaseSetupAllSessionTest do
     conn
     |> visit("/page/index")
     |> assert_path("/page/index")
+  end
+end
+
+defmodule PhoenixTest.Playwright.CasePlainRecordingTagsTest do
+  # Not async: `capture_io(:stderr, ...)` captures every process's stderr.
+  use ExUnit.Case, async: false
+
+  alias PhoenixTest.Playwright.Case
+
+  test "plain recording tags warn, as Playwright.Test ignores them" do
+    # Warned once per module and key: forget an earlier run's warning.
+    :persistent_term.erase({Case, :warned, __MODULE__, :video})
+
+    output =
+      ExUnit.CaptureIO.capture_io(:stderr, fn ->
+        Case.warn_plain_recording_tags(%{module: __MODULE__, video: :on})
+      end)
+
+    assert output =~ "the plain `video` tag (or parameterize: key) records nothing"
+    assert output =~ "Playwright.Test.use(video: ...)"
   end
 end

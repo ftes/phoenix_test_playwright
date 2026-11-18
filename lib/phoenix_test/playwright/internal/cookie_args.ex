@@ -83,15 +83,23 @@ defmodule PhoenixTest.Playwright.CookieArgs do
   # session's `base_url` (else phoenix_test's): its origin, as a url's path would scope the cookie
   # to it, or its host for a cookie with a path. A domain's path defaults to `/`.
   defp ensure_url_or_domain_path(cookie, base_url) do
-    base_url = base_url || Application.fetch_env!(:phoenix_test, :base_url)
-
     cond do
-      cookie[:url] -> cookie
-      cookie[:domain] -> Keyword.put_new(cookie, :path, "/")
-      cookie[:path] -> Keyword.put(cookie, :domain, URI.parse(base_url).host)
-      true -> Keyword.put(cookie, :url, URI.to_string(%{URI.parse(base_url) | path: nil, query: nil, fragment: nil}))
+      cookie[:url] ->
+        cookie
+
+      cookie[:domain] ->
+        Keyword.put_new(cookie, :path, "/")
+
+      cookie[:path] ->
+        uri = base_uri(base_url)
+        cookie |> Keyword.put(:domain, uri.host) |> Keyword.put_new(:secure, uri.scheme == "https")
+
+      true ->
+        Keyword.put(cookie, :url, URI.to_string(%{base_uri(base_url) | path: nil, query: nil, fragment: nil}))
     end
   end
+
+  defp base_uri(base_url), do: URI.parse(base_url || Application.fetch_env!(:phoenix_test, :base_url))
 
   defp build_pseudo_conn_with_session(value, session_options) do
     otp_app = Application.get_env(:phoenix_test, :otp_app)
