@@ -16,7 +16,8 @@ defmodule PhoenixTest.Playwright.Case do
         end
       end
 
-  Options other than `:async` become module tags, so they can override config per module,
+  `:trace`, `:screenshot` and `:video` go to `use Playwright.Test`, e.g. `trace: :on`.
+  Other options than `:async` become module tags, so they can override config per module,
   e.g. `browser: :firefox`. `:parameterize` is the `ExUnit.Case` option:
   it runs the module once per map, and the maps can set config too.
 
@@ -47,8 +48,10 @@ defmodule PhoenixTest.Playwright.Case do
   alias Playwright.BrowserContext
 
   using opts do
+    {playwright_opts, opts} = Keyword.split(opts, [:trace, :screenshot, :video])
+
     quote do
-      use Playwright.Test
+      use Playwright.Test, unquote(playwright_opts)
 
       import PhoenixTest
 
