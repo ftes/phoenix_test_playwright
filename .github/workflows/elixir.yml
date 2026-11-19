@@ -111,7 +111,12 @@ jobs:
       - name: Install browsers and build assets
         run: mix setup
       - name: Run tests
-        run: mix test --warnings-as-errors --formatter ExUnit.CLIFormatter --formatter Playwright.Test.GitHubFormatter || if [[ $? = 2 ]]; then mix test --failed; else false; fi
+        # Exit 2 means failures: retry them. A failed setup_all on_exit also exits 2 but leaves no
+        # failed tests, and `mix test --failed` then exits 0 with "There are no tests to run".
+        run: |
+          set -o pipefail
+          mix test --warnings-as-errors --formatter ExUnit.CLIFormatter --formatter Playwright.Test.GitHubFormatter ||
+            { [ $? -eq 2 ] && mix test --failed | tee retry.log && ! grep -q "There are no tests to run" retry.log; }
       - name: Fail if screenshot on exit failed
         run: |
           if ! ls test-results/*/test-finished-*.png >/dev/null 2>&1; then
