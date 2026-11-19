@@ -372,7 +372,10 @@ config :playwright, :test, trace: :on_first_retry
 
 ```yaml
 # .github/workflows/elixir.yml
-run: "mix test || if [[ $? = 2 ]]; then mix test --failed; else false; fi"
+# A failed `setup_all` `on_exit` also exits 2 with no failed tests: the retry must not pass then.
+run: |
+  set -o pipefail
+  mix test || { [ $? -eq 2 ] && mix test --failed | tee retry.log && ! grep -q "There are no tests to run" retry.log; }
 ```
 
 
