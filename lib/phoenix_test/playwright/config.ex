@@ -99,7 +99,8 @@ defmodule PhoenixTest.Playwright.Config do
     browser_launch_opts: "`launch_options` (`use PhoenixTest.Playwright.Case, launch_options: [slow_mo: 500]`)",
     browser_context_opts:
       "Playwright's context options (`use PhoenixTest.Playwright.Case, locale: \"de-DE\"` or " <>
-        "`@tag Playwright.Test.use(locale: \"de-DE\")`)"
+        "`@tag Playwright.Test.use(locale: \"de-DE\")`), or for values a setup computes " <>
+        "`PhoenixTest.Playwright.Case.new_session(config, context, storage_state: ...)`"
   ]
 
   @doc false

@@ -239,8 +239,8 @@ Each test module gets a browser of its own from `Playwright.Test.BrowserPool`, a
 worker does: at most `config :playwright, :test, workers: ...` at once (half the schedulers by default),
 reused warm by the next module. Each test gets a fresh browser context.
 
-A test module overrides Playwright's options in its `use` options, which go to `use Playwright.Test`
-(an option replaces the config's, `launch_options` as a whole):
+A test module overrides Playwright's options in its `use` options, which go to `use Playwright.Test`.
+An option replaces the config's, `launch_options` as a whole, so merge the config's to keep them:
 
 ```elixir
 defmodule DebuggingFeatureTest do
@@ -248,7 +248,11 @@ defmodule DebuggingFeatureTest do
     async: true,
     browser_name: :firefox,
     # Show browser and pause 1 second between every interaction
-    launch_options: [headless: false, slow_mo: :timer.seconds(1)],
+    launch_options:
+      Keyword.merge(Application.compile_env(:playwright, [:test, :launch_options], []),
+        headless: false,
+        slow_mo: :timer.seconds(1)
+      ),
     locale: "de-DE"
 end
 ```

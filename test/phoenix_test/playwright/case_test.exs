@@ -4,6 +4,8 @@ defmodule PhoenixTest.Playwright.CaseTest do
 
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 
+  alias PhoenixTest.Playwright.Config
+
   describe "screenshot: :on" do
     @tag Playwright.Test.use(screenshot: :on)
     test "saves screenshot on test exit (for verification in CI)", %{conn: conn} do
@@ -67,10 +69,20 @@ defmodule PhoenixTest.Playwright.CaseTest do
     test "viewport: :null disables the default viewport", %{conn: conn} do
       refute is_map(Playwright.Page.viewport_size(conn.page))
     end
+
+    test "of new_session/3 win over the resolved ones", context do
+      config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
+
+      # `new_session/2` in `setup_all`, without a Playwright `base_url`.
+      context
+      |> then(&PhoenixTest.Playwright.Case.new_session(config, &1, locale: "it", extra_http_headers: %{"x-setup" => "1"}))
+      |> visit("/pw/headers")
+      |> assert_has("#headers", text: "accept-language: it")
+      |> assert_has("#headers", text: "x-setup: 1")
+    end
   end
 end
 
-# `new_session/2` in `setup_all`, without a Playwright `base_url`.
 defmodule PhoenixTest.Playwright.CaseSetupAllSessionTest do
   use PhoenixTest.Playwright.Case, async: true
 

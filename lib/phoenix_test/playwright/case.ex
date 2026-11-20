@@ -155,14 +155,26 @@ defmodule PhoenixTest.Playwright.Case do
         [conn: other_conn] = PhoenixTest.Playwright.Case.do_setup(context)
         # ...
       end
+
+  `context_options` (`Playwright.Browser.new_context/2`'s) win over Playwright's resolved ones,
+  for values only a setup computes, e.g. a logged-in `storage_state`:
+
+      setup context do
+        config = context |> Map.take(PhoenixTest.Playwright.Config.setup_keys()) |> PhoenixTest.Playwright.Config.validate!()
+        [conn: PhoenixTest.Playwright.Case.new_session(config, context, storage_state: log_in())]
+      end
   """
-  def new_session(config, context) do
-    use = playwright_use()
+  def new_session(config, context, context_options \\ []) do
+    use = Map.merge(Map.new(playwright_use()), Map.new(context_options))
     user_agent = user_agent(context_option(use, :user_agent), checkout_ecto_repos(config, context))
     # Passed explicitly, so the context and `conn.base_url` (for cookies) agree, in any process.
     base_url = context_option(use, :base_url) || Application.fetch_env!(:phoenix_test, :base_url)
 
-    context_opts = Enum.reject([base_url: base_url, user_agent: user_agent], fn {_key, value} -> is_nil(value) end)
+    context_opts =
+      context_options
+      |> Keyword.merge(base_url: base_url, user_agent: user_agent)
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+
     browser_context = Browser.new_context!(context.playwright_browser, context_opts)
     JsLogger.attach(browser_context, Config.global(:js_logger))
 

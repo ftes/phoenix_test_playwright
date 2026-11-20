@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - `browser_launch_opts: [...]` is `launch_options: [...]`, which replaces the config's `launch_options` as a whole:
     repeat the config's ones you keep (e.g. `headless`, `timeout`).
   - `browser_context_opts: [locale: "de"]` is `locale: "de"` in the `use` options, or `@tag Playwright.Test.use(locale: "de")`.
+    A value a setup computes (e.g. a `storage_state`) goes to the new third argument of `PhoenixTest.Playwright.Case.new_session/3`.
 
   They raise as tags, `parameterize:` keys or in `config :phoenix_test, :playwright`.
 
