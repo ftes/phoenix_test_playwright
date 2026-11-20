@@ -14,6 +14,7 @@
     "* 0-6 * * 1"
   ],
   "minimumReleaseAge": "2 days",
+  "osvVulnerabilityAlerts": true,
   "automerge": false,
   "rangeStrategy": "replace",
   "packageRules": [
