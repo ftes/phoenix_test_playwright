@@ -7,7 +7,10 @@ defmodule PhoenixTest.Playwright.Case do
       defmodule MyAppWeb.RegisterTest do
         use PhoenixTest.Playwright.Case,
           async: true,
-          parameterize: [%{browser: :chromium}, %{browser: :firefox}]
+          parameterize: [
+            Playwright.Test.parameters(name: "chromium", browser_name: :chromium),
+            Playwright.Test.parameters(name: "firefox", browser_name: :firefox)
+          ]
 
         test "register", %{conn: conn} do
           conn
@@ -16,22 +19,21 @@ defmodule PhoenixTest.Playwright.Case do
         end
       end
 
-  `:trace`, `:screenshot` and `:video` go to `use Playwright.Test`, e.g. `trace: :on`.
-  Other options than `:async` become module tags, so they can override config per module,
-  e.g. `browser: :firefox`. `:parameterize` is the `ExUnit.Case` option:
-  it runs the module once per map, and the maps can set config too. Recording modes in a map go
-  through `Playwright.Test.parameters/1`, as plain keys are ignored:
-  `Map.put(Playwright.Test.parameters(trace: :on), :browser, :firefox)`.
+  The options of `PhoenixTest.Playwright.Config` (`accept_dialogs`, `ecto_sandbox_stop_owner_delay`)
+  become module tags. Every other option but ExUnit's goes to `use Playwright.Test`, e.g.
+  `browser_name: :firefox`, `launch_options: [slow_mo: 500]`, `locale: "de-DE"` or `trace: :on`,
+  and an unknown one raises. `:parameterize` is the `ExUnit.Case` option: it runs the module once
+  per `Playwright.Test.parameters/1` project, and a `name:` labels its failures and its snapshots.
 
   Browsers come from `Playwright.Test.BrowserPool`, and each test is registered with
-  `Playwright.Test`: traces, screenshots and videos are recorded as
-  `config :playwright, :test` and `Playwright.Test.use/1` tags say (`@tag Playwright.Test.use(trace: :on)`),
-  into `test-results/` (see `PhoenixTest.Playwright.Config`). Its resolved `base_url` wins over
-  phoenix_test's, for pages and for cookies without a `url` or `domain`.
+  `Playwright.Test`: its options (`config :playwright, :test`, the project's, the module's and
+  `@tag Playwright.Test.use(...)`) set the browser, the context and the recording of traces,
+  screenshots and videos into `test-results/` (see `PhoenixTest.Playwright.Config`). Its resolved
+  `base_url` wins over phoenix_test's, for pages and for cookies without a `url` or `domain`, and
+  the Ecto sandbox's metadata is appended to its `user_agent`.
 
   If the default setup behaviour and order does not suit you, consider
-  - using config opt `browser_context_opts`, which are passed to `Playwright.Browser.new_context/2`
-  - implementing your own `Case` (the setup functions in this module are public for your convenience).
+  implementing your own `Case` (the setup functions in this module are public for your convenience).
     `use Playwright.Test` must be the first line of its body, so tests are registered
     before `do_setup/1` creates their browser context.
 
@@ -49,12 +51,25 @@ defmodule PhoenixTest.Playwright.Case do
   alias Playwright.Browser
   alias Playwright.BrowserContext
 
-  # Options of `use PhoenixTest.Playwright.Case` passed to `use Playwright.Test`.
-  @playwright_keys [:trace, :screenshot, :video]
+  # Options of `use PhoenixTest.Playwright.Case` kept as module tags; the others but ExUnit's go to
+  # `use Playwright.Test`, which ignores ExUnit's and raises for unknown ones.
+  @config_keys Config.setup_keys()
+  # Recording modes, which Playwright.Test reads from `Playwright.Test.use/1` tags only.
+  @recording_keys [:trace, :screenshot, :video]
+  # Options of earlier versions, now Playwright's.
+  @removed_options [
+    browser:
+      "`browser_name` (`use PhoenixTest.Playwright.Case, browser_name: :firefox` or " <>
+        "`Playwright.Test.parameters(name: \"firefox\", browser_name: :firefox)`)",
+    browser_launch_opts: "`launch_options` (`use PhoenixTest.Playwright.Case, launch_options: [slow_mo: 500]`)",
+    browser_context_opts:
+      "Playwright's context options (`use PhoenixTest.Playwright.Case, locale: \"de-DE\"` or " <>
+        "`@tag Playwright.Test.use(locale: \"de-DE\")`)"
+  ]
 
   using opts do
     quote do
-      use Playwright.Test, Keyword.take(unquote(opts), unquote(@playwright_keys))
+      use Playwright.Test, Keyword.drop(unquote(opts), unquote(@config_keys))
 
       import PhoenixTest
 
@@ -86,7 +101,7 @@ defmodule PhoenixTest.Playwright.Case do
           with_dialog: 3
         ]
 
-      @moduletag Keyword.drop(unquote(opts), [:async | unquote(@playwright_keys)])
+      @moduletag Keyword.take(unquote(opts), unquote(@config_keys))
     end
   end
 
@@ -94,15 +109,13 @@ defmodule PhoenixTest.Playwright.Case do
   setup :do_setup
 
   @doc """
-  Merges the ExUnit context with `PhoenixTest.Playwright.Config` opts.
-  Uses the result to get a browser from `Playwright.Test.BrowserPool`
-  (held by the test module until it ends).
+  Gets a browser from `Playwright.Test.BrowserPool` (held by the test module until it ends),
+  of the module's `browser_name` and `launch_options`.
   Adds `:playwright_browser` to the context.
   """
   def do_setup_all(context) do
-    keys = Config.setup_all_keys()
-    config = context |> Map.take(keys) |> Config.validate!() |> Keyword.take(keys)
-    [playwright_browser: PhoenixTest.Playwright.Browser.browser!(config)]
+    reject_removed_options!(context)
+    [playwright_browser: PhoenixTest.Playwright.Browser.browser!()]
   end
 
   @doc """
@@ -111,15 +124,28 @@ defmodule PhoenixTest.Playwright.Case do
   Adds `:conn` to the context.
   """
   def do_setup(context) do
+    reject_removed_options!(context)
     warn_plain_recording_tags(context)
     config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
     [conn: new_session(config, context)]
   end
 
   @doc false
+  # A tag or `parameterize:` key of a removed option would be ignored.
+  def reject_removed_options!(context) do
+    for {key, instead} <- @removed_options, Map.has_key?(context, key) do
+      raise ArgumentError,
+            "#{inspect(Map.get(context, :module))}: the `#{key}` option of PhoenixTest.Playwright.Case " <>
+              "was removed, use #{instead}"
+    end
+
+    :ok
+  end
+
+  @doc false
   # Playwright.Test ignores plain `trace`, `screenshot` and `video` tags, which ptp documented before.
   def warn_plain_recording_tags(context) do
-    for key <- @playwright_keys,
+    for key <- @recording_keys,
         Map.has_key?(context, key),
         module = Map.get(context, :module),
         warned = {__MODULE__, :warned, module, key},
@@ -149,11 +175,12 @@ defmodule PhoenixTest.Playwright.Case do
       end
   """
   def new_session(config, context) do
-    user_agent = checkout_ecto_repos(config, context)
+    use = playwright_use()
+    user_agent = user_agent(use[:user_agent], checkout_ecto_repos(config, context))
     # Passed explicitly, so the context and `conn.base_url` (for cookies) agree, in any process.
-    base_url = playwright_base_url() || Application.fetch_env!(:phoenix_test, :base_url)
+    base_url = use[:base_url] || Application.fetch_env!(:phoenix_test, :base_url)
 
-    context_opts = Keyword.merge([base_url: base_url, user_agent: user_agent], config[:browser_context_opts])
+    context_opts = Enum.reject([base_url: base_url, user_agent: user_agent], fn {_key, value} -> is_nil(value) end)
     browser_context = Browser.new_context!(context.playwright_browser, context_opts)
     JsLogger.attach(browser_context, Config.global(:js_logger))
 
@@ -166,14 +193,22 @@ defmodule PhoenixTest.Playwright.Case do
       context: browser_context,
       page: page,
       config: config,
-      base_url: context_opts[:base_url]
+      base_url: base_url
     })
   end
 
-  # The resolved `base_url` of the test or `setup_all`, else (another process) the config's.
-  defp playwright_base_url do
-    use = if Playwright.Test.in_registered_scope?(), do: Playwright.Test.info().use, else: Playwright.Test.config()
-    use[:base_url]
+  # The resolved options of the test or `setup_all`, else (another process) the config's.
+  defp playwright_use do
+    if Playwright.Test.in_registered_scope?(), do: Playwright.Test.info().use, else: Playwright.Test.config()
+  end
+
+  # The resolved user agent (a device's, the config's) followed by the Ecto sandbox's metadata,
+  # which `Phoenix.Ecto.SQL.Sandbox` reads from the user agent's last `/`-separated part.
+  defp user_agent(user_agent, metadata) do
+    case Enum.reject([user_agent, metadata], &is_nil/1) do
+      [] -> nil
+      parts -> Enum.join(parts, "/")
+    end
   end
 
   @includes_ecto Code.ensure_loaded?(EctoSandbox) && Code.ensure_loaded?(PhoenixSandbox)
@@ -223,8 +258,6 @@ defmodule PhoenixTest.Playwright.Case do
       EctoSandbox.stop_owner(checkout_pid)
     end
   else
-    defp checkout_ecto_repos(_, _) do
-      "Ecto not loaded"
-    end
+    defp checkout_ecto_repos(_, _), do: nil
   end
 end

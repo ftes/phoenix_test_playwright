@@ -1,5 +1,6 @@
 defmodule PhoenixTest.Playwright.CaseTest do
-  use PhoenixTest.Playwright.Case, async: true
+  # Playwright's options pass through, e.g. a context option.
+  use PhoenixTest.Playwright.Case, async: true, locale: "de"
 
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 
@@ -41,38 +42,28 @@ defmodule PhoenixTest.Playwright.CaseTest do
     end
   end
 
-  setup_all do
-    [browser_context_opts: [locale: "de"]]
-  end
-
-  describe "browser_context_opts" do
-    test "overide locale via setup", %{conn: conn} do
+  describe "context options" do
+    test "of the module's use options", %{conn: conn} do
       conn
       |> visit("/pw/headers")
       |> assert_has("#headers", text: "accept-language: de")
     end
 
-    @tag browser_context_opts: [extra_http_headers: %{"x-custom" => "1"}]
-    test "accepts extra_http_headers as a map", %{conn: conn} do
+    @tag Playwright.Test.use(extra_http_headers: %{"x-custom" => "1"})
+    test "of a test", %{conn: conn} do
       conn
       |> visit("/pw/headers")
       |> assert_has("#headers", text: "x-custom: 1")
     end
 
-    @tag browser_context_opts: %{locale: "fr"}
-    test "accepts a map", %{conn: conn} do
+    @tag Playwright.Test.use(locale: "fr")
+    test "of a test win over the module's", %{conn: conn} do
       conn
       |> visit("/pw/headers")
       |> assert_has("#headers", text: "accept-language: fr")
     end
 
-    test "rejects a map with string keys" do
-      assert_raise NimbleOptions.ValidationError, ~r/browser_context_opts/, fn ->
-        PhoenixTest.Playwright.Config.validate!(browser_context_opts: %{"locale" => "fr"})
-      end
-    end
-
-    @tag browser_context_opts: [viewport: :null]
+    @tag Playwright.Test.use(viewport: :null)
     test "viewport: :null disables the default viewport", %{conn: conn} do
       refute is_map(Playwright.Page.viewport_size(conn.page))
     end
@@ -130,14 +121,10 @@ defmodule PhoenixTest.Playwright.CaseSetupAllProjectBaseUrlTest do
   use PhoenixTest.Playwright.Case,
     async: true,
     parameterize: [
-      Map.put(
-        Playwright.Test.parameters(
-          name: "page",
-          base_url:
-            "http://localhost:#{Application.compile_env!(:phoenix_test_playwright, [PhoenixTest.WebApp.Endpoint, :http, :port])}/page/"
-        ),
-        :browser,
-        :chromium
+      Playwright.Test.parameters(
+        name: "page",
+        base_url:
+          "http://localhost:#{Application.compile_env!(:phoenix_test_playwright, [PhoenixTest.WebApp.Endpoint, :http, :port])}/page/"
       )
     ]
 
@@ -152,6 +139,51 @@ defmodule PhoenixTest.Playwright.CaseSetupAllProjectBaseUrlTest do
     conn
     |> visit("index")
     |> assert_path("/page/index")
+  end
+end
+
+# The Ecto sandbox's metadata follows a configured user agent.
+defmodule PhoenixTest.Playwright.CaseUserAgentTest do
+  use PhoenixTest.Playwright.Case, async: true, user_agent: "MyBot/1.0"
+
+  @moduletag :capture_log
+
+  test "keeps the configured user agent", %{conn: conn} do
+    conn
+    |> visit("/pw/headers")
+    |> assert_has("#headers", text: "user-agent: MyBot/1.0/BeamMetadata (")
+  end
+
+  test "keeps the Ecto sandbox", %{conn: conn} do
+    conn
+    |> visit("/pw/live/ecto")
+    |> assert_has("div", text: "Version: PostgreSQL")
+  end
+end
+
+defmodule PhoenixTest.Playwright.CaseOptionsTest do
+  use ExUnit.Case, async: true
+
+  alias PhoenixTest.Playwright.Case
+
+  test "a removed option raises, naming Playwright's" do
+    assert_raise ArgumentError, ~r/the `browser` option .* was removed, use `browser_name`/, fn ->
+      Case.reject_removed_options!(%{module: __MODULE__, browser: :firefox})
+    end
+
+    assert_raise ArgumentError, ~r/`browser_context_opts` .* context options/, fn ->
+      Case.reject_removed_options!(%{module: __MODULE__, browser_context_opts: [locale: "de"]})
+    end
+  end
+
+  test "an unknown use option raises" do
+    assert_raise ArgumentError, ~r/unknown option bogus/, fn ->
+      Code.compile_string("""
+      defmodule PhoenixTest.Playwright.CaseOptionsTest.Bogus do
+        use PhoenixTest.Playwright.Case, async: true, bogus: 1
+      end
+      """)
+    end
   end
 end
 

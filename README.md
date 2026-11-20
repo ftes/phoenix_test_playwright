@@ -13,8 +13,8 @@ defmodule Features.RegisterTest do
   use PhoenixTest.Playwright.Case,
     async: true,                         # async with Ecto sandbox
     parameterize: [                      # run in multiple browsers in parallel
-      %{browser: :chromium},
-      %{browser: :firefox}
+      Playwright.Test.parameters(name: "chromium", browser_name: :chromium),
+      Playwright.Test.parameters(name: "firefox", browser_name: :firefox)
     ]
 
   @tag Playwright.Test.use(trace: :on)   # record a trace into test-results/
@@ -239,18 +239,21 @@ Each test module gets a browser of its own from `Playwright.Test.BrowserPool`, a
 worker does: at most `config :playwright, :test, workers: ...` at once (half the schedulers by default),
 reused warm by the next module. Each test gets a fresh browser context.
 
-You can override some options per test module, merged over `config :playwright, :test`:
+A test module overrides Playwright's options in its `use` options, which go to `use Playwright.Test`
+(an option replaces the config's, `launch_options` as a whole):
 
 ```elixir
 defmodule DebuggingFeatureTest do
   use PhoenixTest.Playwright.Case,
     async: true,
+    browser_name: :firefox,
     # Show browser and pause 1 second between every interaction
-    browser_launch_opts: [headless: false, slow_mo: :timer.seconds(1)]
+    launch_options: [headless: false, slow_mo: :timer.seconds(1)],
+    locale: "de-DE"
 end
 ```
 
-And browser context options per test: `@tag browser_context_opts: [locale: "fr-FR"]`.
+And context options per test: `@tag Playwright.Test.use(locale: "fr-FR")`.
 
 
 ## Playwright driver

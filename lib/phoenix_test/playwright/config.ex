@@ -1,34 +1,9 @@
-browsers = ~w(chromium firefox webkit)a
-
 # styler:sort
 schema_opts = [
   accept_dialogs: [
     default: true,
     type: :boolean,
     doc: "Accept browser dialogs (`alert()`, `confirm()`, `prompt()`)."
-  ],
-  browser: [
-    type: {:in, browsers},
-    type_doc: "`#{Enum.map_join(browsers, " | ", &":#{&1}")}`",
-    doc: "Defaults to `config :playwright, :test, browser_name: ...` (`:chromium`)."
-  ],
-  browser_context_opts: [
-    default: [],
-    type: {:or, [{:map, :atom, :any}, :keyword_list]},
-    doc: """
-    Additional arguments passed to Playwright [Browser.newContext](https://playwright.dev/docs/api/class-browser#browser-new-context)
-    for a test module or test, e.g. `@tag browser_context_opts: [http_credentials: %{username: "a", password: "b"}]`.
-    They win over `config :playwright, :test, context_options: ...`, which is the place for global context options.
-    """
-  ],
-  browser_launch_opts: [
-    type: :keyword_list,
-    doc: """
-    Arguments passed to Playwright [browserType.launch](https://playwright.dev/docs/api/class-browsertype#browser-type-launch)
-    for a test module, merged one level deep over `config :playwright, :test, launch_options: ...`,
-    which is the place for global launch options.
-    E.g. `use PhoenixTest.Playwright.Case, browser_launch_opts: [headless: false, slow_mo: 500]`.
-    """
   ],
   ecto_sandbox_stop_owner_delay: [
     default: 0,
@@ -57,8 +32,7 @@ schema_opts = [
 
 schema = NimbleOptions.new!(schema_opts)
 
-setup_all_keys = ~w(browser browser_launch_opts)a
-setup_keys = ~w(accept_dialogs ecto_sandbox_stop_owner_delay browser_context_opts)a
+setup_keys = ~w(accept_dialogs ecto_sandbox_stop_owner_delay)a
 
 defmodule PhoenixTest.Playwright.Config do
   @moduledoc """
@@ -70,14 +44,13 @@ defmodule PhoenixTest.Playwright.Config do
   All options:
   #{NimbleOptions.docs(schema)}
 
-  Options that can be overridden per test module via the `use PhoenixTest.Playwright.Case` opts:
-  #{Enum.map_join(setup_all_keys, "\n", &"- `:#{&1}`")}
-
-  The `use` opts also take Playwright's recording modes `:trace`, `:screenshot` and `:video`
-  (`use PhoenixTest.Playwright.Case, trace: :on`), passed to `use Playwright.Test`.
-
-  Options that can be overridden per test via ExUnit `@tag`:
+  Options that can be overridden per test module (`use PhoenixTest.Playwright.Case` opts) or
+  per test (`@tag`, `@describetag`):
   #{Enum.map_join(setup_keys, "\n", &"- `:#{&1}`")}
+
+  Every other option of `use PhoenixTest.Playwright.Case` but ExUnit's goes to `use Playwright.Test`,
+  which raises for an unknown one: Playwright's options, e.g. `browser_name: :firefox`,
+  `launch_options: [headless: false, slow_mo: 500]`, `locale: "de-DE"` or `trace: :on`.
 
   ## Playwright options
 
@@ -93,7 +66,9 @@ defmodule PhoenixTest.Playwright.Config do
         screenshot: :only_on_failure
 
   It also resolves `assert_screenshot/3` baselines (`snapshot_dir`, `snapshot_path_template`).
-  `browser_launch_opts` and `browser_context_opts` are merged over its `launch_options` and `context_options`.
+  A module sets them in its `use` options; a describe block or a test with `@tag Playwright.Test.use(locale: "fr-FR")`
+  (context options and recording only); a run of the module with `parameterize:` and `Playwright.Test.parameters/1`,
+  e.g. `Playwright.Test.parameters(name: "firefox", browser_name: :firefox)`. See `Playwright.Test`.
 
   ## Timeouts
 
@@ -113,7 +88,6 @@ defmodule PhoenixTest.Playwright.Config do
   """
 
   @schema schema
-  @setup_all_keys setup_all_keys
   @setup_keys setup_keys
 
   @doc false
@@ -124,16 +98,12 @@ defmodule PhoenixTest.Playwright.Config do
     |> Application.get_env(:playwright, [])
     |> Keyword.merge(config)
     |> NimbleOptions.validate!(@schema)
-    |> Keyword.update!(:browser_context_opts, &Keyword.new/1)
   end
 
   @doc false
   def global, do: validate!([])
 
   def global(key), do: Keyword.fetch!(global(), key)
-
-  @doc false
-  def setup_all_keys, do: @setup_all_keys
 
   @doc false
   def setup_keys, do: @setup_keys
