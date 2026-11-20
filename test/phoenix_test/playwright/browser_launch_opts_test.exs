@@ -8,12 +8,12 @@ defmodule PhoenixTest.Playwright.BrowserLaunchOptsTest do
 
   use PhoenixTest.Playwright.Case,
     async: true,
-    launch_options: [
-      args: [
+    # Replaces the config's `launch_options` as a whole: keep them (`headless`).
+    launch_options:
+      Keyword.put(Application.compile_env(:playwright, [:test, :launch_options], []), :args, [
         "--use-fake-ui-for-media-stream",
         "--use-fake-device-for-media-stream"
-      ]
-    ]
+      ])
 
   test "getUserMedia succeeds with fake media device flags", %{conn: conn} do
     conn

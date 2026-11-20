@@ -90,12 +90,41 @@ defmodule PhoenixTest.Playwright.Config do
   @schema schema
   @setup_keys setup_keys
 
+  # Options of earlier versions, now Playwright's. `browser` only with a browser's name: a
+  # `@moduletag :browser` filter tag is the user's.
+  @removed_options [
+    browser:
+      "`browser_name` (`use PhoenixTest.Playwright.Case, browser_name: :firefox` or " <>
+        "`Playwright.Test.parameters(name: \"firefox\", browser_name: :firefox)`)",
+    browser_launch_opts: "`launch_options` (`use PhoenixTest.Playwright.Case, launch_options: [slow_mo: 500]`)",
+    browser_context_opts:
+      "Playwright's context options (`use PhoenixTest.Playwright.Case, locale: \"de-DE\"` or " <>
+        "`@tag Playwright.Test.use(locale: \"de-DE\")`)"
+  ]
+
+  @doc false
+  # Raises for a removed option in `options` (a keyword list, or a test's context), which would
+  # be ignored or rejected without a hint.
+  def reject_removed!(options, where) do
+    options = Map.new(options)
+
+    for {key, instead} <- @removed_options,
+        Map.has_key?(options, key),
+        key != :browser or options.browser in [:chromium, :firefox, :webkit] do
+      raise ArgumentError, "#{where}: the `#{key}` option of PhoenixTest.Playwright was removed, use #{instead}"
+    end
+
+    :ok
+  end
+
   @doc false
   def validate!(config) when is_map(config), do: config |> Keyword.new() |> validate!()
 
   def validate!(config) when is_list(config) do
-    :phoenix_test
-    |> Application.get_env(:playwright, [])
+    global = Application.get_env(:phoenix_test, :playwright, [])
+    reject_removed!(global, "config :phoenix_test, :playwright")
+
+    global
     |> Keyword.merge(config)
     |> NimbleOptions.validate!(@schema)
   end

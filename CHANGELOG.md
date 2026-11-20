@@ -8,13 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 ### Breaking
 - `use PhoenixTest.Playwright.Case` passes its options to `use Playwright.Test`, except
-  `accept_dialogs` and `ecto_sandbox_stop_owner_delay` (module tags, as before) and ExUnit's. An unknown option raises.
+  `accept_dialogs` and `ecto_sandbox_stop_owner_delay` (module tags, as before) and ExUnit's. An unknown option raises:
+  move other tags given there (e.g. `timeout: 60_000`, `slow: true`) to `@moduletag`.
 - The `browser`, `browser_launch_opts` and `browser_context_opts` options are removed, in favour of Playwright's,
   which apply per module, project, describe block or test as in Playwright Test:
   - `browser: :firefox` is `browser_name: :firefox` (`use PhoenixTest.Playwright.Case, browser_name: :firefox`).
   - `parameterize: [%{browser: :firefox}]` is `parameterize: [Playwright.Test.parameters(name: "firefox", browser_name: :firefox)]`.
     The `name:` labels failures and keeps a snapshot baseline per browser.
-  - `browser_launch_opts: [...]` is `launch_options: [...]`, which replaces the config's `launch_options` as a whole.
+  - `browser_launch_opts: [...]` is `launch_options: [...]`, which replaces the config's `launch_options` as a whole:
+    repeat the config's ones you keep (e.g. `headless`, `timeout`).
   - `browser_context_opts: [locale: "de"]` is `locale: "de"` in the `use` options, or `@tag Playwright.Test.use(locale: "de")`.
 
   They raise as tags, `parameterize:` keys or in `config :phoenix_test, :playwright`.

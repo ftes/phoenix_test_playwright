@@ -56,18 +56,12 @@ defmodule PhoenixTest.Playwright.Case do
   @config_keys Config.setup_keys()
   # Recording modes, which Playwright.Test reads from `Playwright.Test.use/1` tags only.
   @recording_keys [:trace, :screenshot, :video]
-  # Options of earlier versions, now Playwright's.
-  @removed_options [
-    browser:
-      "`browser_name` (`use PhoenixTest.Playwright.Case, browser_name: :firefox` or " <>
-        "`Playwright.Test.parameters(name: \"firefox\", browser_name: :firefox)`)",
-    browser_launch_opts: "`launch_options` (`use PhoenixTest.Playwright.Case, launch_options: [slow_mo: 500]`)",
-    browser_context_opts:
-      "Playwright's context options (`use PhoenixTest.Playwright.Case, locale: \"de-DE\"` or " <>
-        "`@tag Playwright.Test.use(locale: \"de-DE\")`)"
-  ]
-
   using opts do
+    # Before `use Playwright.Test`, which validates as it expands, rejects them without a hint.
+    if Keyword.keyword?(opts) do
+      Config.reject_removed!(opts, "use PhoenixTest.Playwright.Case in #{inspect(__CALLER__.module)}")
+    end
+
     quote do
       use Playwright.Test, Keyword.drop(unquote(opts), unquote(@config_keys))
 
@@ -114,7 +108,7 @@ defmodule PhoenixTest.Playwright.Case do
   Adds `:playwright_browser` to the context.
   """
   def do_setup_all(context) do
-    reject_removed_options!(context)
+    Config.reject_removed!(context, inspect(Map.get(context, :module)))
     [playwright_browser: PhoenixTest.Playwright.Browser.browser!()]
   end
 
@@ -124,22 +118,10 @@ defmodule PhoenixTest.Playwright.Case do
   Adds `:conn` to the context.
   """
   def do_setup(context) do
-    reject_removed_options!(context)
+    Config.reject_removed!(context, inspect(Map.get(context, :module)))
     warn_plain_recording_tags(context)
     config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
     [conn: new_session(config, context)]
-  end
-
-  @doc false
-  # A tag or `parameterize:` key of a removed option would be ignored.
-  def reject_removed_options!(context) do
-    for {key, instead} <- @removed_options, Map.has_key?(context, key) do
-      raise ArgumentError,
-            "#{inspect(Map.get(context, :module))}: the `#{key}` option of PhoenixTest.Playwright.Case " <>
-              "was removed, use #{instead}"
-    end
-
-    :ok
   end
 
   @doc false
@@ -176,9 +158,9 @@ defmodule PhoenixTest.Playwright.Case do
   """
   def new_session(config, context) do
     use = playwright_use()
-    user_agent = user_agent(use[:user_agent], checkout_ecto_repos(config, context))
+    user_agent = user_agent(context_option(use, :user_agent), checkout_ecto_repos(config, context))
     # Passed explicitly, so the context and `conn.base_url` (for cookies) agree, in any process.
-    base_url = use[:base_url] || Application.fetch_env!(:phoenix_test, :base_url)
+    base_url = context_option(use, :base_url) || Application.fetch_env!(:phoenix_test, :base_url)
 
     context_opts = Enum.reject([base_url: base_url, user_agent: user_agent], fn {_key, value} -> is_nil(value) end)
     browser_context = Browser.new_context!(context.playwright_browser, context_opts)
@@ -201,6 +183,9 @@ defmodule PhoenixTest.Playwright.Case do
   defp playwright_use do
     if Playwright.Test.in_registered_scope?(), do: Playwright.Test.info().use, else: Playwright.Test.config()
   end
+
+  # The config (outside a scope) keeps a context option set only in its `context_options` bag there.
+  defp context_option(use, key), do: use[key] || use[:context_options][key]
 
   # The resolved user agent (a device's, the config's) followed by the Ecto sandbox's metadata,
   # which `Phoenix.Ecto.SQL.Sandbox` reads from the user agent's last `/`-separated part.

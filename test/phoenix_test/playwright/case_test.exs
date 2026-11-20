@@ -164,16 +164,32 @@ end
 defmodule PhoenixTest.Playwright.CaseOptionsTest do
   use ExUnit.Case, async: true
 
-  alias PhoenixTest.Playwright.Case
+  alias PhoenixTest.Playwright.Config
 
   test "a removed option raises, naming Playwright's" do
     assert_raise ArgumentError, ~r/the `browser` option .* was removed, use `browser_name`/, fn ->
-      Case.reject_removed_options!(%{module: __MODULE__, browser: :firefox})
+      Config.reject_removed!(%{module: __MODULE__, browser: :firefox}, "test")
     end
 
     assert_raise ArgumentError, ~r/`browser_context_opts` .* context options/, fn ->
-      Case.reject_removed_options!(%{module: __MODULE__, browser_context_opts: [locale: "de"]})
+      Config.reject_removed!(%{module: __MODULE__, browser_context_opts: [locale: "de"]}, "test")
     end
+  end
+
+  test "a browser tag of the user's is no removed option" do
+    assert :ok = Config.reject_removed!(%{module: __MODULE__, browser: true}, "test")
+  end
+
+  test "a removed use option raises, naming Playwright's" do
+    assert_raise ArgumentError,
+                 ~r/use PhoenixTest.Playwright.Case in .*Firefox: the `browser` option .* `browser_name`/,
+                 fn ->
+                   Code.compile_string("""
+                   defmodule PhoenixTest.Playwright.CaseOptionsTest.Firefox do
+                     use PhoenixTest.Playwright.Case, async: true, browser: :firefox
+                   end
+                   """)
+                 end
   end
 
   test "an unknown use option raises" do
