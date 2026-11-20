@@ -170,15 +170,10 @@ defmodule PhoenixTest.Playwright.Case do
     })
   end
 
-  # The test's resolved `base_url`. Outside a test (e.g. `setup_all`) only the config's: Playwright.Test
-  # has no public API resolving a module's or project's options there.
+  # The resolved `base_url` of the test or `setup_all`, else (another process) the config's.
   defp playwright_base_url do
-    if Playwright.Test.in_registered_test?() do
-      Playwright.Test.info().use[:base_url]
-    else
-      config = Playwright.Test.config()
-      config[:base_url] || config[:context_options][:base_url]
-    end
+    use = if Playwright.Test.in_registered_scope?(), do: Playwright.Test.info().use, else: Playwright.Test.config()
+    use[:base_url]
   end
 
   @includes_ecto Code.ensure_loaded?(EctoSandbox) && Code.ensure_loaded?(PhoenixSandbox)
