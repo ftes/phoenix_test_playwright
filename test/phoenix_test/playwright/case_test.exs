@@ -79,7 +79,7 @@ defmodule PhoenixTest.Playwright.CaseTest do
   end
 end
 
-# `new_session/2` outside a registered test, without a Playwright `base_url`.
+# `new_session/2` in `setup_all`, without a Playwright `base_url`.
 defmodule PhoenixTest.Playwright.CaseSetupAllSessionTest do
   use PhoenixTest.Playwright.Case, async: true
 
@@ -95,6 +95,62 @@ defmodule PhoenixTest.Playwright.CaseSetupAllSessionTest do
 
     conn
     |> visit("/page/index")
+    |> assert_path("/page/index")
+  end
+end
+
+# `new_session/2` and `step/3` in `setup_all`, with the module's `base_url`.
+defmodule PhoenixTest.Playwright.CaseSetupAllModuleBaseUrlTest do
+  use PhoenixTest.Playwright.Case, async: true
+
+  alias PhoenixTest.Playwright.Config
+
+  @port Application.compile_env!(:phoenix_test_playwright, [PhoenixTest.WebApp.Endpoint, :http, :port])
+  @moduletag Playwright.Test.use(base_url: "http://localhost:#{@port}/page/")
+
+  setup_all context do
+    config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
+
+    conn =
+      config
+      |> PhoenixTest.Playwright.Case.new_session(context)
+      |> step("Visit in setup_all", &visit(&1, "index"))
+
+    [shared_conn: conn]
+  end
+
+  test "new_session/2 in setup_all uses the module's base_url", %{shared_conn: conn} do
+    assert conn.base_url == "http://localhost:#{@port}/page/"
+    assert_path(conn, "/page/index")
+  end
+end
+
+# `new_session/2` in `setup_all`, with the project's `base_url`.
+defmodule PhoenixTest.Playwright.CaseSetupAllProjectBaseUrlTest do
+  use PhoenixTest.Playwright.Case,
+    async: true,
+    parameterize: [
+      Map.put(
+        Playwright.Test.parameters(
+          name: "page",
+          base_url:
+            "http://localhost:#{Application.compile_env!(:phoenix_test_playwright, [PhoenixTest.WebApp.Endpoint, :http, :port])}/page/"
+        ),
+        :browser,
+        :chromium
+      )
+    ]
+
+  alias PhoenixTest.Playwright.Config
+
+  setup_all context do
+    config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
+    [shared_conn: PhoenixTest.Playwright.Case.new_session(config, context)]
+  end
+
+  test "new_session/2 in setup_all uses the project's base_url", %{shared_conn: conn} do
+    conn
+    |> visit("index")
     |> assert_path("/page/index")
   end
 end
