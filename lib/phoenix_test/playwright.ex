@@ -547,18 +547,18 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def assert_path(conn, path, opts \\ []) do
-    expect_path(conn, conn.page, path, opts, &Assertions.assert_path/3)
+    expect_path(conn, path, opts, &Assertions.assert_path/3)
   end
 
   @doc false
   def refute_path(conn, path, opts \\ []) do
-    expect_path(conn, Expect.not_(conn.page), path, opts, &Assertions.refute_path/3)
+    expect_path(conn, path, opts, &Assertions.refute_path/3, is_not: true)
   end
 
   # `Expect.to_have_url/3` with a predicate waits on navigations (`Frame.wait_for_url/3`) for
   # phoenix_test's `assert_path`, which reads the frame's URL: the predicate runs in this process.
   # On timeout, `assertion` fails with phoenix_test's message.
-  defp expect_path(conn, page, path, opts, assertion) do
+  defp expect_path(conn, path, opts, assertion, other_opts \\ []) do
     opts = NimbleOptions.validate!(opts, @path_assertion_opts_schema)
     {expect_opts, opts} = {timeout(opts), Keyword.delete(opts, :timeout)}
 
@@ -571,16 +571,14 @@ defmodule PhoenixTest.Playwright do
       end
     end
 
-    case Expect.to_have_url(page, at_path?, expect_opts) do
-      :ok -> conn
-      {:error, %ExpectError{matcherResult: %{timeout: _}}} -> assertion.(conn, path, opts)
-      {:error, error} -> raise error
-    end
+    if expect?(conn.page, other_opts[:is_not], &Expect.to_have_url(&1, at_path?, expect_opts)),
+      do: conn,
+      else: assertion.(conn, path, opts)
   end
 
   @doc false
   def assert_has(conn, "title") do
-    if not has_title_element?(conn), do: flunk("Page does not have a title")
+    if not expect_title_element?(conn), do: flunk("Page does not have a title")
     conn
   end
 
@@ -588,18 +586,18 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def assert_has(conn, "title", opts) do
-    if not has_title?(conn, opts), do: flunk("Page title does not match")
+    if not expect_title?(conn, opts), do: flunk("Page title does not match")
     conn
   end
 
   def assert_has(conn, selector, opts) do
-    if not found?(conn, selector, opts), do: flunk("Could not find element \"#{selector}\" #{inspect(opts)}")
+    if not expect_found?(conn, selector, opts), do: flunk("Could not find element \"#{selector}\" #{inspect(opts)}")
     conn
   end
 
   @doc false
   def refute_has(conn, "title") do
-    if has_title_element?(conn, is_not: true) do
+    if not expect_title_element?(conn, is_not: true) do
       flunk("Expected title not to be present but found: #{inspect(render_page_title(conn))}")
     end
 
@@ -610,7 +608,7 @@ defmodule PhoenixTest.Playwright do
 
   @doc false
   def refute_has(conn, "title", opts) do
-    if has_title?(conn, opts, is_not: true) do
+    if not expect_title?(conn, opts, is_not: true) do
       expected = opts |> Keyword.fetch!(:text) |> ensure_binary()
       flunk("Expected title not to be #{inspect(expected)}")
     end
@@ -619,7 +617,7 @@ defmodule PhoenixTest.Playwright do
   end
 
   def refute_has(conn, selector, opts) do
-    if found?(conn, selector, opts, is_not: true), do: flunk("Found element \"#{selector}\" #{inspect(opts)}")
+    if not expect_found?(conn, selector, opts, is_not: true), do: flunk("Found element \"#{selector}\" #{inspect(opts)}")
     conn
   end
 
@@ -659,23 +657,22 @@ defmodule PhoenixTest.Playwright do
   ]
   @content_assertion_opts [:text, :value, :selected, :checked]
 
-  defp has_title?(conn, opts, other_opts \\ []) do
+  defp expect_title?(conn, opts, other_opts \\ []) do
     {text, opts} = opts |> NimbleOptions.validate!(@title_assertion_opts_schema) |> Keyword.pop!(:text)
     text = ensure_binary(text)
     expected = if opts[:exact], do: text, else: ~r/#{Regex.escape(text)}/
 
-    expect_matches?(conn.page, other_opts[:is_not], &Expect.to_have_title(&1, expected, timeout(opts)))
+    expect?(conn.page, other_opts[:is_not], &Expect.to_have_title(&1, expected, timeout(opts)))
   end
 
-  defp has_title_element?(conn, other_opts \\ []) do
+  defp expect_title_element?(conn, other_opts \\ []) do
     conn
     |> locator(Selector.css("title"))
-    |> expect_matches?(other_opts[:is_not], &Expect.to_be_attached/1)
+    |> expect?(other_opts[:is_not], &Expect.to_be_attached/1)
   end
 
-  defp found?(conn, selector, opts, other_opts \\ []) do
+  defp expect_found?(conn, selector, opts, other_opts \\ []) do
     opts = opts |> validate_assertion_opts!() |> normalize_assertion_content()
-    other_opts = Keyword.validate!(other_opts, is_not: false)
 
     if opts[:count] && opts[:at] do
       raise(ArgumentError, message: "Options `count` and `at` can not be used together")
@@ -696,21 +693,21 @@ defmodule PhoenixTest.Playwright do
       %{count: count} ->
         conn
         |> locator(Selector.build(selector))
-        |> expect_matches?(other_opts[:is_not], &Expect.to_have_count(&1, count, timeout(opts)))
+        |> expect?(other_opts[:is_not], &Expect.to_have_count(&1, count, timeout(opts)))
 
       _ ->
         conn
         |> locator(Selector.concat(selector, if(opts[:at], do: :none, else: Selector.at(0))))
-        |> expect_matches?(other_opts[:is_not], &Expect.to_be_visible(&1, timeout(opts)))
+        |> expect?(other_opts[:is_not], &Expect.to_be_visible(&1, timeout(opts)))
     end
   end
 
-  # Whether the positive assertion holds, after waiting for the expected outcome.
+  # Whether the expectation, negated if `is_not`, is met before its timeout.
   # Only a timed out expectation is a boolean result. Other failures, such as strict mode violations, must raise.
-  defp expect_matches?(actual, is_not, matcher) do
+  defp expect?(actual, is_not, matcher) do
     case matcher.(if(is_not, do: Expect.not_(actual), else: actual)) do
-      :ok -> !is_not
-      {:error, %ExpectError{matcherResult: %{timeout: _}}} -> !!is_not
+      :ok -> true
+      {:error, %ExpectError{matcherResult: %{timeout: _}}} -> false
       {:error, error} -> raise error
     end
   end
