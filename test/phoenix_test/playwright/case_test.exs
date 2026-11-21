@@ -4,6 +4,7 @@ defmodule PhoenixTest.Playwright.CaseTest do
 
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 
+  alias PhoenixTest.Playwright.Case
   alias PhoenixTest.Playwright.Config
 
   describe "screenshot: :on" do
@@ -74,13 +75,45 @@ defmodule PhoenixTest.Playwright.CaseTest do
       config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
 
       context
-      |> then(
-        &PhoenixTest.Playwright.Case.new_session(config, &1, %{locale: "it", extra_http_headers: %{"x-setup" => "1"}})
-      )
+      |> then(&Case.new_session(config, &1, %{locale: "it", extra_http_headers: %{"x-setup" => "1"}}))
       |> visit("/pw/headers")
       |> assert_has("#headers", text: "accept-language: it")
       |> assert_has("#headers", text: "x-setup: 1")
     end
+
+    test "of do_setup/2 win over the resolved ones", context do
+      [conn: conn] = Case.do_setup(context, locale: "it")
+
+      conn
+      |> visit("/pw/headers")
+      |> assert_has("#headers", text: "accept-language: it")
+    end
+  end
+end
+
+# `new_session/2` in a module without `use Playwright.Test`: Playwright applies no options there.
+defmodule PhoenixTest.Playwright.CaseUnregisteredSessionTest do
+  # Not async: it changes `config :playwright, :test`.
+  use ExUnit.Case, async: false
+
+  import PhoenixTest
+
+  alias PhoenixTest.Playwright.Config
+
+  setup do
+    previous = Application.get_env(:playwright, :test)
+    Application.put_env(:playwright, :test, Keyword.put(previous, :locale, "nl"))
+    on_exit(fn -> Application.put_env(:playwright, :test, previous) end)
+  end
+
+  test "new_session/2 applies the config's context options", context do
+    context = Map.put(context, :playwright_browser, PhoenixTest.Playwright.Browser.browser!())
+
+    []
+    |> Config.validate!()
+    |> PhoenixTest.Playwright.Case.new_session(context)
+    |> visit("/pw/headers")
+    |> assert_has("#headers", text: "accept-language: nl")
   end
 end
 
@@ -191,7 +224,8 @@ defmodule PhoenixTest.Playwright.CaseOptionsTest do
   end
 
   test "a browser tag of the user's is no removed option" do
-    assert :ok = Config.reject_removed!(%{module: __MODULE__, browser: true}, "test")
+    tags = %{module: __MODULE__, browser: true}
+    assert Config.reject_removed!(tags, "test") == tags
   end
 
   test "a removed use option raises, naming Playwright's" do
@@ -204,6 +238,16 @@ defmodule PhoenixTest.Playwright.CaseOptionsTest do
                    end
                    """)
                  end
+  end
+
+  test "a removed option in non-literal use options raises with the hint" do
+    assert_raise ArgumentError, ~r/the `browser` option .* was removed, use `browser_name`/, fn ->
+      Code.compile_string("""
+      defmodule PhoenixTest.Playwright.CaseOptionsTest.NonLiteral do
+        use PhoenixTest.Playwright.Case, [async: true] ++ [browser: :firefox]
+      end
+      """)
+    end
   end
 
   test "an unknown use option raises" do

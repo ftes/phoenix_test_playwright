@@ -100,22 +100,22 @@ defmodule PhoenixTest.Playwright.Config do
     browser_context_opts:
       "Playwright's context options (`use PhoenixTest.Playwright.Case, locale: \"de-DE\"` or " <>
         "`@tag Playwright.Test.use(locale: \"de-DE\")`), or for values a setup computes " <>
-        "`PhoenixTest.Playwright.Case.new_session(config, context, storage_state: ...)`"
+        "`PhoenixTest.Playwright.Case.do_setup(context, storage_state: ...)`"
   ]
 
   @doc false
   # Raises for a removed option in `options` (a keyword list, or a test's context), which would
-  # be ignored or rejected without a hint.
+  # be ignored or rejected without a hint. Returns `options`.
   def reject_removed!(options, where) do
-    options = Map.new(options)
+    given = Map.new(options)
 
     for {key, instead} <- @removed_options,
-        Map.has_key?(options, key),
-        key != :browser or options.browser in [:chromium, :firefox, :webkit] do
+        Map.has_key?(given, key),
+        key != :browser or given.browser in [:chromium, :firefox, :webkit] do
       raise ArgumentError, "#{where}: the `#{key}` option of PhoenixTest.Playwright was removed, use #{instead}"
     end
 
-    :ok
+    options
   end
 
   @doc false

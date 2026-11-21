@@ -56,16 +56,21 @@ defmodule PhoenixTest.Playwright.Case do
   @config_keys Config.setup_keys()
   # Recording modes, which Playwright.Test reads from `Playwright.Test.use/1` tags only.
   @recording_keys [:trace, :screenshot, :video]
+  {:object, new_context_options} = Browser.__options_type__(:new_context)
+  @new_context_keys Map.keys(new_context_options)
   using opts do
     # Split as the template expands: `use Playwright.Test` validates its options as it expands, and
     # reads some (`assert_steps`) only from a literal keyword list. Removed options are rejected
-    # first, as `use Playwright.Test` would reject them without a hint.
+    # first, as `use Playwright.Test` would reject them without a hint: a literal list's here, any
+    # other expression's as it is evaluated.
+    where = "use PhoenixTest.Playwright.Case in #{inspect(__CALLER__.module)}"
+
     {use_opts, config_opts} =
       if Keyword.keyword?(opts) do
-        Config.reject_removed!(opts, "use PhoenixTest.Playwright.Case in #{inspect(__CALLER__.module)}")
+        Config.reject_removed!(opts, where)
         {Keyword.drop(opts, @config_keys), Keyword.take(opts, @config_keys)}
       else
-        {quote(do: Keyword.drop(unquote(opts), unquote(@config_keys))),
+        {quote(do: Keyword.drop(Config.reject_removed!(unquote(opts), unquote(where)), unquote(@config_keys))),
          quote(do: Keyword.take(unquote(opts), unquote(@config_keys)))}
       end
 
@@ -121,14 +126,20 @@ defmodule PhoenixTest.Playwright.Case do
 
   @doc """
   Merges the ExUnit context with `PhoenixTest.Playwright.Config` opts.
-  Uses the result to create a new browser context and page.
-  Adds `:conn` to the context.
+  Uses the result to create a new browser context and page (`new_session/3`, with
+  `context_options`). Adds `:conn` to the context.
+
+  A setup that computes a context option, e.g. a logged-in `storage_state`, replaces the `conn`:
+
+      setup context do
+        PhoenixTest.Playwright.Case.do_setup(context, storage_state: log_in())
+      end
   """
-  def do_setup(context) do
+  def do_setup(context, context_options \\ []) do
     Config.reject_removed!(context, inspect(Map.get(context, :module)))
     warn_plain_recording_tags(context)
     config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
-    [conn: new_session(config, context)]
+    [conn: new_session(config, context, context_options)]
   end
 
   @doc false
@@ -164,22 +175,23 @@ defmodule PhoenixTest.Playwright.Case do
       end
 
   `context_options` (`Playwright.Browser.new_context/2`'s) win over Playwright's resolved ones,
-  for values only a setup computes, e.g. a logged-in `storage_state`:
+  for values only a setup computes, e.g. a logged-in `storage_state` (see `do_setup/2`).
 
-      setup context do
-        config = context |> Map.take(PhoenixTest.Playwright.Config.setup_keys()) |> PhoenixTest.Playwright.Config.validate!()
-        [conn: PhoenixTest.Playwright.Case.new_session(config, context, storage_state: log_in())]
-      end
+  In a test or `setup_all` of a module that uses `Playwright.Test` (as this case template does),
+  Playwright applies the module's, project's and test's options to the context. Elsewhere, e.g.
+  a plain `ExUnit.Case` module, only `config :playwright, :test`'s apply.
   """
   def new_session(config, context, context_options \\ []) do
     context_options = Keyword.new(context_options)
-    use = Map.merge(Map.new(playwright_use()), Map.new(context_options))
-    user_agent = user_agent(context_option(use, :user_agent), checkout_ecto_repos(config, context))
+    {resolved, applied_here} = playwright_use()
+    use = Map.merge(resolved, Map.new(context_options))
+    user_agent = user_agent(use[:user_agent], checkout_ecto_repos(config, context))
     # Passed explicitly, so the context and `conn.base_url` (for cookies) agree, in any process.
-    base_url = context_option(use, :base_url) || Application.fetch_env!(:phoenix_test, :base_url)
+    base_url = use[:base_url] || Application.fetch_env!(:phoenix_test, :base_url)
 
     context_opts =
-      context_options
+      applied_here
+      |> Keyword.merge(context_options)
       |> Keyword.merge(base_url: base_url, user_agent: user_agent)
       |> Enum.reject(fn {_key, value} -> is_nil(value) end)
 
@@ -199,13 +211,18 @@ defmodule PhoenixTest.Playwright.Case do
     })
   end
 
-  # The resolved options of the test or `setup_all`, else (another process) the config's.
+  # The resolved options, and the context options to pass explicitly. In a registered test or
+  # `setup_all`: theirs, which Playwright applies to a new context itself. Elsewhere Playwright
+  # applies none: the config's, its `context_options` under its single context options.
   defp playwright_use do
-    if Playwright.Test.in_registered_scope?(), do: Playwright.Test.info().use, else: Playwright.Test.config()
+    if Playwright.Test.in_registered_scope?() do
+      {Map.new(Playwright.Test.info().use), []}
+    else
+      config = Map.new(Playwright.Test.config())
+      resolved = Map.merge(Map.new(config[:context_options] || []), config)
+      {resolved, resolved |> Map.take(@new_context_keys) |> Enum.to_list()}
+    end
   end
-
-  # The config (outside a scope) keeps a context option set only in its `context_options` bag there.
-  defp context_option(use, key), do: use[key] || use[:context_options][key]
 
   # The resolved user agent (a device's, the config's) followed by the Ecto sandbox's metadata,
   # which `Phoenix.Ecto.SQL.Sandbox` reads from the user agent's last `/`-separated part.
