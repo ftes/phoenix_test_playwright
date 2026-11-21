@@ -40,6 +40,8 @@ jobs:
       contents: read
       pull-requests: read
       id-token: write # Exchanged for the Claude app token, which closes the PRs.
+    outputs:
+      redo: ${{ steps.redo.outputs.redo }}
     steps:
       - name: List open nightly PRs without human comments or reviews
         id: list
@@ -71,26 +73,40 @@ jobs:
             REPO: ${{ github.repository }}
             OPEN NIGHTLY PRS: ${{ steps.list.outputs.numbers }}
 
-            An earlier nightly run opened these simplification PRs. Close each one that main has
-            made obsolete, so its slot can go to new work. main is checked out.
+            An earlier nightly run opened these simplification PRs, and main has moved on since.
+            Check that each still makes sense on main as it is now. main is checked out.
 
-            For each PR, read `gh pr view N`, `gh pr diff N` and the code it touches on main. It is
-            obsolete only if the code it simplifies is gone or rewritten, or main already made the
-            same change or solved the problem another way. A merge conflict, the PR's age or a
-            preference for other work is not a reason. When in doubt, keep it.
+            For each PR, read `gh pr view N`, `gh pr diff N` and, on main, the code it touches, its
+            callers and the patterns it follows. Then decide one of:
+
+            - keep: the change still fits main. This is the default: when in doubt, keep it.
+            - close: main made it obsolete or wrong. The code it simplifies is gone or rewritten,
+              main already made the same change or solved the problem another way, or main changed
+              the design it relies on, so the idea no longer holds.
+            - redo: the idea still holds, but the diff no longer fits main as it is. For example,
+              main changed the code it touches or its callers, renamed what it uses or added a use
+              it misses, so merging it as is would break or leave the code inconsistent. A redo
+              makes the same change again on a new branch from current main, which CI then tests.
+
+            A merge conflict alone, the PR's age or a preference for other work is no reason for
+            either: conflicts get redone anyway.
 
             ${{ env.TOOL_HINT }}
 
             To close one, run exactly:
               gh pr close N --delete-branch --comment "<one sentence naming what on main made it obsolete>"
+
+            Return the PRs to redo in `redo`, each with a one-sentence `why` naming what changed on
+            main. Leave it empty if none.
           # dontAsk: a call no rule allows is denied, except the read-only ones Claude Code always allows.
           settings: |
             {"permissions": {"defaultMode": "dontAsk"}}
           claude_args: |
             --model claude-opus-5-5
             --max-turns 60
-            --allowedTools "Read,Grep,Glob,Agent,Task,Bash(git log:*),Bash(git show:*),Bash(git diff:*),${{ steps.list.outputs.allowed }}"
+            --allowedTools "Read,Grep,Glob,Agent,Task,StructuredOutput,Bash(git log:*),Bash(git show:*),Bash(git diff:*),${{ steps.list.outputs.allowed }}"
             --disallowedTools "${{ env.DENIED_TOOLS }}"
+            --json-schema '{"type":"object","properties":{"redo":{"type":"array","items":{"type":"object","properties":{"number":{"type":"integer"},"why":{"type":"string"}},"required":["number","why"]}}},"required":["redo"]}'
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
@@ -100,6 +116,20 @@ jobs:
         run: |
           filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
           jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep the redo verdicts of listed PRs
+        id: redo
+        if: ${{ !cancelled() }}
+        env:
+          OUTPUT: ${{ steps.claude.outputs.structured_output }}
+          NUMBERS: ${{ steps.list.outputs.numbers }}
+        # Claude's answer is data: only the PRs it was given, and a `why` cut to one line.
+        run: |
+          redo=$(jq -cn --arg numbers "$NUMBERS" '($numbers | split(" ") | map(select(. != "") | tonumber)) as $listed
+            | (env.OUTPUT | try fromjson catch {}) | (.redo // [])
+            | map(select(.number as $n | $listed | any(. == $n)) | {number, why: (.why | tostring | gsub("\\s+"; " ") | .[:200])})
+            | unique_by(.number)')
+          echo "::notice::To redo: $(jq -r 'map("#\(.number)") | join(" ")' <<< "$redo")"
+          echo "redo=$redo" >> "$GITHUB_OUTPUT"
 
   # After triage, so only PRs worth keeping get fixed.
   classify:
@@ -115,7 +145,7 @@ jobs:
       checks: read
       statuses: read
     outputs:
-      conflicted: ${{ steps.list.outputs.conflicted }}
+      recreate: ${{ steps.list.outputs.recreate }}
       failing: ${{ steps.list.outputs.failing }}
     steps:
       - name: Sort open nightly PRs without human comments or reviews by what they need
@@ -124,11 +154,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           MAX_COMMITS: 3
+          # Triage's PRs to redo on current main; none if it failed.
+          REDO: ${{ needs.triage.outputs.redo || '[]' }}
         # GitHub computes mergeability on the first read after main moves, answering UNKNOWN until
         # it's done. A human comment or review keeps a PR from being changed under them. A PR lists
         # every run of a check, so only each check's latest counts. Every fix or re-run adds a
         # commit, so the commit count limits the attempts. Listing commits caps --limit at 40: more
-        # exceeds GitHub's GraphQL node limit.
+        # exceeds GitHub's GraphQL node limit. A PR to recreate (conflicted, or triage's redo) isn't
+        # fixed or given up on as well: its replacement gets a CI run of its own.
         run: |
           list() {
             gh pr list --state open --limit 40 --json number,headRefName,isCrossRepository,mergeable,commits,statusCheckRollup,comments,reviews \
@@ -137,10 +170,16 @@ jobs:
           list > /dev/null
           sleep 30
           prs=$(list)
+          # Still open and listed: triage may have closed it, or a human commented since.
+          recreate=$(jq -c --argjson redo "$REDO" '. as $prs
+            | ($redo | map(select(.number as $n | $prs | any(.number == $n))))
+              + map(select(.mergeable == "CONFLICTING") | {number, why: "It conflicts with main."})
+            | unique_by(.number)' <<< "$prs")
+          others=$(jq -c --argjson recreate "$recreate" 'map(select(.number as $n | $recreate | all(.number != $n)))' <<< "$prs")
           {
-            echo "conflicted=$(jq -c 'map(select(.mergeable == "CONFLICTING") | .number)' <<< "$prs")"
-            echo "failing=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.mergeable == "MERGEABLE" and .failing and .commits < $max) | {number, branch})' <<< "$prs")"
-            echo "exhausted=$(jq -r --argjson max "$MAX_COMMITS" 'map(select(.mergeable == "MERGEABLE" and .failing and .commits >= $max) | .number) | join(" ")' <<< "$prs")"
+            echo "recreate=$recreate"
+            echo "failing=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.mergeable == "MERGEABLE" and .failing and .commits < $max) | {number, branch})' <<< "$others")"
+            echo "exhausted=$(jq -r --argjson max "$MAX_COMMITS" 'map(select(.mergeable == "MERGEABLE" and .failing and .commits >= $max) | .number) | join(" ")' <<< "$others")"
           } >> "$GITHUB_OUTPUT"
       - name: Close PRs still failing after two fixes
         env:
@@ -247,11 +286,12 @@ jobs:
           filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
           jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
 
-  # Replaces each conflicted PR with one on a new branch from main. The Claude app can't push
-  # workflow file changes, which a merge or rebase of the old branch would carry from main.
+  # Replaces each conflicted PR, and each that triage found no longer fits main, with one on a new
+  # branch from main. The Claude app can't push workflow file changes, which a merge or rebase of
+  # the old branch would carry from main.
   recreate:
     needs: classify
-    if: ${{ !cancelled() && needs.classify.result == 'success' && needs.classify.outputs.conflicted != '[]' }}
+    if: ${{ !cancelled() && needs.classify.result == 'success' && needs.classify.outputs.recreate != '[]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -260,9 +300,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        pr: ${{ fromJSON(needs.classify.outputs.conflicted) }}
+        pr: ${{ fromJSON(needs.classify.outputs.recreate) }}
     env:
-      NIGHTLY_BRANCH: claude/nightly-${{ github.run_id }}-${{ matrix.pr }}
+      NIGHTLY_BRANCH: claude/nightly-${{ github.run_id }}-${{ matrix.pr.number }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -283,15 +323,18 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}
-            OLD PR: ${{ matrix.pr }}
+            OLD PR: ${{ matrix.pr.number }}
+            WHY: ${{ matrix.pr.why }}
             BRANCH: ${{ env.NIGHTLY_BRANCH }} (already checked out, from current main)
 
-            The old PR is a simplification that now conflicts with main. Redo it on this branch.
+            The old PR is a simplification that no longer fits main, for the reason in WHY. Redo it
+            on this branch.
 
-            Read `gh pr view ${{ matrix.pr }}` and `gh pr diff ${{ matrix.pr }}` for what it set out
-            to do, then make the same change against the code as it is now, keeping what main has
-            changed since. Run `mix format`, `mix compile --warnings-as-errors` and `mix credo`;
-            they must pass. CI on the new PR runs the test suite.
+            Read `gh pr view ${{ matrix.pr.number }}` and `gh pr diff ${{ matrix.pr.number }}` for
+            what it set out to do, then make the same change against the code as it is now, keeping
+            what main has changed since and covering what WHY names. Run `mix format`,
+            `mix compile --warnings-as-errors` and `mix credo`; they must pass. CI on the new PR
+            runs the test suite.
 
             If the change can't be redone without redesigning it, stop without pushing and say why.
 
@@ -300,7 +343,7 @@ jobs:
             in this order:
               git push -u origin ${{ env.NIGHTLY_BRANCH }}
               gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} --title "<subject>" --body-file tmp/nightly-pr.md
-              gh pr close ${{ matrix.pr }} --delete-branch --comment "Conflicted with main; replaced by <new PR URL>."
+              gh pr close ${{ matrix.pr.number }} --delete-branch --comment "Redone on current main (<WHY, shortened>); replaced by <new PR URL>."
 
             ${{ env.TOOL_HINT }}
 
@@ -311,7 +354,7 @@ jobs:
           claude_args: |
             --model claude-opus-5-5
             --max-turns 60
-            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr }}),Bash(gh pr view ${{ matrix.pr }} *),Bash(gh pr diff ${{ matrix.pr }}),Bash(gh pr diff ${{ matrix.pr }} *),Bash(git push -u origin ${{ env.NIGHTLY_BRANCH }}),Bash(gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} *),Bash(gh pr close ${{ matrix.pr }} *)"
+            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr.number }}),Bash(gh pr view ${{ matrix.pr.number }} *),Bash(gh pr diff ${{ matrix.pr.number }}),Bash(gh pr diff ${{ matrix.pr.number }} *),Bash(git push -u origin ${{ env.NIGHTLY_BRANCH }}),Bash(gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} *),Bash(gh pr close ${{ matrix.pr.number }} *)"
             --disallowedTools "${{ env.DENIED_TOOLS }}"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
