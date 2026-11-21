@@ -16,25 +16,110 @@ env:
   # Steers Claude off the Bash habits (cd, pipes, heredocs) that miss the allowlist. Plain text
   # only (no quotes, $ or backslashes): claude.yml passes it in a quoted claude_args argument.
   TOOL_HINT: "Prefer your file tools over Bash to read, search and edit files, and keep any scratch files under tmp/; run each allowed Bash command on its own, without cd, git -C, semicolons, &&, pipes or heredocs (you are already in the repository). Give any subagent you start these same rules."
+  # Denied in every Claude run: other repositories' PRs and issues, the comments and reviews (a job
+  # that needs them gets its maintainers' from a step), API paths outside the allowed ones, and
+  # mix's commands that run arbitrary code. Plain text, as TOOL_HINT.
+  # These rules, the allowed tools and dontAsk steer Claude's tool use; they are no sandbox: a job
+  # that lets Claude edit files and run mix lets it run code. What the jobs rely on is that none
+  # loads another repository's content, the tokens' scopes, and main's ruleset.
+  DENIED_TOOLS: "Bash(gh pr * -R*),Bash(gh pr * --repo*),Bash(gh issue * -R*),Bash(gh issue * --repo*),Bash(gh pr view *comments*),Bash(gh pr view *eview*),Bash(gh pr view * -c*),Bash(gh issue view *comments*),Bash(gh issue view * -c*),Bash(gh api *comments*),Bash(gh api *reviews*),Bash(gh api *timeline*),Bash(gh api graphql*),Bash(gh api *..*),Bash(gh api *%*),Bash(gh api * --hostname*),Bash(mix cmd*),Bash(mix run*),Bash(mix eval*),Bash(*mix cmd*)"
 
 jobs:
-  claude:
-    # Maintainers only, before any setup: the action rejects anyone else anyway. Review events
-    # check out the PR's merge ref, so only same-repo PRs.
+  # Maintainers only, before any setup: the action rejects anyone else anyway. Only this
+  # repository's PRs, never Renovate's: review events are filtered here, a comment's PR in this
+  # job, before anything is checked out. Also picks the gh commands Claude may run (on this event's
+  # PR or issue only) and whose comments Claude sees: maintainers' and claude[bot]'s. The PR's or
+  # issue's own body is included whoever wrote it: a maintainer who tags Claude on it chooses that.
+  pr:
     if: |
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association || github.event.issue.author_association) && (
         (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
         (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && github.event.pull_request.head.repo.full_name == github.repository) ||
         (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && github.event.pull_request.head.repo.full_name == github.repository) ||
         (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
-      )
+      ) &&
+      !startsWith(github.event.pull_request.head.ref, 'renovate/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: read
+      pull-requests: read
+    outputs:
+      skip: ${{ steps.pr.outputs.skip }}
+      other-repo: ${{ steps.pr.outputs.other-repo }}
+      gh: ${{ steps.pr.outputs.gh }}
+      comment-authors: ${{ steps.authors.outputs.list }}
+    steps:
+      # Only this repository's PRs, never Renovate's; stops when the lookup fails.
+      - name: Skip other repositories' and Renovate's PRs
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          if [[ -z $PR ]]; then
+            echo "gh=Bash(gh issue view $ISSUE),Bash(gh issue view $ISSUE *)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "gh=Bash(gh pr view $PR),Bash(gh pr view $PR *),Bash(gh pr diff $PR),Bash(gh pr diff $PR *)" >> "$GITHUB_OUTPUT"
+          pr=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json isCrossRepository,headRefName --jq '"\(.isCrossRepository) \(.headRefName)"') ||
+            { echo "::error::Couldn't look up PR $PR."; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
+          if [[ $pr != "false "* ]]; then
+            echo "::notice::Claude runs only on this repository's PRs."
+            { echo "skip=true"; echo "other-repo=true"; } >> "$GITHUB_OUTPUT"
+          elif [[ $pr == "false renovate/"* ]]; then
+            echo "::notice::Claude doesn't run on Renovate's PRs."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      # The maintainers who commented, reviewed or left review comments here, for the action's
+      # include_comments_by_actor, which matches logins (empty would mean everyone). Fails, and so
+      # skips Claude, when a lookup fails.
+      - name: List the maintainers who commented
+        id: authors
+        if: steps.pr.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          paths=("issues/${PR:-$ISSUE}/comments")
+          if [[ -n $PR ]]; then paths+=("pulls/$PR/comments" "pulls/$PR/reviews"); fi
+          logins=()
+          for path in "${paths[@]}"; do
+            out=$(gh api --paginate "repos/$GITHUB_REPOSITORY/$path" \
+              --jq '.[] | select(.author_association | IN("OWNER", "MEMBER", "COLLABORATOR")) | .user.login') ||
+              { echo "::error::Couldn't list $path."; exit 1; }
+            mapfile -t -O "${#logins[@]}" logins <<< "$out"
+          done
+          list=$(printf '%s\n' "${logins[@]}" "claude[bot]" | grep -E '^[A-Za-z0-9-]+(\[bot\])?$' | sort -u | paste -sd, -)
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+
+  # Says so on a PR from another repository, which `claude` skips.
+  reply:
+    needs: pr
+    if: needs.pr.outputs.other-repo == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number || github.event.issue.number }}
+          BODY: "`@claude` runs only on pull requests from this repository."
+        run: gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+
+  claude:
+    needs: pr
+    if: needs.pr.outputs.skip != 'true' && needs.pr.outputs.comment-authors != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
       issues: read
       id-token: write
-      actions: read # Required for Claude to read CI results on PRs
+      actions: read # This PR's CI status (the action's get_ci_status); not other runs.
     steps:
       # main for issues and issue comments, the PR's merge ref for review events.
       - name: Checkout repository
@@ -53,37 +138,32 @@ jobs:
       - name: Fetch Playwright's source
         continue-on-error: true
         run: mix phoenix_test_playwright.playwright_source
-      # The action checks out a fork PR's head with a token that can push, and mix runs the
-      # checked-out mix.exs and .formatter.exs: no mix tasks on a fork's code.
-      - name: Allow mix tasks unless on a fork PR
-        id: tools
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) }}
-        run: |
-          if [ -z "$PR" ] || [ "$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json isCrossRepository --jq .isCrossRepository)" = false ]; then
-            echo "mix=,Bash(mix format:*),Bash(mix compile:*),Bash(mix credo:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*)" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Only these logins' comments, reviews and review comments reach Claude (see the `pr` job).
+          include_comments_by_actor: ${{ needs.pr.outputs.comment-authors }}
 
-          # This is an optional setting that allows Claude to read CI results on PRs
+          # This PR's CI status; the tools for other runs and their logs are denied below.
           additional_permissions: |
             actions: read
 
-          # The owner forbids attribution.
+          # The owner forbids attribution. dontAsk: a call no rule allows is denied, except the
+          # read-only ones Claude Code always allows (the action would otherwise start in auto mode,
+          # where a review decides them). Tag mode runs in acceptEdits instead, which also allows
+          # file edits in the checkout.
           settings: |
-            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}}
+            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}, "permissions": {"defaultMode": "dontAsk"}}
           # Added to the action's defaults, which cover editing, committing and its comment.
           claude_args: |
             --model claude-opus-5-5
             --max-turns 100
             --append-system-prompt "Tests can't run here; if your change needs them, say they haven't run. No Claude attribution: leave the Generated with Claude Code signature out of commits, PRs and PR links. ${{ env.TOOL_HINT }}"
-            --allowedTools "Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*)${{ steps.tools.outputs.mix }}"
+            --allowedTools "Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ needs.pr.outputs.gh }},Bash(mix format:*),Bash(mix compile:*),Bash(mix credo:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*)"
+            --disallowedTools "${{ env.DENIED_TOOLS }},mcp__github_ci__get_workflow_run_details,mcp__github_ci__download_job_log"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
