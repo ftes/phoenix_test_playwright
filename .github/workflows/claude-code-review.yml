@@ -133,11 +133,12 @@ jobs:
 
             Post each verified finding as an inline comment on the relevant line
             (mcp__github_inline_comment__create_inline_comment, confirmed: true), with the failure
-            scenario and a suggested fix. Then post or update one summary comment with
-            `gh pr comment PR --edit-last --create-if-none --body-file <file>`: a few sentences on
-            what you checked and the most important findings, or why you found nothing. Say
-            which depth you chose and why; after an increment review, keep what still holds from
-            the earlier summary. End the comment with this line, verbatim:
+            scenario and a suggested fix. Then post one new summary comment per review run with
+            `gh pr comment PR --body-file <file>`: a few sentences on what you checked and the
+            most important findings, or why you found nothing. Say which depth you chose and why.
+            After an increment review, cover what changed since the last review and say in a line
+            whether the earlier findings still hold, without repeating the earlier summary. End
+            the comment with this line, verbatim:
             <!-- claude-review: ${{ steps.increment.outputs.head }} ${{ steps.increment.outputs.fork }} -->
           claude_args: |
             --model claude-opus-5-5
