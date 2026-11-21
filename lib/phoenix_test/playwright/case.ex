@@ -46,8 +46,10 @@ defmodule PhoenixTest.Playwright.Case do
   # No `alias PhoenixTest.Playwright`: `Playwright.*` here is the playwright_ex dependency.
   alias PhoenixTest.Playwright.Config
   alias PhoenixTest.Playwright.JsLogger
+  alias PhoenixTest.Playwright.Selector.Engines
   alias Playwright.Browser
   alias Playwright.BrowserContext
+  alias Playwright.Test.BrowserPool
 
   # Options of `use PhoenixTest.Playwright.Case` passed to `use Playwright.Test`.
   @playwright_keys [:trace, :screenshot, :video]
@@ -100,9 +102,21 @@ defmodule PhoenixTest.Playwright.Case do
   Adds `:playwright_browser` to the context.
   """
   def do_setup_all(context) do
-    keys = Config.setup_all_keys()
-    config = context |> Map.take(keys) |> Config.validate!() |> Keyword.take(keys)
-    [playwright_browser: PhoenixTest.Playwright.Browser.browser!(config)]
+    # A dependency of `runtime: false` (as the README installs this library) doesn't start its own.
+    {:ok, _apps} = Application.ensure_all_started(:playwright)
+    config = context |> Map.take(Config.setup_all_keys()) |> Config.validate!()
+
+    opts =
+      Enum.reject(
+        [
+          browser_name: config[:browser],
+          launch_options: config[:browser_launch_opts],
+          on_start: {Engines, :register, []}
+        ],
+        fn {_key, value} -> is_nil(value) end
+      )
+
+    [playwright_browser: BrowserPool.browser(opts)]
   end
 
   @doc """
