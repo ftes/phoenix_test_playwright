@@ -35,7 +35,7 @@ end
 defmodule PhoenixTest.Playwright.CaseRecordingParameterizeTest do
   use PhoenixTest.Playwright.CaseRecordingTest.TraceCase,
     async: true,
-    parameterize: [Map.put(Playwright.Test.parameters(trace: :on), :browser, :chromium)]
+    parameterize: [Playwright.Test.parameters(trace: :on)]
 
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 

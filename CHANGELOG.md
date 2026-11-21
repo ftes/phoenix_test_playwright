@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
 ## [Unreleased]
+### Breaking
+- `use PhoenixTest.Playwright.Case` passes its options to `use Playwright.Test`, except
+  `accept_dialogs` and `ecto_sandbox_stop_owner_delay` (module tags, as before) and ExUnit's. An unknown option raises:
+  move other tags given there (e.g. `timeout: 60_000`, `slow: true`) to `@moduletag`.
+- The `browser`, `browser_launch_opts` and `browser_context_opts` options are removed, in favour of Playwright's,
+  which apply per module, project, describe block or test as in Playwright Test:
+  - `browser: :firefox` is `browser_name: :firefox` (`use PhoenixTest.Playwright.Case, browser_name: :firefox`).
+  - `parameterize: [%{browser: :firefox}]` is `parameterize: [Playwright.Test.parameters(name: "firefox", browser_name: :firefox)]`.
+    The `name:` labels failures and keeps a snapshot baseline per browser.
+  - `browser_launch_opts: [...]` is `launch_options: [...]`, which replaces the config's `launch_options` as a whole:
+    repeat the config's ones you keep (e.g. `headless`, `timeout`).
+  - `browser_context_opts: [locale: "de"]` is `locale: "de"` in the `use` options, or `@tag Playwright.Test.use(locale: "de")`.
+    A value a setup computes (e.g. a `storage_state`) goes to the new second argument of `PhoenixTest.Playwright.Case.do_setup/2`
+    (or third of `new_session/3`). In a module without `use Playwright.Test`, `new_session/3` applies `config :playwright, :test`'s
+    context options.
+
+  They raise as tags, `parameterize:` keys or in `config :phoenix_test, :playwright`.
+
+### Changed
+- The Ecto sandbox's metadata is appended to a configured or device `user_agent` instead of replacing it.
+  Without Ecto, the user agent is left as is.
+- RC only: requires playwright_ex 1.65.0-rc.3. In `setup_all`, `new_session/2` uses the module's and project's
+  `base_url`.
 
 ## [0.20.0-rc.2] 2026-11-18
 ### Breaking
