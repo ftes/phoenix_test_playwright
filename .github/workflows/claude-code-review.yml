@@ -17,6 +17,9 @@ env:
   # Steers Claude off the Bash habits (cd, pipes, heredocs) that miss the allowlist. Plain text
   # only (no quotes, $ or backslashes): claude.yml passes it in a quoted claude_args argument.
   TOOL_HINT: "Prefer your file tools over Bash to read, search and edit files, and keep any scratch files under tmp/; run each allowed Bash command on its own, without cd, git -C, semicolons, &&, pipes or heredocs (you are already in the repository). Give any subagent you start these same rules."
+  # Denied in every Claude run: other repositories' PRs and issues, and API paths outside the
+  # allowed ones. Plain text, as TOOL_HINT.
+  DENIED_TOOLS: "Bash(gh pr view * -R*),Bash(gh pr view * --repo*),Bash(gh pr diff * -R*),Bash(gh pr diff * --repo*),Bash(gh issue view * -R*),Bash(gh issue view * --repo*),Bash(gh api *..*),Bash(gh api *%*),Bash(gh api * --hostname*)"
 
 jobs:
   claude-review:
@@ -70,6 +73,9 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           allowed_bots: claude[bot]
+          # dontAsk: only the allowed tools run.
+          settings: |
+            {"permissions": {"defaultMode": "dontAsk"}}
           prompt: |
             REPO: ${{ github.repository }}
             PR: ${{ github.event.pull_request.number }}
@@ -121,7 +127,8 @@ jobs:
           claude_args: |
             --model claude-opus-5-5
             --max-turns 80
-            --allowedTools "Read,Grep,Glob,Agent,Task,Write,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments:*),mcp__github_inline_comment__create_inline_comment"
+            --allowedTools "Read,Grep,Glob,Agent,Task,Write,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view ${{ github.event.pull_request.number }}),Bash(gh pr view ${{ github.event.pull_request.number }} *),Bash(gh pr diff ${{ github.event.pull_request.number }}),Bash(gh pr diff ${{ github.event.pull_request.number }} *),Bash(gh pr comment ${{ github.event.pull_request.number }} *),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments:*),mcp__github_inline_comment__create_inline_comment"
+            --disallowedTools "${{ env.DENIED_TOOLS }}"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:

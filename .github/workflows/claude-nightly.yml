@@ -22,6 +22,9 @@ env:
   # Steers Claude off the Bash habits (cd, pipes, heredocs) that miss the allowlist. Plain text
   # only (no quotes, $ or backslashes): claude.yml passes it in a quoted claude_args argument.
   TOOL_HINT: "Prefer your file tools over Bash to read, search and edit files, and keep any scratch files under tmp/; run each allowed Bash command on its own, without cd, git -C, semicolons, &&, pipes or heredocs (you are already in the repository). Give any subagent you start these same rules."
+  # Denied in every Claude run: other repositories' PRs and issues, and API paths outside the
+  # allowed ones. Plain text, as TOOL_HINT.
+  DENIED_TOOLS: "Bash(gh pr view * -R*),Bash(gh pr view * --repo*),Bash(gh pr diff * -R*),Bash(gh pr diff * --repo*),Bash(gh issue view * -R*),Bash(gh issue view * --repo*),Bash(gh api *..*),Bash(gh api *%*),Bash(gh api * --hostname*)"
 
 jobs:
   # Frees slots before the cap is counted. A job, not an earlier cron: GitHub delays scheduled
@@ -40,13 +43,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         # A human comment or review keeps a PR out of triage; Claude's own review doesn't. The
-        # allowlist names each PR, so Claude can't close any other.
+        # allowlist names each PR, so Claude can't read or close any other.
         run: |
           numbers=$(gh pr list --state open --limit 1000 --json number,headRefName,isCrossRepository,comments,reviews \
             --jq '[.[] | select((.isCrossRepository | not) and (.headRefName | startswith("claude/nightly-")) and ([.comments[], .reviews[]] | all(.author.login == "claude"))) | .number]')
           {
             echo "numbers=$(jq -r 'join(" ")' <<< "$numbers")"
-            echo "allowed=$(jq -r 'map("Bash(gh pr close \(.) *)") | join(",")' <<< "$numbers")"
+            echo "allowed=$(jq -r 'map("Bash(gh pr close \(.) *),Bash(gh pr view \(.)),Bash(gh pr view \(.) *),Bash(gh pr diff \(.)),Bash(gh pr diff \(.) *)") | join(",")' <<< "$numbers")"
           } >> "$GITHUB_OUTPUT"
       - name: Checkout repository
         if: steps.list.outputs.numbers != ''
@@ -76,10 +79,14 @@ jobs:
 
             To close one, run exactly:
               gh pr close N --delete-branch --comment "<one sentence naming what on main made it obsolete>"
+          # dontAsk: only the allowed tools run.
+          settings: |
+            {"permissions": {"defaultMode": "dontAsk"}}
           claude_args: |
             --model claude-opus-5-5
             --max-turns 60
-            --allowedTools "Read,Grep,Glob,Agent,Task,Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(gh pr view:*),Bash(gh pr diff:*),${{ steps.list.outputs.allowed }}"
+            --allowedTools "Read,Grep,Glob,Agent,Task,Bash(git log:*),Bash(git show:*),Bash(git diff:*),${{ steps.list.outputs.allowed }}"
+            --disallowedTools "${{ env.DENIED_TOOLS }}"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
@@ -179,12 +186,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           BRANCH: ${{ matrix.pr.branch }}
-        # This repository's runs only.
+        # This repository's runs of the checked-out commit only.
         run: |
+          head=$(git rev-parse HEAD)
           # shellcheck disable=SC2016 # jq's $ENV
-          run=$(gh api "repos/$GH_REPO/actions/workflows/elixir.yml/runs?branch=$BRANCH&event=pull_request&per_page=100" \
+          run=$(gh api "repos/$GH_REPO/actions/workflows/elixir.yml/runs?branch=$BRANCH&head_sha=$head&event=pull_request&per_page=100" \
             --jq '[.workflow_runs[] | select(.head_repository.full_name == $ENV.GH_REPO)][0].id // empty')
-          if [[ -z $run ]]; then echo "::error::no CI run of $BRANCH"; exit 1; fi
+          if [[ -z $run ]]; then echo "::error::no CI run of $BRANCH at $head"; exit 1; fi
           mkdir -p tmp
           gh run view "$run" --log-failed | tail -n 5000 > tmp/ci-failed.log
       - name: Run Claude
@@ -217,13 +225,14 @@ jobs:
             ${{ env.TOOL_HINT }}
 
             No attribution anywhere: no Co-Authored-By trailers or "Generated with" lines.
-          # The owner forbids attribution; the prompt says so too.
+          # The owner forbids attribution; the prompt says so too. dontAsk: only the allowed tools run.
           settings: |
-            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}}
+            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}, "permissions": {"defaultMode": "dontAsk"}}
           claude_args: |
             --model claude-opus-5-5
             --max-turns 60
-            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr.number }}:*),Bash(gh pr diff ${{ matrix.pr.number }}:*),Bash(git push origin ${{ matrix.pr.branch }}),Bash(gh pr close ${{ matrix.pr.number }} *)"
+            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr.number }}),Bash(gh pr view ${{ matrix.pr.number }} *),Bash(gh pr diff ${{ matrix.pr.number }}),Bash(gh pr diff ${{ matrix.pr.number }} *),Bash(git push origin ${{ matrix.pr.branch }}),Bash(gh pr close ${{ matrix.pr.number }} *)"
+            --disallowedTools "${{ env.DENIED_TOOLS }}"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
@@ -292,13 +301,14 @@ jobs:
             ${{ env.TOOL_HINT }}
 
             No attribution anywhere: no Co-Authored-By trailers or "Generated with" lines.
-          # The owner forbids attribution; the prompt says so too.
+          # The owner forbids attribution; the prompt says so too. dontAsk: only the allowed tools run.
           settings: |
-            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}}
+            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}, "permissions": {"defaultMode": "dontAsk"}}
           claude_args: |
             --model claude-opus-5-5
             --max-turns 60
-            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr }}:*),Bash(gh pr diff ${{ matrix.pr }}:*),Bash(git push -u origin ${{ env.NIGHTLY_BRANCH }}),Bash(gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} *),Bash(gh pr close ${{ matrix.pr }} *)"
+            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr }}),Bash(gh pr view ${{ matrix.pr }} *),Bash(gh pr diff ${{ matrix.pr }}),Bash(gh pr diff ${{ matrix.pr }} *),Bash(git push -u origin ${{ env.NIGHTLY_BRANCH }}),Bash(gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} *),Bash(gh pr close ${{ matrix.pr }} *)"
+            --disallowedTools "${{ env.DENIED_TOOLS }}"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
@@ -440,13 +450,14 @@ jobs:
             ${{ env.TOOL_HINT }}
 
             No attribution anywhere: no Co-Authored-By trailers or "Generated with" lines.
-          # The owner forbids attribution; the prompt says so too.
+          # The owner forbids attribution; the prompt says so too. dontAsk: only the allowed tools run.
           settings: |
-            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}}
+            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}, "permissions": {"defaultMode": "dontAsk"}}
           claude_args: |
             --model claude-opus-5-5
             --max-turns 150
             --allowedTools "Read,Grep,Glob,Edit,Write,Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(git push -u origin ${{ env.NIGHTLY_BRANCH }}),Bash(gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} *)"
+            --disallowedTools "${{ env.DENIED_TOOLS }}"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:

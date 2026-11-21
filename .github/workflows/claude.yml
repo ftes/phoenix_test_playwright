@@ -16,11 +16,15 @@ env:
   # Steers Claude off the Bash habits (cd, pipes, heredocs) that miss the allowlist. Plain text
   # only (no quotes, $ or backslashes): claude.yml passes it in a quoted claude_args argument.
   TOOL_HINT: "Prefer your file tools over Bash to read, search and edit files, and keep any scratch files under tmp/; run each allowed Bash command on its own, without cd, git -C, semicolons, &&, pipes or heredocs (you are already in the repository). Give any subagent you start these same rules."
+  # Denied in every Claude run: other repositories' PRs and issues, and API paths outside the
+  # allowed ones. Plain text, as TOOL_HINT.
+  DENIED_TOOLS: "Bash(gh pr view * -R*),Bash(gh pr view * --repo*),Bash(gh pr diff * -R*),Bash(gh pr diff * --repo*),Bash(gh issue view * -R*),Bash(gh issue view * --repo*),Bash(gh api *..*),Bash(gh api *%*),Bash(gh api * --hostname*)"
 
 jobs:
-  claude:
-    # Maintainers only, before any setup: the action rejects anyone else anyway. Only this
-    # repository's PRs: review events are filtered here, a comment's PR in the first step.
+  # Maintainers only, before any setup: the action rejects anyone else anyway. Only this
+  # repository's PRs: review events are filtered here, a comment's PR in this job, before anything
+  # is checked out. Also picks the gh commands Claude may run: on this event's PR or issue only.
+  pr:
     if: |
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association || github.event.issue.author_association) && (
         (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
@@ -29,30 +33,62 @@ jobs:
         (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
       )
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
-      contents: read
       pull-requests: read
-      issues: read
-      id-token: write
-      actions: read # Required for Claude to read CI results on PRs
+    outputs:
+      skip: ${{ steps.pr.outputs.skip }}
+      other-repo: ${{ steps.pr.outputs.other-repo }}
+      gh: ${{ steps.pr.outputs.gh }}
     steps:
-      # Only this repository's PRs, and none when the lookup fails.
+      # Only this repository's PRs; stops when the lookup fails.
       - name: Skip other repositories' PRs
         id: pr
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) }}
+          ISSUE: ${{ github.event.issue.number }}
         run: |
-          if [[ -z $PR ]]; then exit 0; fi
+          if [[ -z $PR ]]; then
+            echo "gh=Bash(gh issue view $ISSUE),Bash(gh issue view $ISSUE *)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "gh=Bash(gh pr view $PR),Bash(gh pr view $PR *),Bash(gh pr diff $PR),Bash(gh pr diff $PR *)" >> "$GITHUB_OUTPUT"
           cross=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json isCrossRepository --jq .isCrossRepository) ||
             { echo "::error::Couldn't look up PR $PR."; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
           if [[ $cross != false ]]; then
             echo "::notice::Claude runs only on this repository's PRs."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
+            { echo "skip=true"; echo "other-repo=true"; } >> "$GITHUB_OUTPUT"
           fi
+
+  # Says so on a PR from another repository, which `claude` skips.
+  reply:
+    needs: pr
+    if: needs.pr.outputs.other-repo == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number || github.event.issue.number }}
+          BODY: "`@claude` runs only on pull requests from this repository."
+        run: gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+
+  claude:
+    needs: pr
+    if: needs.pr.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+      actions: read # This PR's CI status (the action's get_ci_status); not other runs.
+    steps:
       # main for issues and issue comments, the PR's merge ref for review events.
       - name: Checkout repository
-        if: steps.pr.outputs.skip != 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Else checkout's read-only token, in an includeIf file the action doesn't clear,
@@ -60,38 +96,37 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Setup languages
-        if: steps.pr.outputs.skip != 'true'
         uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
       # Soft, so a PR whose mix.exs, deps or code doesn't build still gets a Claude run.
       - name: Install dependencies
-        if: steps.pr.outputs.skip != 'true'
         continue-on-error: true
         run: mix "do" deps.get, deps.compile
       - name: Fetch Playwright's source
-        if: steps.pr.outputs.skip != 'true'
         continue-on-error: true
         run: mix phoenix_test_playwright.playwright_source
 
       - name: Run Claude Code
-        if: steps.pr.outputs.skip != 'true'
         id: claude
         uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
-          # This is an optional setting that allows Claude to read CI results on PRs
+          # This PR's CI status; the tools for other runs and their logs are denied below.
           additional_permissions: |
             actions: read
 
-          # The owner forbids attribution.
+          # The owner forbids attribution. dontAsk: only the allowed tools run (the action would
+          # otherwise start in auto mode, where a review decides the calls no rule covers); its tag
+          # mode keeps acceptEdits for its edits in the checkout.
           settings: |
-            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}}
+            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}, "permissions": {"defaultMode": "dontAsk"}}
           # Added to the action's defaults, which cover editing, committing and its comment.
           claude_args: |
             --model claude-opus-5-5
             --max-turns 100
             --append-system-prompt "Tests can't run here; if your change needs them, say they haven't run. No Claude attribution: leave the Generated with Claude Code signature out of commits, PRs and PR links. ${{ env.TOOL_HINT }}"
-            --allowedTools "Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix credo:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*)"
+            --allowedTools "Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ needs.pr.outputs.gh }},Bash(mix format:*),Bash(mix compile:*),Bash(mix credo:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*)"
+            --disallowedTools "${{ env.DENIED_TOOLS }},mcp__github_ci__get_workflow_run_details,mcp__github_ci__download_job_log"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:
