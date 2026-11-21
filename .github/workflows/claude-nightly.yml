@@ -87,6 +87,8 @@ jobs:
               main changed the code it touches or its callers, renamed what it uses or added a use
               it misses, so merging it as is would break or leave the code inconsistent. A redo
               makes the same change again on a new branch from current main, which CI then tests.
+              A change is redone at most once: a PR whose branch name ends in `-<number>` is itself
+              a redo, so keep or close it.
 
             A merge conflict alone, the PR's age or a preference for other work is no reason for
             either: conflicts get redone anyway.
@@ -161,7 +163,8 @@ jobs:
         # every run of a check, so only each check's latest counts. Every fix or re-run adds a
         # commit, so the commit count limits the attempts. Listing commits caps --limit at 40: more
         # exceeds GitHub's GraphQL node limit. A PR to recreate (conflicted, or triage's redo) isn't
-        # fixed or given up on as well: its replacement gets a CI run of its own.
+        # fixed as well: its replacement gets a CI run of its own. A PR out of fixes is given up on,
+        # not redone, which would reset its fix budget.
         run: |
           list() {
             gh pr list --state open --limit 40 --json number,headRefName,isCrossRepository,mergeable,commits,statusCheckRollup,comments,reviews \
@@ -170,16 +173,18 @@ jobs:
           list > /dev/null
           sleep 30
           prs=$(list)
-          # Still open and listed: triage may have closed it, or a human commented since.
-          recreate=$(jq -c --argjson redo "$REDO" '. as $prs
-            | ($redo | map(select(.number as $n | $prs | any(.number == $n))))
+          exhausted=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.mergeable == "MERGEABLE" and .failing and .commits >= $max) | .number)' <<< "$prs")
+          # Triage's redo, if still open and listed (triage may have closed it, or a human commented
+          # since), not out of fixes and not a redo itself (claude/nightly-<run>-<old PR>).
+          recreate=$(jq -c --argjson redo "$REDO" --argjson exhausted "$exhausted" '. as $prs
+            | ($redo | map(select(.number as $n | ($prs | any(.number == $n and (.branch | test("^claude/nightly-[0-9]+-[0-9]+$") | not))) and ($exhausted | all(. != $n)))))
               + map(select(.mergeable == "CONFLICTING") | {number, why: "It conflicts with main."})
             | unique_by(.number)' <<< "$prs")
           others=$(jq -c --argjson recreate "$recreate" 'map(select(.number as $n | $recreate | all(.number != $n)))' <<< "$prs")
           {
             echo "recreate=$recreate"
             echo "failing=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.mergeable == "MERGEABLE" and .failing and .commits < $max) | {number, branch})' <<< "$others")"
-            echo "exhausted=$(jq -r --argjson max "$MAX_COMMITS" 'map(select(.mergeable == "MERGEABLE" and .failing and .commits >= $max) | .number) | join(" ")' <<< "$others")"
+            echo "exhausted=$(jq -r 'join(" ")' <<< "$exhausted")"
           } >> "$GITHUB_OUTPUT"
       - name: Close PRs still failing after two fixes
         env:
@@ -336,7 +341,9 @@ jobs:
             `mix compile --warnings-as-errors` and `mix credo`; they must pass. CI on the new PR
             runs the test suite.
 
-            If the change can't be redone without redesigning it, stop without pushing and say why.
+            If the change can't be redone without redesigning it, don't push. Close the old PR
+            instead, so it isn't retried every night, with exactly:
+              gh pr close ${{ matrix.pr.number }} --delete-branch --comment "<one sentence on why it can't be redone>"
 
             To publish, commit with the old PR's title as the subject, write tmp/nightly-pr.md (the
             old description, updated if the change differs; tmp/ is gitignored), then run exactly,
