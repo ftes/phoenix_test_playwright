@@ -455,7 +455,7 @@ jobs:
         run: |
           areas=(
             "the public API: lib/phoenix_test/playwright.ex"
-            "setup and browsers: case.ex, config.ex, supervisor.ex, internal/browser*, internal/driver_watcher.ex, lib/mix/"
+            "setup and browsers: case.ex, config.ex, internal/browser.ex"
             "selectors and helpers: selector.ex, internal/selector/, internal/cookie_args.ex, js_logger.ex"
             "the tests: test/phoenix_test/playwright/ and test/support/, outside the upstream mirrors"
           )
