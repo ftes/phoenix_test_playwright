@@ -26,9 +26,11 @@ env:
 
 jobs:
   claude-review:
-    # Claude's own PRs are the only bot PRs reviewed, and only this repository's PRs.
+    # Claude's own PRs are the only bot PRs reviewed, and only this repository's PRs. Never
+    # Renovate's branches, whoever opened the PR: the review would run their updated deps.
     if: >-
       !github.event.pull_request.draft &&
+      !startsWith(github.head_ref, 'renovate/') &&
       (github.event.pull_request.user.type != 'Bot' || github.event.pull_request.user.login == 'claude[bot]') &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest

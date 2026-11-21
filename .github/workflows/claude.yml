@@ -25,8 +25,9 @@ env:
 
 jobs:
   # Maintainers only, before any setup: the action rejects anyone else anyway. Only this
-  # repository's PRs: review events are filtered here, a comment's PR in this job, before anything
-  # is checked out. Also picks the gh commands Claude may run: on this event's PR or issue only.
+  # repository's PRs, never Renovate's: review events are filtered here, a comment's PR in this
+  # job, before anything is checked out. Also picks the gh commands Claude may run: on this event's
+  # PR or issue only.
   pr:
     if: |
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association || github.event.issue.author_association) && (
@@ -34,7 +35,8 @@ jobs:
         (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && github.event.pull_request.head.repo.full_name == github.repository) ||
         (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && github.event.pull_request.head.repo.full_name == github.repository) ||
         (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
-      )
+      ) &&
+      !startsWith(github.event.pull_request.head.ref, 'renovate/')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -44,8 +46,8 @@ jobs:
       other-repo: ${{ steps.pr.outputs.other-repo }}
       gh: ${{ steps.pr.outputs.gh }}
     steps:
-      # Only this repository's PRs; stops when the lookup fails.
-      - name: Skip other repositories' PRs
+      # Only this repository's PRs, never Renovate's; stops when the lookup fails.
+      - name: Skip other repositories' and Renovate's PRs
         id: pr
         env:
           GH_TOKEN: ${{ github.token }}
@@ -57,11 +59,14 @@ jobs:
             exit 0
           fi
           echo "gh=Bash(gh pr view $PR),Bash(gh pr view $PR *),Bash(gh pr diff $PR),Bash(gh pr diff $PR *)" >> "$GITHUB_OUTPUT"
-          cross=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json isCrossRepository --jq .isCrossRepository) ||
+          pr=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json isCrossRepository,headRefName --jq '"\(.isCrossRepository) \(.headRefName)"') ||
             { echo "::error::Couldn't look up PR $PR."; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
-          if [[ $cross != false ]]; then
+          if [[ $pr != "false "* ]]; then
             echo "::notice::Claude runs only on this repository's PRs."
             { echo "skip=true"; echo "other-repo=true"; } >> "$GITHUB_OUTPUT"
+          elif [[ $pr == "false renovate/"* ]]; then
+            echo "::notice::Claude doesn't run on Renovate's PRs."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
   # Says so on a PR from another repository, which `claude` skips.
