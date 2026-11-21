@@ -1,7 +1,10 @@
 defmodule PhoenixTest.Playwright.MultipleBrowsersParameterizeTest do
   use PhoenixTest.Playwright.Case,
     async: true,
-    parameterize: [%{browser: :chromium}, %{browser: :firefox}]
+    parameterize: [
+      Playwright.Test.parameters(name: "chromium", browser_name: :chromium),
+      Playwright.Test.parameters(name: "firefox", browser_name: :firefox)
+    ]
 
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 

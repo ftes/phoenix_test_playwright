@@ -1,7 +1,7 @@
 defmodule PhoenixTest.Playwright.FirefoxTest do
   use PhoenixTest.Playwright.Case,
     async: true,
-    browser: :firefox
+    browser_name: :firefox
 
   import PhoenixTest.TestHelpers, only: [set_html: 2]
 

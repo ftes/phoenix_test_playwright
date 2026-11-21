@@ -1,6 +1,6 @@
 defmodule PhoenixTest.Playwright.BrowserLaunchOptsTest do
   @moduledoc """
-  Tests that browser_launch_opts are passed through to Playwright.
+  Tests that the module's `launch_options` are passed through to Playwright.
 
   These tests verify that browser launch flags actually affect browser behavior
   by testing getUserMedia with and without fake media device flags.
@@ -8,12 +8,12 @@ defmodule PhoenixTest.Playwright.BrowserLaunchOptsTest do
 
   use PhoenixTest.Playwright.Case,
     async: true,
-    browser_launch_opts: [
-      args: [
+    # Replaces the config's `launch_options` as a whole: keep them (`headless`).
+    launch_options:
+      Keyword.put(Application.compile_env(:playwright, [:test, :launch_options], []), :args, [
         "--use-fake-ui-for-media-stream",
         "--use-fake-device-for-media-stream"
-      ]
-    ]
+      ])
 
   test "getUserMedia succeeds with fake media device flags", %{conn: conn} do
     conn
