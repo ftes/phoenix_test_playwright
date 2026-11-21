@@ -19,8 +19,8 @@ env:
 
 jobs:
   claude:
-    # Maintainers only, before any setup: the action rejects anyone else anyway. Review events
-    # check out the PR's merge ref, so only same-repo PRs.
+    # Maintainers only, before any setup: the action rejects anyone else anyway. Only this
+    # repository's PRs: review events are filtered here, a comment's PR in the first step.
     if: |
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association || github.event.issue.author_association) && (
         (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
@@ -36,8 +36,23 @@ jobs:
       id-token: write
       actions: read # Required for Claude to read CI results on PRs
     steps:
+      # Only this repository's PRs, and none when the lookup fails.
+      - name: Skip other repositories' PRs
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) }}
+        run: |
+          if [[ -z $PR ]]; then exit 0; fi
+          cross=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json isCrossRepository --jq .isCrossRepository) ||
+            { echo "::error::Couldn't look up PR $PR."; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
+          if [[ $cross != false ]]; then
+            echo "::notice::Claude runs only on this repository's PRs."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
       # main for issues and issue comments, the PR's merge ref for review events.
       - name: Checkout repository
+        if: steps.pr.outputs.skip != 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Else checkout's read-only token, in an includeIf file the action doesn't clear,
@@ -45,27 +60,20 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Setup languages
+        if: steps.pr.outputs.skip != 'true'
         uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
       # Soft, so a PR whose mix.exs, deps or code doesn't build still gets a Claude run.
       - name: Install dependencies
+        if: steps.pr.outputs.skip != 'true'
         continue-on-error: true
         run: mix "do" deps.get, deps.compile
       - name: Fetch Playwright's source
+        if: steps.pr.outputs.skip != 'true'
         continue-on-error: true
         run: mix phoenix_test_playwright.playwright_source
-      # The action checks out a fork PR's head with a token that can push, and mix runs the
-      # checked-out mix.exs and .formatter.exs: no mix tasks on a fork's code.
-      - name: Allow mix tasks unless on a fork PR
-        id: tools
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) }}
-        run: |
-          if [ -z "$PR" ] || [ "$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json isCrossRepository --jq .isCrossRepository)" = false ]; then
-            echo "mix=,Bash(mix format:*),Bash(mix compile:*),Bash(mix credo:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*)" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Run Claude Code
+        if: steps.pr.outputs.skip != 'true'
         id: claude
         uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
         with:
@@ -83,7 +91,7 @@ jobs:
             --model claude-opus-5-5
             --max-turns 100
             --append-system-prompt "Tests can't run here; if your change needs them, say they haven't run. No Claude attribution: leave the Generated with Claude Code signature out of commits, PRs and PR links. ${{ env.TOOL_HINT }}"
-            --allowedTools "Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*)${{ steps.tools.outputs.mix }}"
+            --allowedTools "Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix credo:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*)"
       - name: Summarize Claude's result
         if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
         env:

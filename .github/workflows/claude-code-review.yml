@@ -20,7 +20,7 @@ env:
 
 jobs:
   claude-review:
-    # Claude's own PRs are the only bot PRs reviewed, and fork PRs get no secrets.
+    # Claude's own PRs are the only bot PRs reviewed, and only this repository's PRs.
     if: >-
       !github.event.pull_request.draft &&
       (github.event.pull_request.user.type != 'Bot' || github.event.pull_request.user.login == 'claude[bot]') &&

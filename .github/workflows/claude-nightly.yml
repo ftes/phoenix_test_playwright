@@ -179,8 +179,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           BRANCH: ${{ matrix.pr.branch }}
+        # This repository's runs only.
         run: |
-          run=$(gh run list --branch "$BRANCH" --workflow elixir.yml --event pull_request --limit 1 --json databaseId --jq '.[0].databaseId')
+          # shellcheck disable=SC2016 # jq's $ENV
+          run=$(gh api "repos/$GH_REPO/actions/workflows/elixir.yml/runs?branch=$BRANCH&event=pull_request&per_page=100" \
+            --jq '[.workflow_runs[] | select(.head_repository.full_name == $ENV.GH_REPO)][0].id // empty')
+          if [[ -z $run ]]; then echo "::error::no CI run of $BRANCH"; exit 1; fi
           mkdir -p tmp
           gh run view "$run" --log-failed | tail -n 5000 > tmp/ci-failed.log
       - name: Run Claude
