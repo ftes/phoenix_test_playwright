@@ -338,6 +338,8 @@ jobs:
     steps:
       - name: Count open nightly PRs
         id: count
+        # With pipefail, so a failed lookup in the pipeline below shows.
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -362,7 +364,8 @@ jobs:
               jq -c --slurpfile bots "$RUNNER_TEMP/bots.json" '(.closedAt | fromdate) as $closed
                 | [.comments[], .reviews[] | select(.authorAssociation | IN("OWNER", "MEMBER", "COLLABORATOR"))]
                   + [$bots[0][] | select((.createdAt | fromdate) >= $closed - 120)]
-                | map(.body | gsub("\\s+"; " ") | .[:300] | select(. != ""))' "$RUNNER_TEMP/pr.json") || why='[]'
+                | map(.body | gsub("\\s+"; " ") | .[:300] | select(. != ""))' "$RUNNER_TEMP/pr.json") ||
+              { echo "::warning::Couldn't read why #$number was closed."; why='[]'; }
             recent=$(jq -c --argjson n "$number" --argjson why "$why" 'map(if .number == $n then . + {why: $why} else . end)' <<< "$recent")
           done
           {

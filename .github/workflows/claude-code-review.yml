@@ -60,10 +60,9 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: bash .github/claude-review-increment.sh
       # The comments, reviews and review comments of maintainers and claude[bot], for the prompt;
-      # Claude's tools can't read comments. Should it fail, Claude reviews without them.
+      # Claude's tools can't read comments. Should it fail, the job fails before the review.
       - name: Collect maintainers' comments
         if: steps.increment.outputs.mode != 'skip'
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
