@@ -17,9 +17,12 @@ env:
   # Steers Claude off the Bash habits (cd, pipes, heredocs) that miss the allowlist. Plain text
   # only (no quotes, $ or backslashes): claude.yml passes it in a quoted claude_args argument.
   TOOL_HINT: "Prefer your file tools over Bash to read, search and edit files, and keep any scratch files under tmp/; run each allowed Bash command on its own, without cd, git -C, semicolons, &&, pipes or heredocs (you are already in the repository). Give any subagent you start these same rules."
-  # Denied in every Claude run: other repositories' PRs and issues, and API paths outside the
-  # allowed ones. Plain text, as TOOL_HINT.
-  DENIED_TOOLS: "Bash(gh pr view * -R*),Bash(gh pr view * --repo*),Bash(gh pr diff * -R*),Bash(gh pr diff * --repo*),Bash(gh issue view * -R*),Bash(gh issue view * --repo*),Bash(gh api *..*),Bash(gh api *%*),Bash(gh api * --hostname*)"
+  # Denied in every Claude run: other repositories' PRs and issues, API paths outside the allowed
+  # ones, and mix's commands that run arbitrary code. Plain text, as TOOL_HINT.
+  # These rules, the allowed tools and dontAsk steer Claude's tool use; they are no sandbox: a job
+  # that lets Claude edit files and run mix lets it run code. What the jobs rely on is that none
+  # loads another repository's content, the tokens' scopes, and main's ruleset.
+  DENIED_TOOLS: "Bash(gh pr * -R*),Bash(gh pr * --repo*),Bash(gh issue * -R*),Bash(gh issue * --repo*),Bash(gh api *..*),Bash(gh api *%*),Bash(gh api * --hostname*),Bash(mix cmd*),Bash(mix run*),Bash(mix eval*),Bash(*mix cmd*)"
 
 jobs:
   claude-review:
@@ -73,7 +76,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           allowed_bots: claude[bot]
-          # dontAsk: only the allowed tools run.
+          # dontAsk: a call no rule allows is denied, except the read-only ones Claude Code always allows.
           settings: |
             {"permissions": {"defaultMode": "dontAsk"}}
           prompt: |
