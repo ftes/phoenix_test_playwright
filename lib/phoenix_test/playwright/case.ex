@@ -57,13 +57,20 @@ defmodule PhoenixTest.Playwright.Case do
   # Recording modes, which Playwright.Test reads from `Playwright.Test.use/1` tags only.
   @recording_keys [:trace, :screenshot, :video]
   using opts do
-    # Before `use Playwright.Test`, which validates as it expands, rejects them without a hint.
-    if Keyword.keyword?(opts) do
-      Config.reject_removed!(opts, "use PhoenixTest.Playwright.Case in #{inspect(__CALLER__.module)}")
-    end
+    # Split as the template expands: `use Playwright.Test` validates its options as it expands, and
+    # reads some (`assert_steps`) only from a literal keyword list. Removed options are rejected
+    # first, as `use Playwright.Test` would reject them without a hint.
+    {use_opts, config_opts} =
+      if Keyword.keyword?(opts) do
+        Config.reject_removed!(opts, "use PhoenixTest.Playwright.Case in #{inspect(__CALLER__.module)}")
+        {Keyword.drop(opts, @config_keys), Keyword.take(opts, @config_keys)}
+      else
+        {quote(do: Keyword.drop(unquote(opts), unquote(@config_keys))),
+         quote(do: Keyword.take(unquote(opts), unquote(@config_keys)))}
+      end
 
     quote do
-      use Playwright.Test, Keyword.drop(unquote(opts), unquote(@config_keys))
+      use Playwright.Test, unquote(use_opts)
 
       import PhoenixTest
 
@@ -95,7 +102,7 @@ defmodule PhoenixTest.Playwright.Case do
           with_dialog: 3
         ]
 
-      @moduletag Keyword.take(unquote(opts), unquote(@config_keys))
+      @moduletag unquote(config_opts)
     end
   end
 
@@ -165,6 +172,7 @@ defmodule PhoenixTest.Playwright.Case do
       end
   """
   def new_session(config, context, context_options \\ []) do
+    context_options = Keyword.new(context_options)
     use = Map.merge(Map.new(playwright_use()), Map.new(context_options))
     user_agent = user_agent(context_option(use, :user_agent), checkout_ecto_repos(config, context))
     # Passed explicitly, so the context and `conn.base_url` (for cookies) agree, in any process.

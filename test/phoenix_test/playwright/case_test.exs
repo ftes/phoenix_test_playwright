@@ -73,9 +73,10 @@ defmodule PhoenixTest.Playwright.CaseTest do
     test "of new_session/3 win over the resolved ones", context do
       config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
 
-      # `new_session/2` in `setup_all`, without a Playwright `base_url`.
       context
-      |> then(&PhoenixTest.Playwright.Case.new_session(config, &1, locale: "it", extra_http_headers: %{"x-setup" => "1"}))
+      |> then(
+        &PhoenixTest.Playwright.Case.new_session(config, &1, %{locale: "it", extra_http_headers: %{"x-setup" => "1"}})
+      )
       |> visit("/pw/headers")
       |> assert_has("#headers", text: "accept-language: it")
       |> assert_has("#headers", text: "x-setup: 1")
@@ -83,6 +84,7 @@ defmodule PhoenixTest.Playwright.CaseTest do
   end
 end
 
+# `new_session/2` in `setup_all` (a registered scope), without a Playwright `base_url`.
 defmodule PhoenixTest.Playwright.CaseSetupAllSessionTest do
   use PhoenixTest.Playwright.Case, async: true
 
@@ -212,6 +214,15 @@ defmodule PhoenixTest.Playwright.CaseOptionsTest do
       end
       """)
     end
+  end
+end
+
+# `use Playwright.Test` reads `assert_steps` only from a literal keyword list.
+defmodule PhoenixTest.Playwright.CaseAssertStepsOptionTest do
+  use PhoenixTest.Playwright.Case, async: true, assert_steps: false
+
+  test "assert_steps: false reaches use Playwright.Test" do
+    refute __MODULE__.__playwright_test__(:assert_steps)
   end
 end
 
