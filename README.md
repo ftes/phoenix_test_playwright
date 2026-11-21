@@ -379,8 +379,13 @@ config :playwright, :test, trace: :on_first_retry
 
 ```yaml
 # .github/workflows/elixir.yml
-run: "mix test || if [[ $? = 2 ]]; then mix test --failed; else false; fi"
+run: |
+  f="--formatter ExUnit.CLIFormatter --formatter Playwright.Test.GitHubFormatter"
+  mix test $f || { [ $? -eq 2 ] && mix test --failed $f; }
 ```
+
+`Playwright.Test.GitHubFormatter` annotates the failures of both runs. On Elixir 1.20 and earlier,
+`--failed` can lose failures: see [Retries](https://hexdocs.pm/playwright_ex/test-artifacts.html#retries).
 
 
 ## Logging in
