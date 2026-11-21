@@ -16,18 +16,20 @@ env:
   # Steers Claude off the Bash habits (cd, pipes, heredocs) that miss the allowlist. Plain text
   # only (no quotes, $ or backslashes): claude.yml passes it in a quoted claude_args argument.
   TOOL_HINT: "Prefer your file tools over Bash to read, search and edit files, and keep any scratch files under tmp/; run each allowed Bash command on its own, without cd, git -C, semicolons, &&, pipes or heredocs (you are already in the repository). Give any subagent you start these same rules."
-  # Denied in every Claude run: other repositories' PRs and issues, API paths outside the allowed
-  # ones, and mix's commands that run arbitrary code. Plain text, as TOOL_HINT.
+  # Denied in every Claude run: other repositories' PRs and issues, the comments and reviews (a job
+  # that needs them gets its maintainers' from a step), API paths outside the allowed ones, and
+  # mix's commands that run arbitrary code. Plain text, as TOOL_HINT.
   # These rules, the allowed tools and dontAsk steer Claude's tool use; they are no sandbox: a job
   # that lets Claude edit files and run mix lets it run code. What the jobs rely on is that none
   # loads another repository's content, the tokens' scopes, and main's ruleset.
-  DENIED_TOOLS: "Bash(gh pr * -R*),Bash(gh pr * --repo*),Bash(gh issue * -R*),Bash(gh issue * --repo*),Bash(gh api *..*),Bash(gh api *%*),Bash(gh api * --hostname*),Bash(mix cmd*),Bash(mix run*),Bash(mix eval*),Bash(*mix cmd*)"
+  DENIED_TOOLS: "Bash(gh pr * -R*),Bash(gh pr * --repo*),Bash(gh issue * -R*),Bash(gh issue * --repo*),Bash(gh pr view *comments*),Bash(gh pr view *eview*),Bash(gh pr view * -c*),Bash(gh issue view *comments*),Bash(gh issue view * -c*),Bash(gh api *comments*),Bash(gh api *reviews*),Bash(gh api *timeline*),Bash(gh api graphql*),Bash(gh api *..*),Bash(gh api *%*),Bash(gh api * --hostname*),Bash(mix cmd*),Bash(mix run*),Bash(mix eval*),Bash(*mix cmd*)"
 
 jobs:
   # Maintainers only, before any setup: the action rejects anyone else anyway. Only this
   # repository's PRs, never Renovate's: review events are filtered here, a comment's PR in this
-  # job, before anything is checked out. Also picks the gh commands Claude may run: on this event's
-  # PR or issue only.
+  # job, before anything is checked out. Also picks the gh commands Claude may run (on this event's
+  # PR or issue only) and whose comments Claude sees: maintainers' and claude[bot]'s. The PR's or
+  # issue's own body is included whoever wrote it: a maintainer who tags Claude on it chooses that.
   pr:
     if: |
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association || github.event.issue.author_association) && (
@@ -40,11 +42,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      issues: read
       pull-requests: read
     outputs:
       skip: ${{ steps.pr.outputs.skip }}
       other-repo: ${{ steps.pr.outputs.other-repo }}
       gh: ${{ steps.pr.outputs.gh }}
+      comment-authors: ${{ steps.authors.outputs.list }}
     steps:
       # Only this repository's PRs, never Renovate's; stops when the lookup fails.
       - name: Skip other repositories' and Renovate's PRs
@@ -68,6 +72,28 @@ jobs:
             echo "::notice::Claude doesn't run on Renovate's PRs."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
+      # The maintainers who commented, reviewed or left review comments here, for the action's
+      # include_comments_by_actor, which matches logins (empty would mean everyone). Fails, and so
+      # skips Claude, when a lookup fails.
+      - name: List the maintainers who commented
+        id: authors
+        if: steps.pr.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          paths=("issues/${PR:-$ISSUE}/comments")
+          if [[ -n $PR ]]; then paths+=("pulls/$PR/comments" "pulls/$PR/reviews"); fi
+          logins=()
+          for path in "${paths[@]}"; do
+            out=$(gh api --paginate "repos/$GITHUB_REPOSITORY/$path" \
+              --jq '.[] | select(.author_association | IN("OWNER", "MEMBER", "COLLABORATOR")) | .user.login') ||
+              { echo "::error::Couldn't list $path."; exit 1; }
+            mapfile -t -O "${#logins[@]}" logins <<< "$out"
+          done
+          list=$(printf '%s\n' "${logins[@]}" "claude[bot]" | grep -E '^[A-Za-z0-9-]+(\[bot\])?$' | sort -u | paste -sd, -)
+          echo "list=$list" >> "$GITHUB_OUTPUT"
 
   # Says so on a PR from another repository, which `claude` skips.
   reply:
@@ -86,7 +112,7 @@ jobs:
 
   claude:
     needs: pr
-    if: needs.pr.outputs.skip != 'true'
+    if: needs.pr.outputs.skip != 'true' && needs.pr.outputs.comment-authors != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -118,6 +144,8 @@ jobs:
         uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Only these logins' comments, reviews and review comments reach Claude (see the `pr` job).
+          include_comments_by_actor: ${{ needs.pr.outputs.comment-authors }}
 
           # This PR's CI status; the tools for other runs and their logs are denied below.
           additional_permissions: |
