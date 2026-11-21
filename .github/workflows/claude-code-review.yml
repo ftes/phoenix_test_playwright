@@ -132,13 +132,25 @@ jobs:
                its comments, reviews and review comments by maintainers and Claude.
 
             Post each verified finding as an inline comment on the relevant line
-            (mcp__github_inline_comment__create_inline_comment, confirmed: true), with the failure
-            scenario and a suggested fix. Then post one new summary comment per review run with
-            `gh pr comment PR --body-file <file>`: a few sentences on what you checked and the
-            most important findings, or why you found nothing. Say which depth you chose and why.
-            After an increment review, cover what changed since the last review and say in a line
-            whether the earlier findings still hold, without repeating the earlier summary. End
-            the comment with this line, verbatim:
+            (mcp__github_inline_comment__create_inline_comment, confirmed: true) in Conventional
+            Comments syntax (https://conventionalcomments.org): start with
+            `<label> [decorations]: <subject>`, then give the failure scenario and a suggested fix.
+            The label is `issue` (a defect), `suggestion`, `question`, `nitpick`, `todo`,
+            `thought`, `note` or `praise`; don't post praise alone. Decorate it `(blocking)` when
+            it must be fixed before merge and `(non-blocking)` otherwise, e.g.
+            `issue (blocking): ...` or `suggestion (non-blocking): ...`.
+
+            Then post one new summary comment per review run with
+            `gh pr comment PR --body-file <file>`. Open it with a verdict on the whole PR as it
+            stands, counting earlier findings that are still open: `**Verdict: OK to merge.**`
+            when nothing is blocking, noting any non-blocking ones (e.g.
+            `**Verdict: OK to merge (2 non-blocking suggestions).**`), otherwise
+            `**Verdict: Issues found: N blocking, M non-blocking.**`. The counts are of the inline
+            comments' decorations; follow-ups in the summary don't count. Then say which depth you
+            chose and why, and in a few sentences what you checked and the most important findings
+            (by their label), or why you found nothing. After an increment review, cover what
+            changed since the last review and say in a line whether the earlier findings still
+            hold, without repeating the earlier summary. End the comment with this line, verbatim:
             <!-- claude-review: ${{ steps.increment.outputs.head }} ${{ steps.increment.outputs.fork }} -->
           claude_args: |
             --model claude-opus-5-5
