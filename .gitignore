@@ -42,3 +42,7 @@ phoenix_test-*.tar
 .DS_STORE
 
 .envrc
+
+# Personal Claude Code setup (jj project-setup --local)
+/.claude/hooks/
+/.claude/CLAUDE.md
