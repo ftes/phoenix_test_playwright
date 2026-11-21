@@ -42,7 +42,7 @@ P.S. Looking for a standalone Playwright client? See [Playwright](https://github
 
     ```elixir
     # mix.exs
-    {:phoenix_test_playwright, "~> 0.20.0-rc.2", only: :test, runtime: false}
+    {:phoenix_test_playwright, "~> 0.20.0-rc.3", only: :test, runtime: false}
     ```
 
 2. Install the Playwright driver and browser (no Node.js or npm needed, see [Playwright driver](#playwright-driver))
