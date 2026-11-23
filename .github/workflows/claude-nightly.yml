@@ -51,11 +51,13 @@ jobs:
         # A human comment or review keeps a PR out of triage; Claude's own review doesn't. The
         # allowlist names each PR, so Claude can't read or close any other.
         run: |
-          numbers=$(gh pr list --state open --limit 1000 --json number,headRefName,isCrossRepository,comments,reviews \
-            --jq '[.[] | select((.isCrossRepository | not) and (.headRefName | startswith("claude/nightly-")) and ([.comments[], .reviews[]] | all(.author.login == "claude"))) | .number]')
+          prs=$(gh pr list --state open --limit 1000 --json number,headRefName,isCrossRepository,comments,reviews \
+            --jq '[.[] | select((.isCrossRepository | not) and (.headRefName | startswith("claude/nightly-")) and ([.comments[], .reviews[]] | all(.author.login == "claude"))) | {number, branch: .headRefName}]')
+          numbers=$(jq -c 'map(.number)' <<< "$prs")
           {
             echo "numbers=$(jq -r 'join(" ")' <<< "$numbers")"
             echo "allowed=$(jq -r 'map("Bash(gh pr close \(.) *),Bash(gh pr view \(.)),Bash(gh pr view \(.) *),Bash(gh pr diff \(.)),Bash(gh pr diff \(.) *)") | join(",")' <<< "$numbers")"
+            echo "listed=$(jq -r 'map("#\(.number) (\(.branch))") | join(", ")' <<< "$prs")"
           } >> "$GITHUB_OUTPUT"
       - name: Checkout repository
         if: steps.list.outputs.numbers != ''
@@ -71,7 +73,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}
-            OPEN NIGHTLY PRS: ${{ steps.list.outputs.numbers }}
+            OPEN NIGHTLY PRS, each with its branch: ${{ steps.list.outputs.listed }}
 
             An earlier nightly run opened these simplification PRs, and main has moved on since.
             Check that each still makes sense on main as it is now. main is checked out.
