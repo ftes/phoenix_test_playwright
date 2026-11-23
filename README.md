@@ -38,6 +38,8 @@ P.S. Looking for a standalone Playwright client? See [Playwright](https://github
 
 ## Getting started
 
+Upgrading from 0.19? See [Upgrading to 0.20](docs/upgrading.md).
+
 1. Add dependency
 
     ```elixir

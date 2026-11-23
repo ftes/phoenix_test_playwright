@@ -5,7 +5,8 @@
 - Run targeted tests often while changing files.
 - When feature is complete run `mix check`.
 - When reviewing a change or fixing review findings, follow [Reviewing](CONTRIBUTING.md#reviewing).
-- When feature is complete, update `CHANGELOG.md`.
+- When feature is complete, update `CHANGELOG.md`. A change that breaks a 0.19 suite also gets a step in
+  `docs/upgrading.md`, written as a change from 0.19 (not from the last release candidate).
 - Always keep docs up to date (exdoc `@doc` + `@moduledoc`, `README.md`)
 
 ## Reference sources

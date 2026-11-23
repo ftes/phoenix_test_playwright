@@ -65,7 +65,7 @@ defmodule PhoenixTestPlaywright.MixProject do
     [
       licenses: ["MIT"],
       links: %{"Github" => @source_url},
-      files: ~w(lib .formatter.exs mix.exs README* LICENSE* CHANGELOG* usage-rules.md),
+      files: ~w(lib .formatter.exs mix.exs README* LICENSE* CHANGELOG* usage-rules.md docs/upgrading.md),
       exclude_patterns: ~w(priv/static/assets priv/plts)
     ]
   end
@@ -92,8 +92,10 @@ defmodule PhoenixTestPlaywright.MixProject do
       source_ref: "v#{@version}",
       extras: [
         "README.md": [title: "Overview"],
+        "docs/upgrading.md": [title: "Upgrading to 0.20"],
         "CHANGELOG.md": [title: "Changelog"]
       ],
+      groups_for_extras: [Migration: ["docs/upgrading.md"]],
       nest_modules_by_prefix: [PhoenixTest.Playwright],
       # ex_doc links a dependency by app name; `playwright` on Hex is another library.
       deps: [playwright: "https://hexdocs.pm/playwright_ex"],
