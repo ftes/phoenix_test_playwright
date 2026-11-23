@@ -87,8 +87,8 @@ jobs:
               main changed the code it touches or its callers, renamed what it uses or added a use
               it misses, so merging it as is would break or leave the code inconsistent. A redo
               makes the same change again on a new branch from current main, which CI then tests.
-              A change is redone at most once: a PR whose branch name ends in `-<number>` is itself
-              a redo, so keep or close it.
+              A change is redone at most once: a PR whose branch is `claude/nightly-<run>-<old PR>`,
+              with two numbers, is itself a redo, so keep or close it.
 
             A merge conflict alone, the PR's age or a preference for other work is no reason for
             either: conflicts get redone anyway.
@@ -165,6 +165,8 @@ jobs:
         # exceeds GitHub's GraphQL node limit. A PR to recreate (conflicted, or triage's redo) isn't
         # fixed as well: its replacement gets a CI run of its own. A PR out of fixes is given up on,
         # not redone, which would reset its fix budget.
+        # A conflicting PR is recreated even if it is a redo: each conflict follows a change on main,
+        # and the app can't push a merge or rebase, so the cap on redos is triage's alone.
         run: |
           list() {
             gh pr list --state open --limit 40 --json number,headRefName,isCrossRepository,mergeable,commits,statusCheckRollup,comments,reviews \
