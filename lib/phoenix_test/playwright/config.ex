@@ -76,10 +76,9 @@ defmodule PhoenixTest.Playwright.Config do
   `config :playwright, :test, action_timeout: ...`, navigations (`visit/3`, `reload_page/2`)
   up to `navigation_timeout`. Both are unlimited by default: the test's ExUnit timeout bounds them.
   Assertions (`assert_has`, `refute_has`, `assert_path`, `assert_download`, `assert_screenshot/3`)
-  retry up to `config :playwright, :expect, timeout: ...`, 5 seconds by default.
+  retry up to `config :playwright, :test, expect: [timeout: ...]`, 5 seconds by default.
 
-      config :playwright, :test, action_timeout: 2_000, navigation_timeout: 5_000
-      config :playwright, :expect, timeout: 2_000
+      config :playwright, :test, action_timeout: 2_000, navigation_timeout: 5_000, expect: [timeout: 2_000]
 
   An operation's `timeout:` option overrides them, in milliseconds or `:infinity` for no limit.
   As in phoenix_test, an assertion's `timeout: 0` checks once; actions and `assert_screenshot/3`

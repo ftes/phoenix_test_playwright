@@ -389,10 +389,10 @@ defmodule PhoenixTest.Playwright do
 
   On first run (no baseline exists), the screenshot is saved as the new baseline and the test fails
   at the end of its body, as in Playwright Test, so CI catches a baseline nobody committed.
-  With `config :playwright, :expect, update_snapshots: :missing`, a notice is printed and the test passes.
+  With `config :playwright, :test, update_snapshots: :missing`, a notice is printed and the test passes.
   On mismatch, the test fails, and the `-actual`, `-expected` and `-diff` images are written to the
   test's output dir under `test-results/`.
-  `config :playwright, :expect, update_snapshots: :changed` updates baselines instead.
+  `config :playwright, :test, update_snapshots: :changed` updates baselines instead.
 
   Requires a test of `PhoenixTest.Playwright.Case` (a test registered with `Playwright.Test`).
 

@@ -41,10 +41,10 @@ config :phoenix_test_playwright, Repo,
 config :phoenix_test_playwright,
   ecto_repos: [Repo]
 
-# Tests of assert_screenshot/3 write new baselines: pass instead of failing the test.
-config :playwright, :expect, timeout: pw_timeout, update_snapshots: :missing
-
 config :playwright, :test,
+  expect: [timeout: pw_timeout],
+  # Tests of assert_screenshot/3 write new baselines: pass instead of failing the test.
+  update_snapshots: :missing,
   action_timeout: pw_timeout,
   navigation_timeout: pw_timeout,
   launch_options: [headless: System.get_env("PW_HEADLESS", "true") in ~w(t true)],

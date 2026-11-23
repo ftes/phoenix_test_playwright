@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 <!-- and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
 ## [Unreleased]
+### Breaking
+- RC only: requires playwright_ex 1.65.0-rc.4, which moves `config :playwright, :expect` under `:test`:
+  `config :playwright, :expect, timeout: 2_000, update_snapshots: :missing` is now
+  `config :playwright, :test, expect: [timeout: 2_000], update_snapshots: :missing`
+  (`ignore_snapshots` too). A leftover `config :playwright, :expect` fails at boot.
 
 ## [0.20.0-rc.3] 2026-11-21
 ### Breaking
@@ -68,7 +73,7 @@ browser pools, driver supervision and recording. To upgrade:
   `trace: :open` is gone (`mix playwright.cli show-trace <path>`). Files go to `test-results/<test>/`.
 - Browser contexts get Playwright Test's defaults (`locale: "en-US"` instead of `"en"`, a 1280x720 viewport).
 - `assert_screenshot/3` writing a missing baseline fails the test at the end of its body, as in Playwright Test.
-  `config :playwright, :expect, update_snapshots: :missing` restores passing.
+  `config :playwright, :test, update_snapshots: :missing` restores passing.
 - Removed the `headless`, `slow_mo`, `executable_path` and `browser_launch_timeout` options: use
   `config :playwright, :test, launch_options: [...]`, or `browser_launch_opts:` per module, which is merged over it.
   Global `browser_context_opts` belong in `config :playwright, :test, context_options: [...]`; the tag stays.
@@ -80,7 +85,7 @@ browser pools, driver supervision and recording. To upgrade:
 - `step/3` is `Playwright.Test.step`: steps nest in the trace's test steps.
 - The `timeout` option is gone: Playwright's timeouts apply, as in Playwright Test. Set
   `config :playwright, :test, action_timeout: ..., navigation_timeout: ...` (unlimited by default, bounded by the
-  ExUnit test timeout) and `config :playwright, :expect, timeout: ...` (assertions, 5 s by default).
+  ExUnit test timeout) and `config :playwright, :test, expect: [timeout: ...]` (assertions, 5 s by default).
   An operation's `timeout:` option overrides them; `:infinity` is no limit. An assertion's `timeout: 0` checks once,
   as in phoenix_test; actions and `assert_screenshot/3` now reject `0` (use `:infinity` for no limit).
   `evaluate/3` and `clear_cookies/1` take no `timeout:`, as in Playwright. The `timeout/0` helper in test modules is gone.
