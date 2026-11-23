@@ -140,7 +140,7 @@ jobs:
             exit 1
           fi
       - name: Upload test results (traces, screenshots)
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         # Also after a retry passed: the first run's failures keep their traces.
         if: ${{ !cancelled() }}
         with:
