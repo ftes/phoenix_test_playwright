@@ -227,10 +227,9 @@ config :playwright, :test,
   launch_options: [timeout: 10_000],
   context_options: [locale: "de-DE"],
   action_timeout: 2_000,
+  # Assertion timeout, 5 seconds by default
+  expect: [timeout: 2_000],
   trace: :retain_on_failure
-
-# Assertion timeout, 5 seconds by default
-config :playwright, :expect, timeout: 2_000
 ```
 
 See `PhoenixTest.Playwright.Config` for more details, including timeout semantics.
@@ -442,7 +441,7 @@ end)
   For suites that wait on the app, `workers` near the core count with `--max-cases` about the core count tends to be fastest;
   more starves the app and causes timeouts. On small GitHub CI shared runners, try `workers: 1`.
 - Run one browser per `mix test` (e.g. `--only` a tag, or CI partitions): switching browser or launch options restarts a worker.
-- Increase timeouts: `config :playwright, :expect, timeout: 10_000` for assertions, `config :playwright, :test, action_timeout: ...` for actions
+- Increase timeouts: `config :playwright, :test, expect: [timeout: 10_000]` for assertions, `config :playwright, :test, action_timeout: ...` for actions
 - More compute power: e.g. `x64 8-core` [GitHub runner](https://docs.github.com/en/enterprise-cloud@latest/actions/using-github-hosted-runners/using-larger-runners/about-larger-runners#machine-sizes-for-larger-runners)
 
 ### LiveView not connected
