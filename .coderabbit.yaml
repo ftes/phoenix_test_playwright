@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit's PR review, the same in each of ftes's public repos: findings, not summaries.
+tone_instructions: Be concise. Report defects with a concrete failure scenario; label anything else a nitpick. Skip praise and restating the diff.
+reviews:
+  profile: chill
+  high_level_summary: false
+  changed_files_summary: false
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  poem: false
+  in_progress_fortune: false
+  related_issues: false
+  related_prs: false
+  suggested_labels: false
+  suggested_reviewers: false
+  auto_review:
+    # Drafts wait until ready; any base branch, so a PR stacked on another gets reviewed.
+    drafts: false
+    base_branches: [".*"]
+    # Renovate's PRs are tested by CI and merge on their own.
+    ignore_usernames: ["renovate[bot]"]
