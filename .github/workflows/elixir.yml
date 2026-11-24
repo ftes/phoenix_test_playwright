@@ -1,8 +1,3 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
 name: Elixir CI
 
 on:
@@ -12,8 +7,14 @@ on:
     branches: ["main"]
     types: [opened, synchronize, reopened, ready_for_review]
 
-permissions:
-  contents: read
+# A new push to a PR cancels its running CI. Pushes to main share a group without cancelling: the
+# running CI finishes, the newest push waits, and pushes in between are dropped.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Each job asks for what it needs.
+permissions: {}
 
 env:
   MIX_ENV: test
@@ -25,47 +26,50 @@ jobs:
     # Draft PRs skip CI until marked ready, and in a stack only the top PR runs it (the tests need
     # this job): it holds every change below it. `stack` is absent outside a stack and on other events.
     if: ${{ !github.event.pull_request.draft && (github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # mise installs precompiled Erlang (builds.hex.pm) only on the Ubuntu runners it detects (up
-      # to 24.04) and compiles it from source, ~5 min, on newer ones. Drop once it detects this one.
-      - name: Use precompiled Erlang
-        run: | # zizmor: ignore[github-env] (only the runner's ImageOS digits)
-          if [[ "${ImageOS:-}" =~ ^ubuntu([0-9]{2})$ ]]; then echo "MISE_ERLANG_PRECOMPILED_OS=ubuntu-${BASH_REMATCH[1]}.04" >> "$GITHUB_ENV"; fi
-      - name: Setup languages
-        uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
-      - name: Install dependencies
-        run: mix "do" deps.get, deps.compile
+        with:
+          persist-credentials: false
+      - uses: ftes/ci/setup@b0e992c1f9a123e072ea881ded2cf7ddb2455530 # v1.0.1
+        id: setup
       - name: Check Formatting
         run: mix format --check-formatted
       - name: Check Credo
         run: mix credo
       - name: Compiles without warnings
         run: mix compile --warnings-as-errors
+      # After the compile proves the build; test (same MIX_ENV) restores it too.
+      - name: Save deps and _build
+        if: github.ref == 'refs/heads/main' && steps.setup.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          key: ${{ steps.setup.outputs.cache-key }}
+          path: |
+            deps
+            _build
       - name: Check generated usage rules
         run: mix usage_rules.sync --check
-      # PLTs built on another runner image (e.g. ubuntu24 vs ubuntu26) are rejected as "Old PLT file".
-      - name: Get runner image
-        id: runner_image
-        run: echo "os=$ImageOS" >> "$GITHUB_OUTPUT"
+      # The PLTs cover Erlang, Elixir and the deps; Dialyxir updates a restored older one. Keyed per
+      # runner image: one built on another is rejected as "Old PLT file".
       - name: Restore Dialyzer PLT cache
         id: plt_cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          key: plt-${{ runner.os }}-${{ steps.runner_image.outputs.os }}-${{ hashFiles('.tool-versions') }}-${{ hashFiles('**/mix.lock') }}
-          restore-keys: plt-${{ runner.os }}-${{ steps.runner_image.outputs.os }}-${{ hashFiles('.tool-versions') }}
+          key: plt-${{ steps.setup.outputs.image }}-erlang-${{ steps.setup.outputs.erlang }}-elixir-${{ steps.setup.outputs.elixir }}-${{ hashFiles('mix.lock') }}
+          restore-keys: plt-${{ steps.setup.outputs.image }}-erlang-${{ steps.setup.outputs.erlang }}-elixir-${{ steps.setup.outputs.elixir }}-
           path: priv/plts
       - name: Create PLTs
-        if: steps.plt_cache.outputs.cache-hit != 'true'
         run: mix dialyzer --plt
       - name: Save PLT cache
-        id: plt_cache_save
+        if: github.ref == 'refs/heads/main' && steps.plt_cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: steps.plt_cache.outputs.cache-hit != 'true'
         with:
-          key: plt-${{ runner.os }}-${{ steps.runner_image.outputs.os }}-${{ hashFiles('.tool-versions') }}-${{ hashFiles('**/mix.lock') }}
+          key: ${{ steps.plt_cache.outputs.cache-primary-key }}
           path: priv/plts
       - name: Run Dialyzer
         run: mix dialyzer --format github --format dialyxir
@@ -73,29 +77,39 @@ jobs:
   docs:
     name: Docs
     if: ${{ !github.event.pull_request.draft && (github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
     env:
       # `ex_doc` is a dev-only dependency.
       MIX_ENV: dev
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # mise installs precompiled Erlang (builds.hex.pm) only on the Ubuntu runners it detects (up
-      # to 24.04) and compiles it from source, ~5 min, on newer ones. Drop once it detects this one.
-      - name: Use precompiled Erlang
-        run: | # zizmor: ignore[github-env] (only the runner's ImageOS digits)
-          if [[ "${ImageOS:-}" =~ ^ubuntu([0-9]{2})$ ]]; then echo "MISE_ERLANG_PRECOMPILED_OS=ubuntu-${BASH_REMATCH[1]}.04" >> "$GITHUB_ENV"; fi
-      - name: Setup languages
-        uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
-      - name: Install dependencies
-        run: mix "do" deps.get, deps.compile
+        with:
+          persist-credentials: false
+      - uses: ftes/ci/setup@b0e992c1f9a123e072ea881ded2cf7ddb2455530 # v1.0.1
+        id: setup
       - name: Build docs without warnings
         run: mix docs --warnings-as-errors
+      # The dev build, which only this job compiles.
+      - name: Save deps and _build
+        if: github.ref == 'refs/heads/main' && steps.setup.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          key: ${{ steps.setup.outputs.cache-key }}
+          path: |
+            deps
+            _build
 
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
     needs: build
+    permissions:
+      contents: read
 
     services:
       postgres:
@@ -114,15 +128,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # mise installs precompiled Erlang (builds.hex.pm) only on the Ubuntu runners it detects (up
-      # to 24.04) and compiles it from source, ~5 min, on newer ones. Drop once it detects this one.
-      - name: Use precompiled Erlang
-        run: | # zizmor: ignore[github-env] (only the runner's ImageOS digits)
-          if [[ "${ImageOS:-}" =~ ^ubuntu([0-9]{2})$ ]]; then echo "MISE_ERLANG_PRECOMPILED_OS=ubuntu-${BASH_REMATCH[1]}.04" >> "$GITHUB_ENV"; fi
-      - name: Setup languages
-        uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
-      - name: Install dependencies
-        run: mix "do" deps.get, deps.compile
+        with:
+          persist-credentials: false
+      - uses: ftes/ci/setup@b0e992c1f9a123e072ea881ded2cf7ddb2455530 # v1.0.1
+      # The browsers (headless shell only), assets and the test database: about 25 s in all, and
+      # ftes/ci/playwright-browser can't pass --only-shell.
       - name: Install browsers and build assets
         run: mix setup
       - name: Run tests
@@ -170,6 +180,7 @@ jobs:
     if: always()
     needs: [build, docs, test]
     runs-on: ubuntu-slim
+    timeout-minutes: 5
     permissions: {}
     steps:
       # On the step, so a draft or a PR below the top of its stack, whose jobs above are skipped,
