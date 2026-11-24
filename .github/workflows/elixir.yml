@@ -3,8 +3,8 @@ name: Elixir CI
 on:
   push:
     branches: ["main"]
+  # Any base, so a PR stacked on another PR's branch gets CI too.
   pull_request:
-    branches: ["main"]
     types: [opened, synchronize, reopened, ready_for_review]
 
 # A new push to a PR cancels its running CI. Pushes to main share a group without cancelling: the
