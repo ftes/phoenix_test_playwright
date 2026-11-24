@@ -1,65 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:best-practices",
-    "helpers:pinGitHubActionDigestsToSemver"
-  ],
-  "enabledManagers": [
-    "mix",
-    "github-actions",
-    "asdf"
-  ],
-  "timezone": "Europe/Berlin",
-  "schedule": [
-    "* 0-6 * * 1"
-  ],
-  "minimumReleaseAge": "2 days",
-  "osvVulnerabilityAlerts": true,
-  "automerge": false,
-  "rangeStrategy": "replace",
-  "packageRules": [
-    {
-      "description": "Keep runtime updates together",
-      "matchManagers": [
-        "asdf"
-      ],
-      "groupName": "toolchain"
-    },
-    {
-      "description": "Preserve Elixir's OTP build compatibility suffix",
-      "matchManagers": [
-        "asdf"
-      ],
-      "matchDepNames": [
-        "elixir"
-      ],
-      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<compatibility>otp-\\d+)$"
-    },
-    {
-      "description": "Support Erlang's additional patch component",
-      "matchManagers": [
-        "asdf"
-      ],
-      "matchDepNames": [
-        "erlang"
-      ],
-      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)(?:\\.(?<patch>\\d+))?(?:\\.(?<build>\\d+))?$"
-    },
-    {
-      "description": "Preserve existing Mix support and propose wider ranges for new releases",
-      "matchManagers": [
-        "mix"
-      ],
-      "rangeStrategy": "widen"
-    }
-  ],
+  "extends": ["github>ftes/renovate-config:elixir-lib"],
   "constraints": {
     "erlang": "29"
-  },
-  "lockFileMaintenance": {
-    "enabled": true,
-    "schedule": [
-      "* 0-6 * * 1"
-    ]
   }
 }
