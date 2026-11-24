@@ -1,0 +1,4 @@
+# CodeRabbit reads its config from ftes/ci, shared by ftes's public repos.
+remote_config:
+  repository: ci
+  path: .coderabbit.yaml
