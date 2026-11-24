@@ -15,9 +15,6 @@ env:
 # Each job asks for what it needs.
 permissions: {}
 
-# Each job asks for what it needs.
-permissions: {}
-
 jobs:
   claude-review:
     # Claude's own PRs are the only bot PRs reviewed, and only this repository's PRs, never
