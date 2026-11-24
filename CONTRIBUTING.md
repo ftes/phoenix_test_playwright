@@ -46,7 +46,7 @@ release/release.exs phoenix_test_playwright <version>
 ```
 
 It clones this repo into a temporary directory, commits "Release <version>" and "Start the next
-release", pushes `main` and tags the first commit. The tag runs CI (`elixir.yml`) on the tagged
+release", pushes `main` and tags the first commit. The tag runs CI (`ci.yml`) on the tagged
 commit; once every job passed, its publish job stages the release on Hex. Approve it on hex.pm;
 the job then creates the GitHub release.
 

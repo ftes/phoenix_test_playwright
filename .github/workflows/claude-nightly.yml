@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  # As in elixir.yml.
+  # As in ci.yml.
   MIX_ENV: test
 
 jobs:
@@ -143,7 +143,7 @@ jobs:
         run: |
           list() {
             gh pr list --state open --limit 40 --json number,headRefName,isCrossRepository,mergeable,commits,statusCheckRollup,comments,reviews \
-              --jq '[.[] | select((.isCrossRepository | not) and (.headRefName | startswith("claude/nightly-")) and ([.comments[], .reviews[]] | all(.author.login == "claude"))) | {number, branch: .headRefName, mergeable, commits: (.commits | length), failing: ([.statusCheckRollup[] | select(.workflowName == "Elixir CI")] | group_by(.name) | map(max_by(.startedAt)) | any(.conclusion == "FAILURE" or .conclusion == "TIMED_OUT"))}]'
+              --jq '[.[] | select((.isCrossRepository | not) and (.headRefName | startswith("claude/nightly-")) and ([.comments[], .reviews[]] | all(.author.login == "claude"))) | {number, branch: .headRefName, mergeable, commits: (.commits | length), failing: ([.statusCheckRollup[] | select(.workflowName == "CI")] | group_by(.name) | map(max_by(.startedAt)) | any(.conclusion == "FAILURE" or .conclusion == "TIMED_OUT"))}]'
           }
           list > /dev/null
           sleep 30
@@ -211,7 +211,7 @@ jobs:
         run: |
           head=$(git rev-parse HEAD)
           # shellcheck disable=SC2016 # jq's $ENV
-          run=$(gh api "repos/$GH_REPO/actions/workflows/elixir.yml/runs?branch=$BRANCH&head_sha=$head&event=pull_request&per_page=100" \
+          run=$(gh api "repos/$GH_REPO/actions/workflows/ci.yml/runs?branch=$BRANCH&head_sha=$head&event=pull_request&per_page=100" \
             --jq '[.workflow_runs[] | select(.head_repository.full_name == $ENV.GH_REPO)][0].id // empty')
           if [[ -z $run ]]; then echo "::error::no CI run of $BRANCH at $head"; exit 1; fi
           mkdir -p tmp
