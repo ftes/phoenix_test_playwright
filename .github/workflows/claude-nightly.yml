@@ -21,7 +21,7 @@ jobs:
   # Frees slots before the cap is counted. A job, not an earlier cron: GitHub delays scheduled
   # runs, and only `needs` guarantees the order.
   triage:
-    runs-on: ubuntu-26.04
+    runs-on: ubicloud-standard-2-ubuntu-2604
     timeout-minutes: 30
     permissions:
       contents: read
@@ -110,7 +110,7 @@ jobs:
   classify:
     needs: triage
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-26.04
+    runs-on: ubicloud-standard-2-ubuntu-2604
     timeout-minutes: 5
     permissions:
       contents: write # Deletes the branch of a PR given up on.
@@ -176,7 +176,7 @@ jobs:
   fix:
     needs: classify
     if: ${{ !cancelled() && needs.classify.result == 'success' && needs.classify.outputs.failing != '[]' }}
-    runs-on: ubuntu-26.04
+    runs-on: ubicloud-standard-2-ubuntu-2604
     timeout-minutes: 45
     permissions:
       contents: read
@@ -251,7 +251,7 @@ jobs:
   recreate:
     needs: classify
     if: ${{ !cancelled() && needs.classify.result == 'success' && needs.classify.outputs.recreate != '[]' }}
-    runs-on: ubuntu-26.04
+    runs-on: ubicloud-standard-2-ubuntu-2604
     timeout-minutes: 45
     permissions:
       contents: read
@@ -313,7 +313,7 @@ jobs:
   capacity:
     needs: [fix, recreate]
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-26.04
+    runs-on: ubicloud-standard-2-ubuntu-2604
     timeout-minutes: 5
     permissions:
       pull-requests: read
@@ -362,7 +362,7 @@ jobs:
     needs: capacity
     # !cancelled(): the implicit success() would also fail on any failed or skipped job further up.
     if: ${{ !cancelled() && needs.capacity.outputs.has-slot == 'true' }}
-    runs-on: ubuntu-26.04
+    runs-on: ubicloud-standard-2-ubuntu-2604
     timeout-minutes: 60
     permissions:
       contents: read
