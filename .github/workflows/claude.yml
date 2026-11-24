@@ -133,7 +133,7 @@ jobs:
       # Soft, so a PR whose mix.exs, deps or code doesn't build still gets a Claude run.
       - name: Set up Elixir and the deps
         continue-on-error: true
-        uses: ftes/ci/setup@78e6ba9c26b2865cad995d33aadba7ccb23c9149 # v1.0.3
+        uses: ftes/ci/setup@70f3e82336c42d568193e6653b5d3e30e4693d39 # v1.0.4
       - name: Fetch Playwright's source
         continue-on-error: true
         run: mix phoenix_test_playwright.playwright_source
