@@ -27,7 +27,7 @@ jobs:
     # this job): it holds every change below it. `stack` is absent outside a stack and on other events.
     # Tradeoffs (re-run CI on a PR that becomes the top): ftes/ci README, "Pull request CI".
     if: ${{ !github.event.pull_request.draft && (github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size) }}
-    runs-on: ubuntu-26.04
+    runs-on: ubicloud-standard-2-ubuntu-2604
     timeout-minutes: 20
     permissions:
       contents: read
@@ -78,7 +78,7 @@ jobs:
   docs:
     name: Docs
     if: ${{ !github.event.pull_request.draft && (github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size) }}
-    runs-on: ubuntu-26.04
+    runs-on: ubicloud-standard-2-ubuntu-2604
     timeout-minutes: 15
     permissions:
       contents: read
@@ -110,7 +110,7 @@ jobs:
   # floor lacks, as a call to a missing function only warns there.
   test:
     name: Test (${{ matrix.lane }})
-    runs-on: ubuntu-26.04
+    runs-on: ubicloud-standard-4-ubuntu-2604
     timeout-minutes: 30
     needs: build
     permissions:
@@ -205,7 +205,7 @@ jobs:
     name: quality
     if: always()
     needs: [build, docs, test]
-    runs-on: ubuntu-slim
+    runs-on: ubicloud-standard-2-ubuntu-2604
     timeout-minutes: 5
     permissions: {}
     steps:
