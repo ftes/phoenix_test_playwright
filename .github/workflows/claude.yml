@@ -17,9 +17,6 @@ env:
 # Each job asks for what it needs.
 permissions: {}
 
-# Each job asks for what it needs.
-permissions: {}
-
 jobs:
   # A maintainer's `@claude`, never on Renovate's PRs. The action rejects anyone else too, but only
   # after the setup in `claude`. ftes/ci/claude-tag checks the comment's PR, before anything is
