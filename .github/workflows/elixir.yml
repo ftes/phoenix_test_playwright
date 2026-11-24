@@ -3,8 +3,8 @@ name: Elixir CI
 on:
   push:
     branches: ["main"]
+  # Any base, so a PR stacked on another PR's branch gets CI too.
   pull_request:
-    branches: ["main"]
     types: [opened, synchronize, reopened, ready_for_review]
 
 # A new push to a PR cancels its running CI. Pushes to main share a group without cancelling: the
@@ -25,6 +25,7 @@ jobs:
     name: Build and lint
     # Draft PRs skip CI until marked ready, and in a stack only the top PR runs it (the tests need
     # this job): it holds every change below it. `stack` is absent outside a stack and on other events.
+    # Tradeoffs (re-run CI on a PR that becomes the top): ftes/ci README, "Pull request CI".
     if: ${{ !github.event.pull_request.draft && (github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size) }}
     runs-on: ubuntu-26.04
     timeout-minutes: 20
