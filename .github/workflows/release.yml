@@ -17,7 +17,7 @@ permissions:
 jobs:
   publish:
     name: Publish to Hex and GitHub
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment: release
     timeout-minutes: 360
     permissions:
@@ -27,13 +27,18 @@ jobs:
       RELEASE_TITLE: PhoenixTestPlaywright
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # gh authenticates with GH_TOKEN; nothing pushes with git
       # mise installs precompiled Erlang (builds.hex.pm) only on the Ubuntu runners it detects (up
       # to 24.04) and compiles it from source, ~5 min, on newer ones. Drop once it detects this one.
       - name: Use precompiled Erlang
         run: | # zizmor: ignore[github-env] (only the runner's ImageOS digits)
           if [[ "${ImageOS:-}" =~ ^ubuntu([0-9]{2})$ ]]; then echo "MISE_ERLANG_PRECOMPILED_OS=ubuntu-${BASH_REMATCH[1]}.04" >> "$GITHUB_ENV"; fi
+      # Not ftes/ci/setup, and no mise cache: a publishing job restores nothing another run saved.
       - name: Setup languages
         uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          cache: false
       # Before publishing, so a wrong tag or a missing changelog entry stages nothing on Hex.
       - name: Check the tag and extract the release notes
         run: |

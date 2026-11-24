@@ -43,6 +43,7 @@ phoenix_test-*.tar
 
 .envrc
 
-# Personal Claude Code setup (jj project-setup --local)
-/.claude/hooks/
-/.claude/CLAUDE.md
+# Personal Claude Code setup (jj project-setup --local, settings.local.json, worktrees); the
+# skills are shared.
+/.claude/*
+!/.claude/skills

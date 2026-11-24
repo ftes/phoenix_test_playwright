@@ -1,3 +1,4 @@
-# Keep erlang's major in sync with `constraints` in renovate.json, which Renovate builds mix.lock with.
+# On an Erlang major bump, also raise Elixir's -otp-N suffix (Renovate never moves it) and the
+# Erlang major in renovate.json's `constraints` (Renovate builds mix.lock with it).
 elixir    1.20.5-otp-29
 erlang    29.1.2

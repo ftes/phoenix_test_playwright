@@ -34,7 +34,7 @@ jobs:
   # Frees slots before the cap is counted. A job, not an earlier cron: GitHub delays scheduled
   # runs, and only `needs` guarantees the order.
   triage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -139,7 +139,7 @@ jobs:
   classify:
     needs: triage
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: write # Deletes the branch of a PR given up on.
@@ -205,7 +205,7 @@ jobs:
   fix:
     needs: classify
     if: ${{ !cancelled() && needs.classify.result == 'success' && needs.classify.outputs.failing != '[]' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     permissions:
       contents: read
@@ -224,15 +224,8 @@ jobs:
           persist-credentials: false
           ref: ${{ matrix.pr.branch }}
           fetch-depth: 0
-      # mise installs precompiled Erlang (builds.hex.pm) only on the Ubuntu runners it detects (up
-      # to 24.04) and compiles it from source, ~5 min, on newer ones. Drop once it detects this one.
-      - name: Use precompiled Erlang
-        run: | # zizmor: ignore[github-env] (only the runner's ImageOS digits)
-          if [[ "${ImageOS:-}" =~ ^ubuntu([0-9]{2})$ ]]; then echo "MISE_ERLANG_PRECOMPILED_OS=ubuntu-${BASH_REMATCH[1]}.04" >> "$GITHUB_ENV"; fi
-      - name: Setup languages
-        uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
-      - name: Install dependencies
-        run: mix "do" deps.get, deps.compile
+      - name: Set up Elixir and the deps
+        uses: ftes/ci/setup@c7549ac6ba6e6f8c96a28472d6489ae28d76c5a6 # v1.0.2
       # Compiles the project to find the task: a PR that doesn't compile still gets a Claude run.
       - name: Fetch Playwright's source
         continue-on-error: true
@@ -306,7 +299,7 @@ jobs:
   recreate:
     needs: classify
     if: ${{ !cancelled() && needs.classify.result == 'success' && needs.classify.outputs.recreate != '[]' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     permissions:
       contents: read
@@ -325,15 +318,10 @@ jobs:
           # it sits in an includeIf file claude-code-action doesn't clear, so the push gets a 403.
           persist-credentials: false
           fetch-depth: 0
-      # mise installs precompiled Erlang (builds.hex.pm) only on the Ubuntu runners it detects (up
-      # to 24.04) and compiles it from source, ~5 min, on newer ones. Drop once it detects this one.
-      - name: Use precompiled Erlang
-        run: | # zizmor: ignore[github-env] (only the runner's ImageOS digits)
-          if [[ "${ImageOS:-}" =~ ^ubuntu([0-9]{2})$ ]]; then echo "MISE_ERLANG_PRECOMPILED_OS=ubuntu-${BASH_REMATCH[1]}.04" >> "$GITHUB_ENV"; fi
-      - name: Setup languages
-        uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
-      - name: Install dependencies and Playwright's source
-        run: mix "do" deps.get, deps.compile, phoenix_test_playwright.playwright_source
+      - name: Set up Elixir and the deps
+        uses: ftes/ci/setup@c7549ac6ba6e6f8c96a28472d6489ae28d76c5a6 # v1.0.2
+      - name: Fetch Playwright's source
+        run: mix phoenix_test_playwright.playwright_source
       - run: git switch -c "$NIGHTLY_BRANCH"
       - name: Run Claude
         id: claude
@@ -392,7 +380,7 @@ jobs:
   capacity:
     needs: [fix, recreate]
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       pull-requests: read
@@ -441,7 +429,7 @@ jobs:
     needs: capacity
     # !cancelled(): the implicit success() would also fail on any failed or skipped job further up.
     if: ${{ !cancelled() && needs.capacity.outputs.has-slot == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     permissions:
       contents: read
@@ -458,15 +446,10 @@ jobs:
           # it sits in an includeIf file claude-code-action doesn't clear, so the push gets a 403.
           persist-credentials: false
           fetch-depth: 0
-      # mise installs precompiled Erlang (builds.hex.pm) only on the Ubuntu runners it detects (up
-      # to 24.04) and compiles it from source, ~5 min, on newer ones. Drop once it detects this one.
-      - name: Use precompiled Erlang
-        run: | # zizmor: ignore[github-env] (only the runner's ImageOS digits)
-          if [[ "${ImageOS:-}" =~ ^ubuntu([0-9]{2})$ ]]; then echo "MISE_ERLANG_PRECOMPILED_OS=ubuntu-${BASH_REMATCH[1]}.04" >> "$GITHUB_ENV"; fi
-      - name: Setup languages
-        uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
-      - name: Install dependencies and Playwright's source
-        run: mix "do" deps.get, deps.compile, phoenix_test_playwright.playwright_source
+      - name: Set up Elixir and the deps
+        uses: ftes/ci/setup@c7549ac6ba6e6f8c96a28472d6489ae28d76c5a6 # v1.0.2
+      - name: Fetch Playwright's source
+        run: mix phoenix_test_playwright.playwright_source
       - run: git switch -c "$NIGHTLY_BRANCH"
       - name: Pick tonight's focus area
         id: focus

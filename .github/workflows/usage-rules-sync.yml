@@ -1,0 +1,24 @@
+name: Sync usage rules
+
+# `mix check` fails when an updated dep changes its usage rules, and Renovate can't run the sync
+# itself, so this commits it to Renovate's branch. The jobs are ftes/ci's.
+on:
+  pull_request:
+    paths: [mix.lock]
+
+concurrency:
+  group: usage-rules-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  sync:
+    if: startsWith(github.head_ref, 'renovate/') && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: write # the commit job pushes the sync
+      actions: write # and dispatches CI
+    uses: ftes/ci/.github/workflows/usage-rules-sync.yml@c7549ac6ba6e6f8c96a28472d6489ae28d76c5a6 # v1.0.2
+    with:
+      skills-path: .agents/skills
+      ci-workflow: elixir.yml
