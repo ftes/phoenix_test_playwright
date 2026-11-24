@@ -35,7 +35,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ftes/ci/setup@c7549ac6ba6e6f8c96a28472d6489ae28d76c5a6 # v1.0.2
+      - uses: ftes/ci/setup@78e6ba9c26b2865cad995d33aadba7ccb23c9149 # v1.0.3
         id: setup
       - name: Check Formatting
         run: mix format --check-formatted
@@ -89,7 +89,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ftes/ci/setup@c7549ac6ba6e6f8c96a28472d6489ae28d76c5a6 # v1.0.2
+      - uses: ftes/ci/setup@78e6ba9c26b2865cad995d33aadba7ccb23c9149 # v1.0.3
         id: setup
       - name: Build docs without warnings
         run: mix docs --warnings-as-errors
@@ -130,7 +130,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ftes/ci/setup@c7549ac6ba6e6f8c96a28472d6489ae28d76c5a6 # v1.0.2
+      - uses: ftes/ci/setup@78e6ba9c26b2865cad995d33aadba7ccb23c9149 # v1.0.3
       # The browsers (headless shell only), assets and the test database: about 25 s in all, and
       # ftes/ci/playwright-browser can't pass --only-shell.
       - name: Install browsers and build assets
