@@ -72,7 +72,7 @@ jobs:
       - name: Set up Elixir and the deps
         if: steps.increment.outputs.mode != 'skip'
         continue-on-error: true
-        uses: ftes/ci/setup@b0e992c1f9a123e072ea881ded2cf7ddb2455530 # v1.0.1
+        uses: ftes/ci/setup@c7549ac6ba6e6f8c96a28472d6489ae28d76c5a6 # v1.0.2
       - name: Fetch Playwright's source
         if: steps.increment.outputs.mode != 'skip'
         continue-on-error: true

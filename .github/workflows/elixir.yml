@@ -35,7 +35,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ftes/ci/setup@b0e992c1f9a123e072ea881ded2cf7ddb2455530 # v1.0.1
+      - uses: ftes/ci/setup@c7549ac6ba6e6f8c96a28472d6489ae28d76c5a6 # v1.0.2
         id: setup
       - name: Check Formatting
         run: mix format --check-formatted
@@ -55,13 +55,13 @@ jobs:
       - name: Check generated usage rules
         run: mix usage_rules.sync --check
       # The PLTs cover Erlang, Elixir and the deps; Dialyxir updates a restored older one. Keyed per
-      # runner image: one built on another is rejected as "Old PLT file".
+      # runner image and OTP build: a PLT from another is rejected as "Old PLT file".
       - name: Restore Dialyzer PLT cache
         id: plt_cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          key: plt-${{ steps.setup.outputs.image }}-erlang-${{ steps.setup.outputs.erlang }}-elixir-${{ steps.setup.outputs.elixir }}-${{ hashFiles('mix.lock') }}
-          restore-keys: plt-${{ steps.setup.outputs.image }}-erlang-${{ steps.setup.outputs.erlang }}-elixir-${{ steps.setup.outputs.elixir }}-
+          key: plt-${{ steps.setup.outputs.image }}-erlang-${{ steps.setup.outputs.erlang }}-${{ steps.setup.outputs.erlang-build }}-elixir-${{ steps.setup.outputs.elixir }}-${{ hashFiles('mix.lock') }}
+          restore-keys: plt-${{ steps.setup.outputs.image }}-erlang-${{ steps.setup.outputs.erlang }}-${{ steps.setup.outputs.erlang-build }}-elixir-${{ steps.setup.outputs.elixir }}-
           path: priv/plts
       - name: Create PLTs
         run: mix dialyzer --plt
@@ -89,7 +89,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ftes/ci/setup@b0e992c1f9a123e072ea881ded2cf7ddb2455530 # v1.0.1
+      - uses: ftes/ci/setup@c7549ac6ba6e6f8c96a28472d6489ae28d76c5a6 # v1.0.2
         id: setup
       - name: Build docs without warnings
         run: mix docs --warnings-as-errors
@@ -130,7 +130,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ftes/ci/setup@b0e992c1f9a123e072ea881ded2cf7ddb2455530 # v1.0.1
+      - uses: ftes/ci/setup@c7549ac6ba6e6f8c96a28472d6489ae28d76c5a6 # v1.0.2
       # The browsers (headless shell only), assets and the test database: about 25 s in all, and
       # ftes/ci/playwright-browser can't pass --only-shell.
       - name: Install browsers and build assets

@@ -225,7 +225,7 @@ jobs:
           ref: ${{ matrix.pr.branch }}
           fetch-depth: 0
       - name: Set up Elixir and the deps
-        uses: ftes/ci/setup@b0e992c1f9a123e072ea881ded2cf7ddb2455530 # v1.0.1
+        uses: ftes/ci/setup@c7549ac6ba6e6f8c96a28472d6489ae28d76c5a6 # v1.0.2
       # Compiles the project to find the task: a PR that doesn't compile still gets a Claude run.
       - name: Fetch Playwright's source
         continue-on-error: true
@@ -319,7 +319,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Set up Elixir and the deps
-        uses: ftes/ci/setup@b0e992c1f9a123e072ea881ded2cf7ddb2455530 # v1.0.1
+        uses: ftes/ci/setup@c7549ac6ba6e6f8c96a28472d6489ae28d76c5a6 # v1.0.2
       - name: Fetch Playwright's source
         run: mix phoenix_test_playwright.playwright_source
       - run: git switch -c "$NIGHTLY_BRANCH"
@@ -447,7 +447,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Set up Elixir and the deps
-        uses: ftes/ci/setup@b0e992c1f9a123e072ea881ded2cf7ddb2455530 # v1.0.1
+        uses: ftes/ci/setup@c7549ac6ba6e6f8c96a28472d6489ae28d76c5a6 # v1.0.2
       - name: Fetch Playwright's source
         run: mix phoenix_test_playwright.playwright_source
       - run: git switch -c "$NIGHTLY_BRANCH"
