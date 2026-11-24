@@ -238,7 +238,8 @@ jobs:
   publish:
     name: Publish to Hex and GitHub
     needs: quality
-    if: startsWith(github.ref, 'refs/tags/v')
+    # A tag push only: a dispatched run on a tag takes experiment inputs (one browser, no lint).
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubicloud-standard-2-ubuntu-2604
     environment: release
     timeout-minutes: 360
