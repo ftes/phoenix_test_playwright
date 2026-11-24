@@ -55,7 +55,7 @@ jobs:
       - name: Run Claude
         id: claude
         if: steps.list.outputs.numbers != ''
-        uses: ftes/ci/claude@dd50f950cf260ef6a0c33110f9906dba13bed8c7 # v1.0.5
+        uses: ftes/ci/claude@981edfa2436c04fe9ca46d25bc2fe1e8883c120d # v1.0.6
         with:
           token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -196,7 +196,7 @@ jobs:
           ref: ${{ matrix.pr.branch }}
           fetch-depth: 0
       - name: Set up Elixir and the deps
-        uses: ftes/ci/setup@dd50f950cf260ef6a0c33110f9906dba13bed8c7 # v1.0.5
+        uses: ftes/ci/setup@981edfa2436c04fe9ca46d25bc2fe1e8883c120d # v1.0.6
       # Compiles the project to find the task: a PR that doesn't compile still gets a Claude run.
       - name: Fetch Playwright's source
         continue-on-error: true
@@ -218,7 +218,7 @@ jobs:
           gh run view "$run" --log-failed | tail -n 5000 > tmp/ci-failed.log
       - name: Run Claude
         id: claude
-        uses: ftes/ci/claude@dd50f950cf260ef6a0c33110f9906dba13bed8c7 # v1.0.5
+        uses: ftes/ci/claude@981edfa2436c04fe9ca46d25bc2fe1e8883c120d # v1.0.6
         with:
           token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -271,13 +271,13 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Set up Elixir and the deps
-        uses: ftes/ci/setup@dd50f950cf260ef6a0c33110f9906dba13bed8c7 # v1.0.5
+        uses: ftes/ci/setup@981edfa2436c04fe9ca46d25bc2fe1e8883c120d # v1.0.6
       - name: Fetch Playwright's source
         run: mix phoenix_test_playwright.playwright_source
       - run: git switch -c "$NIGHTLY_BRANCH"
       - name: Run Claude
         id: claude
-        uses: ftes/ci/claude@dd50f950cf260ef6a0c33110f9906dba13bed8c7 # v1.0.5
+        uses: ftes/ci/claude@981edfa2436c04fe9ca46d25bc2fe1e8883c120d # v1.0.6
         with:
           token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -380,7 +380,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Set up Elixir and the deps
-        uses: ftes/ci/setup@dd50f950cf260ef6a0c33110f9906dba13bed8c7 # v1.0.5
+        uses: ftes/ci/setup@981edfa2436c04fe9ca46d25bc2fe1e8883c120d # v1.0.6
       - name: Fetch Playwright's source
         run: mix phoenix_test_playwright.playwright_source
       - run: git switch -c "$NIGHTLY_BRANCH"
@@ -400,7 +400,7 @@ jobs:
 
       - name: Run Claude
         id: claude
-        uses: ftes/ci/claude@dd50f950cf260ef6a0c33110f9906dba13bed8c7 # v1.0.5
+        uses: ftes/ci/claude@981edfa2436c04fe9ca46d25bc2fe1e8883c120d # v1.0.6
         with:
           token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |

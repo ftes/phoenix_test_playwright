@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ftes/ci/setup@dd50f950cf260ef6a0c33110f9906dba13bed8c7 # v1.0.5
+      - uses: ftes/ci/setup@981edfa2436c04fe9ca46d25bc2fe1e8883c120d # v1.0.6
         id: setup
       - name: Check Formatting
         run: mix format --check-formatted
@@ -90,7 +90,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ftes/ci/setup@dd50f950cf260ef6a0c33110f9906dba13bed8c7 # v1.0.5
+      - uses: ftes/ci/setup@981edfa2436c04fe9ca46d25bc2fe1e8883c120d # v1.0.6
         id: setup
       - name: Build docs without warnings
         run: mix docs --warnings-as-errors
@@ -139,7 +139,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ftes/ci/setup@dd50f950cf260ef6a0c33110f9906dba13bed8c7 # v1.0.5
+      - uses: ftes/ci/setup@981edfa2436c04fe9ca46d25bc2fe1e8883c120d # v1.0.6
         id: setup
         with:
           lane: ${{ matrix.lane }}

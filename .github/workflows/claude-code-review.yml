@@ -45,21 +45,21 @@ jobs:
       # A rebase of reviewed changes skips the review; a later push can be reviewed by its
       # increment.
       - id: review
-        uses: ftes/ci/claude-review@dd50f950cf260ef6a0c33110f9906dba13bed8c7 # v1.0.5
+        uses: ftes/ci/claude-review@981edfa2436c04fe9ca46d25bc2fe1e8883c120d # v1.0.6
         with:
           ci: "`mix format --check-formatted`, credo, `mix compile --warnings-as-errors`, Dialyzer, the docs build and the tests (.github/workflows/elixir.yml)"
       # Soft, so a branch whose mix.exs, deps or code doesn't build still gets a Claude run.
       - name: Set up toolchain and deps
         if: steps.review.outputs.skip != 'true'
         continue-on-error: true
-        uses: ftes/ci/setup@dd50f950cf260ef6a0c33110f9906dba13bed8c7 # v1.0.5
+        uses: ftes/ci/setup@981edfa2436c04fe9ca46d25bc2fe1e8883c120d # v1.0.6
       - name: Fetch Playwright source
         if: steps.review.outputs.skip != 'true'
         continue-on-error: true
         run: mix phoenix_test_playwright.playwright_source
 
       - if: steps.review.outputs.skip != 'true'
-        uses: ftes/ci/claude@dd50f950cf260ef6a0c33110f9906dba13bed8c7 # v1.0.5
+        uses: ftes/ci/claude@981edfa2436c04fe9ca46d25bc2fe1e8883c120d # v1.0.6
         with:
           token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # The action refuses bot-triggered runs unless allowed; the if above admits only this one.
