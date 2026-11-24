@@ -147,3 +147,25 @@ jobs:
           name: test-results
           path: ./test-results
           if-no-files-found: ignore
+
+  # The one check to require: green when every job above is. A required check that GitHub skips
+  # (`test` when `build` fails) counts as passed, so `Test` alone let a red build merge.
+  quality:
+    name: quality
+    if: always()
+    needs: [build, docs, test]
+    runs-on: ubuntu-slim
+    permissions: {}
+    steps:
+      # On the step, so a draft or a PR below the top of its stack, whose jobs above are skipped,
+      # reports it green rather than skipped.
+      - if: ${{ !github.event.pull_request.draft && (github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size) }}
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            if [ "$result" != success ]; then
+              echo "::error::A required job finished with: $result"
+              exit 1
+            fi
+          done
