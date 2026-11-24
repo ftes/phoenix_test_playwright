@@ -68,6 +68,11 @@ jobs:
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
         run: bash .github/claude-review-comments.sh
+      # mise installs precompiled Erlang (builds.hex.pm) only on the Ubuntu runners it detects (up
+      # to 24.04) and compiles it from source, ~5 min, on newer ones. Drop once it detects this one.
+      - name: Use precompiled Erlang
+        run: | # zizmor: ignore[github-env] (only the runner's ImageOS digits)
+          if [[ "${ImageOS:-}" =~ ^ubuntu([0-9]{2})$ ]]; then echo "MISE_ERLANG_PRECOMPILED_OS=ubuntu-${BASH_REMATCH[1]}.04" >> "$GITHUB_ENV"; fi
       - name: Setup languages
         if: steps.increment.outputs.mode != 'skip'
         uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
