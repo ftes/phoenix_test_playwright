@@ -8,99 +8,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Upgrading from 0.19: the [upgrade guide](docs/upgrading.md) lists what a suite must change, as one step.
 
 ## [Unreleased]
+
+Changes since 0.19.0, gathered across the release candidates.
+
 ### Changed
 - Requires Phoenix 1.7.10 or later (was 1.7), as phoenix_test 0.12 already did. CI now tests the
   compatibility floor: Elixir 1.18 on OTP 27 with every direct runtime dependency at its lowest
   version.
-### Breaking
-- RC only: requires playwright_ex 1.65.0-rc.4, which moves `config :playwright, :expect` under `:test`:
-  `config :playwright, :expect, timeout: 2_000, update_snapshots: :missing` is now
-  `config :playwright, :test, expect: [timeout: 2_000], update_snapshots: :missing`
-  (`ignore_snapshots` too). A leftover `config :playwright, :expect` fails at boot.
-
-## [0.20.0-rc.3] 2026-11-21
-### Breaking
-- `use PhoenixTest.Playwright.Case` passes its options to `use Playwright.Test`, except
-  `accept_dialogs` and `ecto_sandbox_stop_owner_delay` (module tags, as before) and ExUnit's. An unknown option raises:
-  move other tags given there (e.g. `timeout: 60_000`, `slow: true`) to `@moduletag`.
-- The `browser`, `browser_launch_opts` and `browser_context_opts` options are removed, in favour of Playwright's,
-  which apply per module, project, describe block or test as in Playwright Test:
-  - `browser: :firefox` is `browser_name: :firefox` (`use PhoenixTest.Playwright.Case, browser_name: :firefox`).
-  - `parameterize: [%{browser: :firefox}]` is `parameterize: [Playwright.Test.parameters(name: "firefox", browser_name: :firefox)]`.
-    The `name:` labels failures and keeps a snapshot baseline per browser.
-  - `browser_launch_opts: [...]` is `launch_options: [...]`, which replaces the config's `launch_options` as a whole:
-    repeat the config's ones you keep (e.g. `headless`, `timeout`).
-  - `browser_context_opts: [locale: "de"]` is `locale: "de"` in the `use` options, or `@tag Playwright.Test.use(locale: "de")`.
-    A value a setup computes (e.g. a `storage_state`) goes to the new second argument of `PhoenixTest.Playwright.Case.do_setup/2`
-    (or third of `new_session/3`). In a module without `use Playwright.Test`, `new_session/3` applies `config :playwright, :test`'s
-    context options.
-
-  They raise as tags, `parameterize:` keys or in `config :phoenix_test, :playwright`.
-
-### Changed
 - The Ecto sandbox's metadata is appended to a configured or device `user_agent` instead of replacing it.
   Without Ecto, the user agent is left as is.
-- RC only: requires playwright_ex 1.65.0-rc.3. In `setup_all`, `new_session/2` uses the module's and project's
+- **RC only:** requires playwright_ex 1.65.0-rc.3. In `setup_all`, `new_session/2` uses the module's and project's
   `base_url`.
-
-## [0.20.0-rc.2] 2026-11-18
-### Breaking
-- Requires playwright_ex 1.65.0-rc.2 (Playwright 1.65.1). `mix playwright.install` takes its args without `--`:
-  `mix playwright.install chromium --with-deps`.
-- Set recording per test with `Playwright.Test.use/1`: `@tag Playwright.Test.use(trace: :on)`. Plain `trace`,
-  `screenshot` and `video` tags are now ignored. `use PhoenixTest.Playwright.Case, trace: :on` (and `screenshot`,
-  `video`) still works: the Case passes them to `use Playwright.Test`. In a `parameterize:` map, use
-  `Map.put(Playwright.Test.parameters(trace: :on), :browser, :firefox)`, not `%{browser: :firefox, trace: :on}`.
-  The Case warns once per module about a plain `trace`, `screenshot` or `video` tag or `parameterize:` key.
-
-### Fixed
-- A `base_url` set through Playwright (`config :playwright, :test, base_url: ...` or `Playwright.Test.use/1`) is no
-  longer overridden by phoenix_test's. `add_cookies/2` and `add_session_cookie/3` use its
-  origin for a cookie without a `url` or `domain`. In `setup_all`, `new_session/2` sees only the config's `base_url`.
-- A cookie with a `domain` but no `path` gets path `/`, and one with a `path` but no `url` or `domain` the `base_url`'s
-  host as domain, where Playwright rejected them.
-
-## [0.20.0-rc.1] 2026-11-16
-### Breaking
-- Requires playwright_ex 0.17.0-rc.6, which renames `PlaywrightEx` to `Playwright` (the Hex package stays `playwright_ex`).
-  Replace `config :playwright_ex` with `config :playwright`, `mix playwright_ex.install` with `mix playwright.install`,
-  `PlaywrightEx.*` with `Playwright.*` and the driver's env vars with `config :playwright, :driver, ...`, see
-  playwright_ex's changelog. Move a direct `playwright_ex` dependency to `{:playwright, ..., hex: :playwright_ex}` in
-  the same bump, then run `mix deps.clean --unused --unlock`.
-Built on Playwright's test runner (`Playwright.Test`, `Playwright.Test.BrowserPool`), which replaces ptp's own
-browser pools, driver supervision and recording. To upgrade:
-- Remove `PhoenixTest.Playwright.Supervisor.start_link()` from `test/test_helper.exs`: the module is gone.
-- Replace `ws_endpoint: url` with `config :playwright, :test, connect_options: [ws_endpoint: url]`.
-- Replace `browser_pools` and `browser_pool: <id>` with `browser:`, and drop `browser_pool: false` and
-  `browser_pool_checkout_timeout`. Each test module holds a browser of its own, as a Playwright Test worker:
-  `workers` in `config :playwright, :test` caps them (half the schedulers by default).
-- Move `trace`, `screenshot` and `trace_dir` to `config :playwright, :test` (`trace: :on | :retain_on_failure`,
-  `screenshot: :on | :only_on_failure`, `video`, `output_dir`). The tags keep their names with Playwright's values;
-  `trace: :open` is gone (`mix playwright.cli show-trace <path>`). Files go to `test-results/<test>/`.
-- Browser contexts get Playwright Test's defaults (`locale: "en-US"` instead of `"en"`, a 1280x720 viewport).
-- `assert_screenshot/3` writing a missing baseline fails the test at the end of its body, as in Playwright Test.
-  `config :playwright, :test, update_snapshots: :missing` restores passing.
-- Removed the `headless`, `slow_mo`, `executable_path` and `browser_launch_timeout` options: use
-  `config :playwright, :test, launch_options: [...]`, or `browser_launch_opts:` per module, which is merged over it.
-  Global `browser_context_opts` belong in `config :playwright, :test, context_options: [...]`; the tag stays.
-  Context options take playwright_ex 0.17's forms (`viewport: :null`, `extra_http_headers` as a map).
-- `assert_screenshot/3` resolves names as in Playwright Test, by default `test/<file>-snapshots/<name>-<platform>.png`.
-  `snapshot_dir` and its `__diff__/` are gone: comparison output goes to `test-results/<test>/`. To keep the old layout:
-  `config :playwright, :test, snapshot_dir: "test/snapshots", snapshot_path_template: "{snapshotDir}/{arg}{ext}"`.
-- `screenshot/3` writes to the test's output dir (`Playwright.Test.output_path/1`); `screenshot_dir` is gone.
-- `step/3` is `Playwright.Test.step`: steps nest in the trace's test steps.
-- The `timeout` option is gone: Playwright's timeouts apply, as in Playwright Test. Set
-  `config :playwright, :test, action_timeout: ..., navigation_timeout: ...` (unlimited by default, bounded by the
-  ExUnit test timeout) and `config :playwright, :test, expect: [timeout: ...]` (assertions, 5 s by default).
-  An operation's `timeout:` option overrides them; `:infinity` is no limit. An assertion's `timeout: 0` checks once,
-  as in phoenix_test; actions and `assert_screenshot/3` now reject `0` (use `:infinity` for no limit).
-  `evaluate/3` and `clear_cookies/1` take no `timeout:`, as in Playwright. The `timeout/0` helper in test modules is gone.
-
-### Changed
 - Correct and reorganise the docs: README setup examples, `with_dialog/3`, `PhoenixTest.Playwright.Selector`, `PhoenixTest.Playwright.Config`.
 - Add upgrade steps from 0.19 to the 0.20.0-rc.0 changelog.
+- Require PlaywrightEx 0.17 (rc), which pins Playwright 1.65.
+- Remove the internal `PhoenixTest.Playwright.EventListener`: dialogs are handled by `Page.on/3` listeners directly.
+- `assert_screenshot/3` prints a notice when it writes a missing baseline.
+- Sync usage rules into `AGENTS.md` with `usage_rules`. The README's setup now includes PlaywrightEx's rules.
+- `assert_download/2` must run in the process that built the `conn` (normally the test process).
+- `submit/1` targets the last interacted element directly instead of focusing it first, and `current_path` reads the
+  client's URL instead of evaluating JavaScript in the page.
+- `assert_screenshot/3` takes its options from PlaywrightEx: `:style_path` is new, and enum options also accept atoms.
+  Options such as `:clip` and `:mask_color`, and out-of-range values such as a negative `:max_diff_pixels`, are validated by PlaywrightEx,
+  so invalid ones raise its errors instead of `NimbleOptions.ValidationError`.
 
-## [0.20.0-rc.0] 2026-11-09
 ### Breaking
 Upgrading from 0.19: bump the dependency, then follow the first two items below. The rest of this list applies only
 if you use the feature it names. `~> 0.14` (as the 0.19 README suggested) never selects a release candidate, so the
@@ -143,20 +74,73 @@ requirement must name it:
 - `browser_context_opts` no longer accepts `timeout`. The `browser_page_opts` config option and the `is_function` option
   of `evaluate/3` (drop it, function expressions are detected) are removed and now raise, except that `browser_page_opts`
   set through `@tag` or `use` is dropped like any unknown tag. The `:android` and `:electron` browsers are removed.
+- **RC only:** requires playwright_ex 1.65.0-rc.4, which moves `config :playwright, :expect` under `:test`:
+  `config :playwright, :expect, timeout: 2_000, update_snapshots: :missing` is now
+  `config :playwright, :test, expect: [timeout: 2_000], update_snapshots: :missing`
+  (`ignore_snapshots` too). A leftover `config :playwright, :expect` fails at boot.
+- `use PhoenixTest.Playwright.Case` passes its options to `use Playwright.Test`, except
+  `accept_dialogs` and `ecto_sandbox_stop_owner_delay` (module tags, as before) and ExUnit's. An unknown option raises:
+  move other tags given there (e.g. `timeout: 60_000`, `slow: true`) to `@moduletag`.
+- The `browser`, `browser_launch_opts` and `browser_context_opts` options are removed, in favour of Playwright's,
+  which apply per module, project, describe block or test as in Playwright Test:
+  - `browser: :firefox` is `browser_name: :firefox` (`use PhoenixTest.Playwright.Case, browser_name: :firefox`).
+  - `parameterize: [%{browser: :firefox}]` is `parameterize: [Playwright.Test.parameters(name: "firefox", browser_name: :firefox)]`.
+    The `name:` labels failures and keeps a snapshot baseline per browser.
+  - `browser_launch_opts: [...]` is `launch_options: [...]`, which replaces the config's `launch_options` as a whole:
+    repeat the config's ones you keep (e.g. `headless`, `timeout`).
+  - `browser_context_opts: [locale: "de"]` is `locale: "de"` in the `use` options, or `@tag Playwright.Test.use(locale: "de")`.
+    A value a setup computes (e.g. a `storage_state`) goes to the new second argument of `PhoenixTest.Playwright.Case.do_setup/2`
+    (or third of `new_session/3`). In a module without `use Playwright.Test`, `new_session/3` applies `config :playwright, :test`'s
+    context options.
 
-### Changed
-- Require PlaywrightEx 0.17 (rc), which pins Playwright 1.65.
-- Remove the internal `PhoenixTest.Playwright.EventListener`: dialogs are handled by `Page.on/3` listeners directly.
-- `assert_screenshot/3` prints a notice when it writes a missing baseline.
-- Sync usage rules into `AGENTS.md` with `usage_rules`. The README's setup now includes PlaywrightEx's rules.
-- `assert_download/2` must run in the process that built the `conn` (normally the test process).
-- `submit/1` targets the last interacted element directly instead of focusing it first, and `current_path` reads the
-  client's URL instead of evaluating JavaScript in the page.
-- `assert_screenshot/3` takes its options from PlaywrightEx: `:style_path` is new, and enum options also accept atoms.
-  Options such as `:clip` and `:mask_color`, and out-of-range values such as a negative `:max_diff_pixels`, are validated by PlaywrightEx,
-  so invalid ones raise its errors instead of `NimbleOptions.ValidationError`.
+  They raise as tags, `parameterize:` keys or in `config :phoenix_test, :playwright`.
+- Requires playwright_ex 1.65.0-rc.2 (Playwright 1.65.1). `mix playwright.install` takes its args without `--`:
+  `mix playwright.install chromium --with-deps`.
+- Set recording per test with `Playwright.Test.use/1`: `@tag Playwright.Test.use(trace: :on)`. Plain `trace`,
+  `screenshot` and `video` tags are now ignored. `use PhoenixTest.Playwright.Case, trace: :on` (and `screenshot`,
+  `video`) still works: the Case passes them to `use Playwright.Test`. In a `parameterize:` map, use
+  `Map.put(Playwright.Test.parameters(trace: :on), :browser, :firefox)`, not `%{browser: :firefox, trace: :on}`.
+  The Case warns once per module about a plain `trace`, `screenshot` or `video` tag or `parameterize:` key.
+- Requires playwright_ex 0.17.0-rc.6, which renames `PlaywrightEx` to `Playwright` (the Hex package stays `playwright_ex`).
+  Replace `config :playwright_ex` with `config :playwright`, `mix playwright_ex.install` with `mix playwright.install`,
+  `PlaywrightEx.*` with `Playwright.*` and the driver's env vars with `config :playwright, :driver, ...`, see
+  playwright_ex's changelog. Move a direct `playwright_ex` dependency to `{:playwright, ..., hex: :playwright_ex}` in
+  the same bump, then run `mix deps.clean --unused --unlock`.
+Built on Playwright's test runner (`Playwright.Test`, `Playwright.Test.BrowserPool`), which replaces ptp's own
+browser pools, driver supervision and recording. To upgrade:
+- Remove `PhoenixTest.Playwright.Supervisor.start_link()` from `test/test_helper.exs`: the module is gone.
+- Replace `ws_endpoint: url` with `config :playwright, :test, connect_options: [ws_endpoint: url]`.
+- Replace `browser_pools` and `browser_pool: <id>` with `browser:`, and drop `browser_pool: false` and
+  `browser_pool_checkout_timeout`. Each test module holds a browser of its own, as a Playwright Test worker:
+  `workers` in `config :playwright, :test` caps them (half the schedulers by default).
+- Move `trace`, `screenshot` and `trace_dir` to `config :playwright, :test` (`trace: :on | :retain_on_failure`,
+  `screenshot: :on | :only_on_failure`, `video`, `output_dir`). The tags keep their names with Playwright's values;
+  `trace: :open` is gone (`mix playwright.cli show-trace <path>`). Files go to `test-results/<test>/`.
+- Browser contexts get Playwright Test's defaults (`locale: "en-US"` instead of `"en"`, a 1280x720 viewport).
+- `assert_screenshot/3` writing a missing baseline fails the test at the end of its body, as in Playwright Test.
+  `config :playwright, :test, update_snapshots: :missing` restores passing.
+- Removed the `headless`, `slow_mo`, `executable_path` and `browser_launch_timeout` options: use
+  `config :playwright, :test, launch_options: [...]`, or `browser_launch_opts:` per module, which is merged over it.
+  Global `browser_context_opts` belong in `config :playwright, :test, context_options: [...]`; the tag stays.
+  Context options take playwright_ex 0.17's forms (`viewport: :null`, `extra_http_headers` as a map).
+- `assert_screenshot/3` resolves names as in Playwright Test, by default `test/<file>-snapshots/<name>-<platform>.png`.
+  `snapshot_dir` and its `__diff__/` are gone: comparison output goes to `test-results/<test>/`. To keep the old layout:
+  `config :playwright, :test, snapshot_dir: "test/snapshots", snapshot_path_template: "{snapshotDir}/{arg}{ext}"`.
+- `screenshot/3` writes to the test's output dir (`Playwright.Test.output_path/1`); `screenshot_dir` is gone.
+- `step/3` is `Playwright.Test.step`: steps nest in the trace's test steps.
+- The `timeout` option is gone: Playwright's timeouts apply, as in Playwright Test. Set
+  `config :playwright, :test, action_timeout: ..., navigation_timeout: ...` (unlimited by default, bounded by the
+  ExUnit test timeout) and `config :playwright, :test, expect: [timeout: ...]` (assertions, 5 s by default).
+  An operation's `timeout:` option overrides them; `:infinity` is no limit. An assertion's `timeout: 0` checks once,
+  as in phoenix_test; actions and `assert_screenshot/3` now reject `0` (use `:infinity` for no limit).
+  `evaluate/3` and `clear_cookies/1` take no `timeout:`, as in Playwright. The `timeout/0` helper in test modules is gone.
 
 ### Fixed
+- A `base_url` set through Playwright (`config :playwright, :test, base_url: ...` or `Playwright.Test.use/1`) is no
+  longer overridden by phoenix_test's. `add_cookies/2` and `add_session_cookie/3` use its
+  origin for a cookie without a `url` or `domain`. In `setup_all`, `new_session/2` sees only the config's `base_url`.
+- A cookie with a `domain` but no `path` gets path `/`, and one with a `path` but no `url` or `domain` the `base_url`'s
+  host as domain, where Playwright rejected them.
 - Escape quotes and backslashes in the `:value` option of `assert_has/3` and `refute_has/3`. Such values caused a selector error.
 - Embed the built-in selector engine scripts at compile time. They were read
   from the dependency's source directory at runtime, which fails when the
