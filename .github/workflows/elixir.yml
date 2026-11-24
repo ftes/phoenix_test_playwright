@@ -238,7 +238,7 @@ jobs:
   publish:
     name: Publish to Hex and GitHub
     needs: quality
-    # A tag push only: a dispatched run on a tag takes experiment inputs (one browser, no lint).
+    # A tag push only, not another event that runs on a tag.
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubicloud-standard-2-ubuntu-2604
     environment: release
