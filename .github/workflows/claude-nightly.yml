@@ -16,19 +16,6 @@ permissions:
 env:
   # As in elixir.yml.
   MIX_ENV: test
-  # Runs subagents in the foreground. A headless run ends with Claude's turn, which drops any
-  # still running in the background: the survey agents never reported back.
-  CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
-  # Steers Claude off the Bash habits (cd, pipes, heredocs) that miss the allowlist. Plain text
-  # only (no quotes, $ or backslashes): claude.yml passes it in a quoted claude_args argument.
-  TOOL_HINT: "Prefer your file tools over Bash to read, search and edit files, and keep any scratch files under tmp/; run each allowed Bash command on its own, without cd, git -C, semicolons, &&, pipes or heredocs (you are already in the repository). Give any subagent you start these same rules."
-  # Denied in every Claude run: other repositories' PRs and issues, the comments and reviews (a job
-  # that needs them gets its maintainers' from a step), API paths outside the allowed ones, and
-  # mix's commands that run arbitrary code. Plain text, as TOOL_HINT.
-  # These rules, the allowed tools and dontAsk steer Claude's tool use; they are no sandbox: a job
-  # that lets Claude edit files and run mix lets it run code. What the jobs rely on is that none
-  # loads another repository's content, the tokens' scopes, and main's ruleset.
-  DENIED_TOOLS: "Bash(gh pr * -R*),Bash(gh pr * --repo*),Bash(gh issue * -R*),Bash(gh issue * --repo*),Bash(gh pr view *comments*),Bash(gh pr view *eview*),Bash(gh pr view * -c*),Bash(gh issue view *comments*),Bash(gh issue view * -c*),Bash(gh api *comments*),Bash(gh api *reviews*),Bash(gh api *timeline*),Bash(gh api graphql*),Bash(gh api *..*),Bash(gh api *%*),Bash(gh api * --hostname*),Bash(mix cmd*),Bash(*mix cmd*),Bash(*mix run*),Bash(*mix eval*)"
 
 jobs:
   # Frees slots before the cap is counted. A job, not an earlier cron: GitHub delays scheduled
@@ -68,9 +55,9 @@ jobs:
       - name: Run Claude
         id: claude
         if: steps.list.outputs.numbers != ''
-        uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1.0.286
+        uses: ftes/ci/claude@70f3e82336c42d568193e6653b5d3e30e4693d39 # v1.0.4
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}
             OPEN NIGHTLY PRS, each with its branch: ${{ steps.list.outputs.listed }}
@@ -95,31 +82,15 @@ jobs:
             A merge conflict alone, the PR's age or a preference for other work is no reason for
             either: conflicts get redone anyway.
 
-            ${{ env.TOOL_HINT }}
-
             To close one, run exactly:
               gh pr close N --delete-branch --comment "<one sentence naming what on main made it obsolete>"
 
             Return the PRs to redo in `redo`, each with a one-sentence `why` naming what changed on
             main. Leave it empty if none.
           # dontAsk: a call no rule allows is denied, except the read-only ones Claude Code always allows.
-          settings: |
-            {"permissions": {"defaultMode": "dontAsk"}}
-          claude_args: |
-            --model claude-opus-5-5
-            --max-turns 60
-            --allowedTools "Read,Grep,Glob,Agent,Task,StructuredOutput,Bash(git log:*),Bash(git show:*),Bash(git diff:*),${{ steps.list.outputs.allowed }}"
-            --disallowedTools "${{ env.DENIED_TOOLS }}"
-            --json-schema '{"type":"object","properties":{"redo":{"type":"array","items":{"type":"object","properties":{"number":{"type":"integer"},"why":{"type":"string"}},"required":["number","why"]}}},"required":["redo"]}'
-      - name: Summarize Claude's result
-        if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
-        env:
-          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # .github/claude-summary.jq: only the final message and the denied calls (public repo). From
-        # the run's commit, as Claude may have edited the checkout; a failed `git show` stops the step.
-        run: |
-          filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
-          jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+          max-turns: "60"
+          allowed-tools: "Read,Grep,Glob,Agent,Task,StructuredOutput,Bash(git log:*),Bash(git show:*),Bash(git diff:*),${{ steps.list.outputs.allowed }}"
+          json-schema: '{"type":"object","properties":{"redo":{"type":"array","items":{"type":"object","properties":{"number":{"type":"integer"},"why":{"type":"string"}},"required":["number","why"]}}},"required":["redo"]}'
       - name: Keep the redo verdicts of listed PRs
         id: redo
         if: ${{ !cancelled() }}
@@ -247,9 +218,9 @@ jobs:
           gh run view "$run" --log-failed | tail -n 5000 > tmp/ci-failed.log
       - name: Run Claude
         id: claude
-        uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1.0.286
+        uses: ftes/ci/claude@70f3e82336c42d568193e6653b5d3e30e4693d39 # v1.0.4
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}
             PR: ${{ matrix.pr.number }}
@@ -271,27 +242,8 @@ jobs:
               `git commit --allow-empty -m "Re-run CI"`, then the push above.
             - It can't be fixed without redesigning the change: run exactly
               gh pr close ${{ matrix.pr.number }} --delete-branch --comment "<one sentence on why>"
-
-            ${{ env.TOOL_HINT }}
-
-            No attribution anywhere: no Co-Authored-By trailers or "Generated with" lines.
-          # The owner forbids attribution; the prompt says so too. dontAsk: a call no rule allows is denied, except the read-only ones Claude Code always allows.
-          settings: |
-            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}, "permissions": {"defaultMode": "dontAsk"}}
-          claude_args: |
-            --model claude-opus-5-5
-            --max-turns 60
-            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr.number }}),Bash(gh pr view ${{ matrix.pr.number }} *),Bash(gh pr diff ${{ matrix.pr.number }}),Bash(gh pr diff ${{ matrix.pr.number }} *),Bash(git push origin ${{ matrix.pr.branch }}),Bash(gh pr close ${{ matrix.pr.number }} *)"
-            --disallowedTools "${{ env.DENIED_TOOLS }}"
-      - name: Summarize Claude's result
-        if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
-        env:
-          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # .github/claude-summary.jq: only the final message and the denied calls (public repo). From
-        # the run's commit, as Claude may have edited the checkout; a failed `git show` stops the step.
-        run: |
-          filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
-          jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+          max-turns: "60"
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr.number }}),Bash(gh pr view ${{ matrix.pr.number }} *),Bash(gh pr diff ${{ matrix.pr.number }}),Bash(gh pr diff ${{ matrix.pr.number }} *),Bash(git push origin ${{ matrix.pr.branch }}),Bash(gh pr close ${{ matrix.pr.number }} *)"
 
   # Replaces each conflicted PR, and each that triage found no longer fits main, with one on a new
   # branch from main. The Claude app can't push workflow file changes, which a merge or rebase of
@@ -325,9 +277,9 @@ jobs:
       - run: git switch -c "$NIGHTLY_BRANCH"
       - name: Run Claude
         id: claude
-        uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1.0.286
+        uses: ftes/ci/claude@70f3e82336c42d568193e6653b5d3e30e4693d39 # v1.0.4
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}
             OLD PR: ${{ matrix.pr.number }}
@@ -353,27 +305,8 @@ jobs:
               git push -u origin ${{ env.NIGHTLY_BRANCH }}
               gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} --title "<subject>" --body-file tmp/nightly-pr.md
               gh pr close ${{ matrix.pr.number }} --delete-branch --comment "Redone on current main (<WHY, shortened>); replaced by <new PR URL>."
-
-            ${{ env.TOOL_HINT }}
-
-            No attribution anywhere: no Co-Authored-By trailers or "Generated with" lines.
-          # The owner forbids attribution; the prompt says so too. dontAsk: a call no rule allows is denied, except the read-only ones Claude Code always allows.
-          settings: |
-            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}, "permissions": {"defaultMode": "dontAsk"}}
-          claude_args: |
-            --model claude-opus-5-5
-            --max-turns 60
-            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr.number }}),Bash(gh pr view ${{ matrix.pr.number }} *),Bash(gh pr diff ${{ matrix.pr.number }}),Bash(gh pr diff ${{ matrix.pr.number }} *),Bash(git push -u origin ${{ env.NIGHTLY_BRANCH }}),Bash(gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} *),Bash(gh pr close ${{ matrix.pr.number }} *)"
-            --disallowedTools "${{ env.DENIED_TOOLS }}"
-      - name: Summarize Claude's result
-        if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
-        env:
-          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # .github/claude-summary.jq: only the final message and the denied calls (public repo). From
-        # the run's commit, as Claude may have edited the checkout; a failed `git show` stops the step.
-        run: |
-          filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
-          jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+          max-turns: "60"
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr.number }}),Bash(gh pr view ${{ matrix.pr.number }} *),Bash(gh pr diff ${{ matrix.pr.number }}),Bash(gh pr diff ${{ matrix.pr.number }} *),Bash(git push -u origin ${{ env.NIGHTLY_BRANCH }}),Bash(gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} *),Bash(gh pr close ${{ matrix.pr.number }} *)"
 
   # Enforces the cap before any toolchain is set up. Runs even if an earlier job failed: the
   # count is still right, it just finds fewer slots.
@@ -467,9 +400,9 @@ jobs:
 
       - name: Run Claude
         id: claude
-        uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1.0.286
+        uses: ftes/ci/claude@70f3e82336c42d568193e6653b5d3e30e4693d39 # v1.0.4
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}
             BRANCH: ${{ env.NIGHTLY_BRANCH }} (already checked out)
@@ -511,24 +444,5 @@ jobs:
               gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} --title "<subject>" --body-file tmp/nightly-pr.md
             Write tmp/nightly-pr.md first (tmp/ is gitignored): a few sentences on what was
             inconsistent or complex and why this is simpler.
-
-            ${{ env.TOOL_HINT }}
-
-            No attribution anywhere: no Co-Authored-By trailers or "Generated with" lines.
-          # The owner forbids attribution; the prompt says so too. dontAsk: a call no rule allows is denied, except the read-only ones Claude Code always allows.
-          settings: |
-            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}, "permissions": {"defaultMode": "dontAsk"}}
-          claude_args: |
-            --model claude-opus-5-5
-            --max-turns 150
-            --allowedTools "Read,Grep,Glob,Edit,Write,Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(git push -u origin ${{ env.NIGHTLY_BRANCH }}),Bash(gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} *)"
-            --disallowedTools "${{ env.DENIED_TOOLS }}"
-      - name: Summarize Claude's result
-        if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
-        env:
-          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # .github/claude-summary.jq: only the final message and the denied calls (public repo). From
-        # the run's commit, as Claude may have edited the checkout; a failed `git show` stops the step.
-        run: |
-          filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
-          jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+          max-turns: "150"
+          allowed-tools: "Read,Grep,Glob,Edit,Write,Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(git push -u origin ${{ env.NIGHTLY_BRANCH }}),Bash(gh pr create --base main --head ${{ env.NIGHTLY_BRANCH }} *)"
