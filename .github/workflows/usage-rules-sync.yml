@@ -18,7 +18,7 @@ jobs:
     permissions:
       contents: write # the commit job pushes the sync
       actions: write # and dispatches CI
-    uses: ftes/ci/.github/workflows/usage-rules-sync.yml@dd50f950cf260ef6a0c33110f9906dba13bed8c7 # v1.0.5
+    uses: ftes/ci/.github/workflows/usage-rules-sync.yml@981edfa2436c04fe9ca46d25bc2fe1e8883c120d # v1.0.6
     with:
       skills-path: .agents/skills
       ci-workflow: elixir.yml
