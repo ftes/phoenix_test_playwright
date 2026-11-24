@@ -8,7 +8,8 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
 
 # A new push to a PR cancels its running CI. Pushes to main share a group without cancelling: the
-# running CI finishes, the newest push waits, and pushes in between are dropped.
+# running CI finishes, the latest push to arrive waits (normally the newest), and pushes in
+# between are dropped.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
