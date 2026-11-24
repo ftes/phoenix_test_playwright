@@ -25,6 +25,9 @@ env:
   # loads another repository's content, the tokens' scopes, and main's ruleset.
   DENIED_TOOLS: "Bash(gh pr * -R*),Bash(gh pr * --repo*),Bash(gh issue * -R*),Bash(gh issue * --repo*),Bash(gh pr view *comments*),Bash(gh pr view *eview*),Bash(gh pr view * -c*),Bash(gh issue view *comments*),Bash(gh issue view * -c*),Bash(gh api *comments*),Bash(gh api *reviews*),Bash(gh api *timeline*),Bash(gh api graphql*),Bash(gh api *..*),Bash(gh api *%*),Bash(gh api * --hostname*),Bash(mix cmd*),Bash(mix run*),Bash(mix eval*),Bash(*mix cmd*)"
 
+# Each job asks for what it needs.
+permissions: {}
+
 jobs:
   claude-review:
     # Claude's own PRs are the only bot PRs reviewed, and only this repository's PRs. Never
