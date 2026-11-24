@@ -34,6 +34,28 @@ human and agent reviews alike.
 - A PR fixes its issue. Edge cases and gaps that predate it are follow-ups: note them
   instead of adding code for them in the PR.
 
+## Releasing
+
+The script needs a jj working copy colocated with git, `gh` logged in as a repo admin (to push
+`main` past its ruleset and create the tag), and `curl` and `elixir` on the PATH.
+
+1. For the first non-RC release, merge the RC sections into `## [Unreleased]` and drop the `RC
+   only:` entries; the script refuses while they remain.
+2. `scripts/release --dry-run <version>` runs the checks (an empty `@` on `main@origin` as last
+   fetched, an `## [Unreleased]` with entries, a new tag and a greater version) and prints the
+   edits.
+3. `scripts/release <version>` commits "Release <version>" (the version, the install line in
+   `README.md` and the dated changelog heading) and "Start the next release", pushes `main` and
+   tags the first commit. It fetches first and checks again. `RELEASE_REMOTE` names another remote
+   than `origin`.
+4. The tag runs CI (`elixir.yml`) on the tagged commit; once every job passed, its publish job
+   stages the release on Hex. Approve it on hex.pm; the job then creates the GitHub release.
+
+It runs locally, not as a workflow: only an admin can push to `main` past its ruleset, and a tag
+pushed with `GITHUB_TOKEN` starts no workflow. `scripts/release` runs ftes/ci's
+`release/release.exs` at a pinned commit (Renovate bumps it, and CI's `scripts/release --check`
+tests each bump against this repo); this repo's settings are `scripts/release_config.exs`.
+
 ## Playwright internals
 
 Playwright's implementation is split between a **client** (Node.js API) and a **server** (browser protocol layer). The [Playwright docs](https://playwright.dev/docs/intro) describe the public API but don't reflect this split. When reading Playwright source code, it can help to look at the TypeScript sources directly: [client](https://github.com/microsoft/playwright/tree/main/packages/playwright-core/src/client) and [server](https://github.com/microsoft/playwright/tree/main/packages/playwright-core/src/server) (locally under `package/lib/` in `Playwright.Driver.install_dir/0`).
