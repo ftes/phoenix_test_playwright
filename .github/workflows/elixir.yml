@@ -25,6 +25,7 @@ jobs:
     name: Build and lint
     # Draft PRs skip CI until marked ready, and in a stack only the top PR runs it (the tests need
     # this job): it holds every change below it. `stack` is absent outside a stack and on other events.
+    # Tradeoffs (re-run CI on a PR that becomes the top): ftes/ci README, "Pull request CI".
     if: ${{ !github.event.pull_request.draft && (github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size) }}
     runs-on: ubuntu-26.04
     timeout-minutes: 20
