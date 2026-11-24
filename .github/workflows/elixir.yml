@@ -49,13 +49,18 @@ jobs:
       # PLTs built on another runner image (e.g. ubuntu24 vs ubuntu26) are rejected as "Old PLT file".
       - name: Get runner image
         id: runner_image
-        run: echo "os=$ImageOS" >> "$GITHUB_OUTPUT"
+        # And the Erlang build (its Dialyzer beams): Dialyzer rejects a PLT another build of the same
+        # version made, e.g. compiled from source vs precompiled.
+        run: |
+          echo "os=$ImageOS" >> "$GITHUB_OUTPUT"
+          dialyzer=$(erl -noshell -eval 'io:format("~s", [code:lib_dir(dialyzer)])' -s init stop)
+          echo "erlang-build=$(cat "$dialyzer"/ebin/*.beam | sha256sum | cut -c1-12)" >> "$GITHUB_OUTPUT"
       - name: Restore Dialyzer PLT cache
         id: plt_cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          key: plt-${{ runner.os }}-${{ steps.runner_image.outputs.os }}-${{ hashFiles('.tool-versions') }}-${{ hashFiles('**/mix.lock') }}
-          restore-keys: plt-${{ runner.os }}-${{ steps.runner_image.outputs.os }}-${{ hashFiles('.tool-versions') }}
+          key: plt-${{ runner.os }}-${{ steps.runner_image.outputs.os }}-${{ hashFiles('.tool-versions') }}-${{ steps.runner_image.outputs.erlang-build }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: plt-${{ runner.os }}-${{ steps.runner_image.outputs.os }}-${{ hashFiles('.tool-versions') }}-${{ steps.runner_image.outputs.erlang-build }}
           path: priv/plts
       - name: Create PLTs
         if: steps.plt_cache.outputs.cache-hit != 'true'
@@ -65,7 +70,7 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: steps.plt_cache.outputs.cache-hit != 'true'
         with:
-          key: plt-${{ runner.os }}-${{ steps.runner_image.outputs.os }}-${{ hashFiles('.tool-versions') }}-${{ hashFiles('**/mix.lock') }}
+          key: plt-${{ runner.os }}-${{ steps.runner_image.outputs.os }}-${{ hashFiles('.tool-versions') }}-${{ steps.runner_image.outputs.erlang-build }}-${{ hashFiles('**/mix.lock') }}
           path: priv/plts
       - name: Run Dialyzer
         run: mix dialyzer --format github --format dialyxir
