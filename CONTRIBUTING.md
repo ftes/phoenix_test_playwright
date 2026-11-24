@@ -34,6 +34,26 @@ human and agent reviews alike.
 - A PR fixes its issue. Edge cases and gaps that predate it are follow-ups: note them
   instead of adding code for them in the PR.
 
+## Releasing
+
+Releases run from a checkout of [ftes/ci](https://github.com/ftes/ci), with `gh` logged in as a
+repo admin (to push `main` past its ruleset and create the tag) and `jj` and `elixir` on the PATH:
+
+```sh
+# Makes both commits in a clone and prints them; pushes nothing.
+release/release.exs phoenix_test_playwright --dry-run <version>
+release/release.exs phoenix_test_playwright <version>
+```
+
+It clones this repo into a temporary directory, commits "Release <version>" and "Start the next
+release", pushes `main` and tags the first commit. The tag runs CI (`ci.yml`) on the tagged
+commit; once every job passed, its publish job stages the release on Hex. Approve it on hex.pm;
+the job then creates the GitHub release.
+
+`## [Unreleased]` gathers every change since the last final release, across the release
+candidates. For a final release, drop the `**RC only:**` entries first: the script refuses while
+they remain. `release/release.exs` lists the conventions it relies on.
+
 ## Playwright internals
 
 Playwright's implementation is split between a **client** (Node.js API) and a **server** (browser protocol layer). The [Playwright docs](https://playwright.dev/docs/intro) describe the public API but don't reflect this split. When reading Playwright source code, it can help to look at the TypeScript sources directly: [client](https://github.com/microsoft/playwright/tree/main/packages/playwright-core/src/client) and [server](https://github.com/microsoft/playwright/tree/main/packages/playwright-core/src/server) (locally under `package/lib/` in `Playwright.Driver.install_dir/0`).
