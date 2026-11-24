@@ -11,33 +11,23 @@ on:
     types: [submitted]
 
 env:
-  # As in elixir.yml.
+  # As in CI.
   MIX_ENV: test
-  # Steers Claude off the Bash habits (cd, pipes, heredocs) that miss the allowlist. Plain text
-  # only (no quotes, $ or backslashes): claude.yml passes it in a quoted claude_args argument.
-  TOOL_HINT: "Prefer your file tools over Bash to read, search and edit files, and keep any scratch files under tmp/; run each allowed Bash command on its own, without cd, git -C, semicolons, &&, pipes or heredocs (you are already in the repository). Give any subagent you start these same rules."
-  # Denied in every Claude run: other repositories' PRs and issues, the comments and reviews (a job
-  # that needs them gets its maintainers' from a step), API paths outside the allowed ones, and
-  # mix's commands that run arbitrary code. Plain text, as TOOL_HINT.
-  # These rules, the allowed tools and dontAsk steer Claude's tool use; they are no sandbox: a job
-  # that lets Claude edit files and run mix lets it run code. What the jobs rely on is that none
-  # loads another repository's content, the tokens' scopes, and main's ruleset.
-  DENIED_TOOLS: "Bash(gh pr * -R*),Bash(gh pr * --repo*),Bash(gh issue * -R*),Bash(gh issue * --repo*),Bash(gh pr view *comments*),Bash(gh pr view *eview*),Bash(gh pr view * -c*),Bash(gh issue view *comments*),Bash(gh issue view * -c*),Bash(gh api *comments*),Bash(gh api *reviews*),Bash(gh api *timeline*),Bash(gh api graphql*),Bash(gh api *..*),Bash(gh api *%*),Bash(gh api * --hostname*),Bash(mix cmd*),Bash(mix run*),Bash(mix eval*),Bash(*mix cmd*)"
+
+# Each job asks for what it needs.
+permissions: {}
 
 jobs:
-  # Maintainers only, before any setup: the action rejects anyone else anyway. Only this
-  # repository's PRs, never Renovate's: review events are filtered here, a comment's PR in this
-  # job, before anything is checked out. Also picks the gh commands Claude may run (on this event's
-  # PR or issue only) and whose comments Claude sees: maintainers' and claude[bot]'s. The PR's or
-  # issue's own body is included whoever wrote it: a maintainer who tags Claude on it chooses that.
-  pr:
+  # A maintainer's `@claude`, never on Renovate's PRs. The action rejects anyone else too, but only
+  # after the setup in `claude`. ftes/ci/claude-tag checks the comment's PR, before anything is
+  # checked out.
+  gate:
     if: |
-      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association || github.event.issue.author_association) && (
-        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && github.event.pull_request.head.repo.full_name == github.repository) ||
-        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && github.event.pull_request.head.repo.full_name == github.repository) ||
-        (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
-      ) &&
+      ((github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))) &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association || github.event.issue.author_association) &&
       !startsWith(github.event.pull_request.head.ref, 'renovate/')
     runs-on: ubuntu-26.04
     timeout-minutes: 5
@@ -45,60 +35,18 @@ jobs:
       issues: read
       pull-requests: read
     outputs:
-      skip: ${{ steps.pr.outputs.skip }}
-      other-repo: ${{ steps.pr.outputs.other-repo }}
-      gh: ${{ steps.pr.outputs.gh }}
-      comment-authors: ${{ steps.authors.outputs.list }}
+      skip: ${{ steps.gate.outputs.skip }}
+      other-repo: ${{ steps.gate.outputs.other-repo }}
+      gh: ${{ steps.gate.outputs.gh }}
+      comment-authors: ${{ steps.gate.outputs.comment-authors }}
     steps:
-      # Only this repository's PRs, never Renovate's; stops when the lookup fails.
-      - name: Skip other repositories' and Renovate's PRs
-        id: pr
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) }}
-          ISSUE: ${{ github.event.issue.number }}
-        run: |
-          if [[ -z $PR ]]; then
-            echo "gh=Bash(gh issue view $ISSUE),Bash(gh issue view $ISSUE *)" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "gh=Bash(gh pr view $PR),Bash(gh pr view $PR *),Bash(gh pr diff $PR),Bash(gh pr diff $PR *)" >> "$GITHUB_OUTPUT"
-          pr=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json isCrossRepository,headRefName --jq '"\(.isCrossRepository) \(.headRefName)"') ||
-            { echo "::error::Couldn't look up PR $PR."; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
-          if [[ $pr != "false "* ]]; then
-            echo "::notice::Claude runs only on this repository's PRs."
-            { echo "skip=true"; echo "other-repo=true"; } >> "$GITHUB_OUTPUT"
-          elif [[ $pr == "false renovate/"* ]]; then
-            echo "::notice::Claude doesn't run on Renovate's PRs."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          fi
-      # The maintainers who commented, reviewed or left review comments here, for the action's
-      # include_comments_by_actor, which matches logins (empty would mean everyone). Fails, and so
-      # skips Claude, when a lookup fails.
-      - name: List the maintainers who commented
-        id: authors
-        if: steps.pr.outputs.skip != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) }}
-          ISSUE: ${{ github.event.issue.number }}
-        run: |
-          paths=("issues/${PR:-$ISSUE}/comments")
-          if [[ -n $PR ]]; then paths+=("pulls/$PR/comments" "pulls/$PR/reviews"); fi
-          logins=()
-          for path in "${paths[@]}"; do
-            out=$(gh api --paginate "repos/$GITHUB_REPOSITORY/$path" \
-              --jq '.[] | select(.author_association | IN("OWNER", "MEMBER", "COLLABORATOR")) | .user.login') ||
-              { echo "::error::Couldn't list $path."; exit 1; }
-            mapfile -t -O "${#logins[@]}" logins <<< "$out"
-          done
-          list=$(printf '%s\n' "${logins[@]}" "claude[bot]" | grep -E '^[A-Za-z0-9-]+(\[bot\])?$' | sort -u | paste -sd, -)
-          echo "list=$list" >> "$GITHUB_OUTPUT"
+      - id: gate
+        uses: ftes/ci/claude-tag@70f3e82336c42d568193e6653b5d3e30e4693d39 # v1.0.4
 
   # Says so on a PR from another repository, which `claude` skips.
   reply:
-    needs: pr
-    if: needs.pr.outputs.other-repo == 'true'
+    needs: gate
+    if: needs.gate.outputs.other-repo == 'true'
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
@@ -106,69 +54,55 @@ jobs:
     steps:
       - env:
           GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number || github.event.issue.number }}
+          PR: ${{ github.event.issue.number }}
           BODY: "`@claude` runs only on pull requests from this repository."
         run: gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "$BODY"
 
   claude:
-    needs: pr
-    if: needs.pr.outputs.skip != 'true' && needs.pr.outputs.comment-authors != ''
+    needs: gate
+    if: needs.gate.outputs.skip != 'true'
+    # The image main saves setup's deps cache from.
     runs-on: ubuntu-26.04
     timeout-minutes: 60
+    # Per issue or PR, on the job: every comment starts this workflow, and a run whose job is
+    # skipped must not take the slot. One request waits for the running one; a newer one replaces
+    # the waiting one.
+    concurrency:
+      group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
     permissions:
       contents: read
       pull-requests: read
       issues: read
       id-token: write
-      actions: read # This PR's CI status (the action's get_ci_status); not other runs.
+      actions: read # This PR's CI status (the action's get_ci_status); not other runs' logs.
     steps:
-      # main for issues and issue comments, the PR's merge ref for review events.
+      # main for an issue or a comment, the PR's merge ref for a review; the action then switches
+      # to the PR's branch.
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Else checkout's read-only token, in an includeIf file the action doesn't clear,
-          # overrides the app token and Claude's push gets a 403.
+          # Else checkout's read-only token can override the app token Claude pushes with: from v6
+          # it sits in an includeIf file claude-code-action doesn't clear, so the push gets a 403.
           persist-credentials: false
           fetch-depth: 0
-      # Soft, so a PR whose mix.exs, deps or code doesn't build still gets a Claude run.
-      - name: Set up Elixir and the deps
+      # Soft, so a branch whose mix.exs, deps or code doesn't build still gets a Claude run.
+      - name: Set up toolchain and deps
         continue-on-error: true
-        uses: ftes/ci/setup@78e6ba9c26b2865cad995d33aadba7ccb23c9149 # v1.0.3
-      - name: Fetch Playwright's source
+        uses: ftes/ci/setup@70f3e82336c42d568193e6653b5d3e30e4693d39 # v1.0.4
+      - name: Fetch Playwright source
         continue-on-error: true
         run: mix phoenix_test_playwright.playwright_source
 
-      - name: Run Claude Code
-        id: claude
-        uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1.0.286
+      # No prompt: Claude follows the comment that tagged it.
+      - uses: ftes/ci/claude@70f3e82336c42d568193e6653b5d3e30e4693d39 # v1.0.4
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Only these logins' comments, reviews and review comments reach Claude (see the `pr` job).
-          include_comments_by_actor: ${{ needs.pr.outputs.comment-authors }}
-
-          # This PR's CI status; the tools for other runs and their logs are denied below.
-          additional_permissions: |
+          token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          comment-authors: ${{ needs.gate.outputs.comment-authors }}
+          # This PR's CI status; the tools for other runs and their logs are denied.
+          additional-permissions: |
             actions: read
-
-          # The owner forbids attribution. dontAsk: a call no rule allows is denied, except the
-          # read-only ones Claude Code always allows (the action would otherwise start in auto mode,
-          # where a review decides them). Tag mode runs in acceptEdits instead, which also allows
-          # file edits in the checkout.
-          settings: |
-            {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}, "permissions": {"defaultMode": "dontAsk"}}
-          # Added to the action's defaults, which cover editing, committing and its comment.
-          claude_args: |
-            --model claude-opus-5-5
-            --max-turns 100
-            --append-system-prompt "Tests can't run here; if your change needs them, say they haven't run. No Claude attribution: leave the Generated with Claude Code signature out of commits, PRs and PR links. ${{ env.TOOL_HINT }}"
-            --allowedTools "Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ needs.pr.outputs.gh }},Bash(mix format:*),Bash(mix compile:*),Bash(mix credo:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*)"
-            --disallowedTools "${{ env.DENIED_TOOLS }},mcp__github_ci__get_workflow_run_details,mcp__github_ci__download_job_log"
-      - name: Summarize Claude's result
-        if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
-        env:
-          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        # .github/claude-summary.jq: only the final message and the denied calls (public repo). From
-        # the run's commit, as Claude may have edited the checkout; a failed `git show` stops the step.
-        run: |
-          filter=$(git show "$GITHUB_SHA:.github/claude-summary.jq")
-          jq -r "$filter" "$EXECUTION_FILE" >> "$GITHUB_STEP_SUMMARY"
+          disallowed-tools: "mcp__github_ci__get_workflow_run_details,mcp__github_ci__download_job_log"
+          system-prompt: "Tests can't run here; if your change needs them, say they haven't run."
+          # Tag mode adds file, comment, CI and commit tools and allows edits inside the checkout.
+          allowed-tools: "Skill,Agent,Task,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ needs.gate.outputs.gh }},Bash(mix format:*),Bash(mix compile:*),Bash(mix credo:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*)"
