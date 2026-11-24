@@ -10,6 +10,8 @@ defmodule PhoenixTest.Playwright.DependencyFloorsTest do
 
     floors =
       for dep <- Mix.Project.config()[:deps],
+          # A path or git dependency has no version requirement, so no floor.
+          is_binary(elem(dep, 1)),
           tuple_size(dep) == 2 or not Keyword.has_key?(elem(dep, 2), :only),
           into: %{},
           do: {elem(dep, 0), lowest_accepted(elem(dep, 1))}

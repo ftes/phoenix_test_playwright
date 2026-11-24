@@ -1,4 +1,6 @@
 defmodule PhoenixTest.Playwright.PageController do
+  # `layouts: []`, or Phoenix 1.7 (CI's oldest lane) defaults to the nonexistent
+  # PhoenixTest.LayoutView.
   use Phoenix.Controller, formats: [html: "View"], layouts: []
 
   def blank(conn, _), do: send_resp(conn, 200, "")

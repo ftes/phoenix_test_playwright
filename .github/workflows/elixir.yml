@@ -104,9 +104,9 @@ jobs:
             _build
 
   # The newest lane runs the tests with warnings as errors. The oldest lane (the Elixir/OTP floor,
-  # and every dependency floor, locked in mix.lock.oldest) runs them with warnings allowed: newer,
-  # backwards-compatible features may warn there, and the tests catch what the floor lacks, as a
-  # call to a missing function only warns there.
+  # and every direct runtime dependency at its floor, in mix.lock.oldest) runs them with warnings
+  # allowed: newer, backwards-compatible features may warn there, and the tests catch what the
+  # floor lacks, as a call to a missing function only warns there.
   test:
     name: Test (${{ matrix.lane }})
     runs-on: ubuntu-26.04
