@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Upgrading from 0.19: the [upgrade guide](docs/upgrading.md) lists what a suite must change, as one step.
 
 ## [Unreleased]
+### Changed
+- Requires Phoenix 1.7.10 or later (was 1.7), as phoenix_test 0.12 already did. CI now tests the
+  compatibility floor: Elixir 1.18 on OTP 27 with every runtime dependency at its lowest version.
 ### Breaking
 - RC only: requires playwright_ex 1.65.0-rc.4, which moves `config :playwright, :expect` under `:test`:
   `config :playwright, :expect, timeout: 2_000, update_snapshots: :missing` is now

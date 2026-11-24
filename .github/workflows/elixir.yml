@@ -103,13 +103,21 @@ jobs:
             deps
             _build
 
+  # The newest lane runs the tests with warnings as errors. The oldest lane (the Elixir/OTP floor,
+  # and every dependency floor, locked in mix.lock.oldest) runs them with warnings allowed: newer,
+  # backwards-compatible features may warn there, and the tests catch what the floor lacks, as a
+  # call to a missing function only warns there.
   test:
-    name: Test
+    name: Test (${{ matrix.lane }})
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     needs: build
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [newest, oldest]
 
     services:
       postgres:
@@ -131,12 +139,27 @@ jobs:
         with:
           persist-credentials: false
       - uses: ftes/ci/setup@78e6ba9c26b2865cad995d33aadba7ccb23c9149 # v1.0.3
+        id: setup
+        with:
+          lane: ${{ matrix.lane }}
       # The browsers (headless shell only), assets and the test database: about 25 s in all, and
       # ftes/ci/playwright-browser can't pass --only-shell.
       - name: Install browsers and build assets
         run: mix setup
+      # The oldest lane has no build job: it saves its own deps and _build, on main only, under the
+      # key computed before deps.get.
+      - name: Save deps and _build
+        if: matrix.lane == 'oldest' && github.ref == 'refs/heads/main' && steps.setup.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          key: ${{ steps.setup.outputs.cache-key }}
+          path: |
+            deps
+            _build
       - name: Run tests
         shell: bash
+        env:
+          LANE: ${{ matrix.lane }}
         # On exit 2, rerun the failures. ExUnit's manifest can lose them (a parameterize: module's
         # parameter sets share a test's entry, the last result wins), so a rerun of none fails.
         # Until Elixir 1.21: elixir-lang/elixir#15820.
@@ -150,7 +173,9 @@ jobs:
             fi
             return "$s"
           }
-          mix test --warnings-as-errors --formatter ExUnit.CLIFormatter --formatter Playwright.Test.GitHubFormatter ||
+          strict=()
+          if [[ $LANE == newest ]]; then strict=(--warnings-as-errors); fi
+          mix test "${strict[@]}" --formatter ExUnit.CLIFormatter --formatter Playwright.Test.GitHubFormatter ||
             { [ $? -eq 2 ] && retry; }
       - name: Fail if screenshot on exit failed
         run: |
@@ -169,7 +194,7 @@ jobs:
         # Also after a retry passed: the first run's failures keep their traces.
         if: ${{ !cancelled() }}
         with:
-          name: test-results
+          name: test-results-${{ matrix.lane }}
           path: ./test-results
           if-no-files-found: ignore
 

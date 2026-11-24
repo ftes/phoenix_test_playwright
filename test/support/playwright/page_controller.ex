@@ -1,5 +1,5 @@
 defmodule PhoenixTest.Playwright.PageController do
-  use Phoenix.Controller, formats: [html: "View"]
+  use Phoenix.Controller, formats: [html: "View"], layouts: []
 
   def blank(conn, _), do: send_resp(conn, 200, "")
 

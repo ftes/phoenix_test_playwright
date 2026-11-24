@@ -1,6 +1,9 @@
 ## Dev
 
 - Use tool versions from `.tool-versions`; prefer `mise exec -- <command>` (for example `mise exec -- mix check`).
+- The compatibility floor is Elixir 1.18 on OTP 27 (`.tool-versions.oldest`) with every direct
+  runtime dependency at its floor (`mix.lock.oldest`), which CI's oldest lane runs. Move a floor in
+  `mix.exs` and `mix.lock.oldest` together; a test checks they match.
 - If your shell is already activated by `mise`/`direnv`, plain `mix ...` commands are fine.
 - Run targeted tests often while changing files.
 - When feature is complete run `mix check`.
