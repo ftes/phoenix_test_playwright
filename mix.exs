@@ -103,13 +103,24 @@ defmodule PhoenixTestPlaywright.MixProject do
     ]
   end
 
-  # `mix usage_rules.sync --yes` rewrites the managed block of AGENTS.md from this list.
+  # Agent skills built from the usage rules our deps ship (`mix usage_rules.sync --yes` after
+  # updating them; `mix check` fails on stale ones).
   defp usage_rules do
     [
-      file: "AGENTS.md",
-      usage_rules: [
-        {:usage_rules, sub_rules: []},
-        {:playwright, link: :markdown}
+      skills: [
+        location: ".agents/skills",
+        build: [
+          "usage-rules": [
+            description:
+              "Use when looking up docs for Elixir, OTP or a dependency: `mix usage_rules.docs` and `mix usage_rules.search_docs`.",
+            usage_rules: [{:usage_rules, sub_rules: []}]
+          ],
+          playwright: [
+            description:
+              "Use when calling Playwright from PhoenixTest.Playwright, or checking the Playwright API it wraps.",
+            usage_rules: [:playwright]
+          ]
+        ]
       ]
     ]
   end
