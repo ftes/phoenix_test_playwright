@@ -39,9 +39,10 @@ defmodule PhoenixTestPlaywright.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      # The runtime floors are what CI's oldest lane runs: mix.lock.oldest locks each one.
       {:esbuild, ">= 0.9.0 and < 1.0.0", only: :test, runtime: false},
       {:ex_doc, ">= 0.37.0 and < 1.0.0", only: :dev, runtime: false},
-      {:phoenix, "~> 1.7"},
+      {:phoenix, "~> 1.7 and >= 1.7.10"},
       {:phoenix_live_view, "~> 1.0"},
       {:phoenix_test, ">= 0.12.0 and < 1.0.0", runtime: false},
       {:plug_cowboy, "~> 2.7", only: :test, runtime: false},

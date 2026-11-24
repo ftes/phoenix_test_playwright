@@ -1,0 +1,4 @@
+# The floor of mix.exs's `elixir:` and its oldest OTP: CI's oldest lane runs the tests on it,
+# with mix.lock.oldest.
+elixir    1.18.5-otp-27
+erlang    27.3.4.17

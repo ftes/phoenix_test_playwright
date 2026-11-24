@@ -6,6 +6,18 @@ To run the tests locally, you'll need to:
 2. Run `mix setup`. This will take care of setting up your dependencies, installing the Playwright driver and browsers, and compiling the assets.
 3. Run `mix test` or, for a more thorough check that matches what we test in CI, run `mix check`. CI also runs `MIX_ENV=dev mix docs --warnings-as-errors`.
 
+The compatibility floor is Elixir 1.18 on OTP 27 (`.tool-versions.oldest` and `mix.lock.oldest`,
+which CI's oldest lane uses).
+`mix.lock.oldest` locks every direct runtime dependency at its floor, the lowest version its
+requirement in `mix.exs` accepts, which `DependencyFloorsTest` checks. To move one, copy
+`.tool-versions.oldest` to `.tool-versions` and `mix.lock.oldest` to `mix.lock`, require
+exactly the new floor, run `mix deps.update <dep>`, restore the requirement, and keep the
+lock as `mix.lock.oldest` once `mix deps.get` leaves it unchanged from an empty `deps/`,
+as CI runs it. Then restore `.tool-versions` and `mix.lock`.
+Renovate never updates `mix.lock.oldest`. When `mix.exs` no longer accepts what it locks (a raised
+floor, or a dev dependency's new major), CI's oldest lane fails at setup with "deps.get changed
+mix.lock.oldest"; update the lock as above.
+
 ## Conventions
 
 - **Follows PhoenixTest API.** Only add new public functions when strictly necessary for browser-specific interaction (e.g., screenshots, JS evaluation).
