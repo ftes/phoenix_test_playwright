@@ -29,7 +29,7 @@ jobs:
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))) &&
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association || github.event.issue.author_association) &&
       !startsWith(github.event.pull_request.head.ref, 'renovate/')
-    runs-on: ubicloud-standard-2-ubuntu-2604
+    runs-on: ${{ vars.RUNNER == 'github' && 'ubuntu-26.04' || 'ubicloud-standard-2-ubuntu-2604' }}
     timeout-minutes: 5
     permissions:
       issues: read
@@ -47,7 +47,7 @@ jobs:
   reply:
     needs: gate
     if: needs.gate.outputs.other-repo == 'true'
-    runs-on: ubicloud-standard-2-ubuntu-2604
+    runs-on: ${{ vars.RUNNER == 'github' && 'ubuntu-26.04' || 'ubicloud-standard-2-ubuntu-2604' }}
     timeout-minutes: 5
     permissions:
       pull-requests: write
@@ -62,7 +62,7 @@ jobs:
     needs: gate
     if: needs.gate.outputs.skip != 'true'
     # The image main saves setup's deps cache from.
-    runs-on: ubicloud-standard-2-ubuntu-2604
+    runs-on: ${{ vars.RUNNER == 'github' && 'ubuntu-26.04' || 'ubicloud-standard-2-ubuntu-2604' }}
     timeout-minutes: 60
     # Per issue or PR, on the job: every comment starts this workflow, and a run whose job is
     # skipped must not take the slot. One request waits for the running one; a newer one replaces
