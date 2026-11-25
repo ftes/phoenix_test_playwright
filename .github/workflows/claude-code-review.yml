@@ -27,7 +27,7 @@ jobs:
       (github.event.pull_request.user.type != 'Bot' || github.event.pull_request.user.login == 'claude[bot]') &&
       github.event.pull_request.head.repo.full_name == github.repository
     # The image main saves setup's deps cache from.
-    runs-on: ubicloud-standard-2-ubuntu-2604
+    runs-on: ${{ vars.RUNNER == 'github' && 'ubuntu-26.04' || 'ubicloud-standard-2-ubuntu-2604' }}
     timeout-minutes: 30
     permissions:
       contents: read
