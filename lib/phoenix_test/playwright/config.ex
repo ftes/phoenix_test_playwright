@@ -118,7 +118,8 @@ defmodule PhoenixTest.Playwright.Config do
   end
 
   @doc false
-  def validate!(config) when is_map(config), do: config |> Keyword.new() |> validate!()
+  # A map is a test's context: only its per-test options (`setup_keys/0`) apply.
+  def validate!(context) when is_map(context), do: context |> Map.take(@setup_keys) |> Keyword.new() |> validate!()
 
   def validate!(config) when is_list(config) do
     global = Application.get_env(:phoenix_test, :playwright, [])

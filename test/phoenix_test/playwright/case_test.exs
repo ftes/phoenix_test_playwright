@@ -72,10 +72,8 @@ defmodule PhoenixTest.Playwright.CaseTest do
     end
 
     test "of new_session/3 win over the resolved ones", context do
-      config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
-
       context
-      |> then(&Case.new_session(config, &1, %{locale: "it", extra_http_headers: %{"x-setup" => "1"}}))
+      |> then(&Case.new_session(Config.validate!(&1), &1, %{locale: "it", extra_http_headers: %{"x-setup" => "1"}}))
       |> visit("/pw/headers")
       |> assert_has("#headers", text: "accept-language: it")
       |> assert_has("#headers", text: "x-setup: 1")
@@ -124,8 +122,7 @@ defmodule PhoenixTest.Playwright.CaseSetupAllSessionTest do
   alias PhoenixTest.Playwright.Config
 
   setup_all context do
-    config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
-    [shared_conn: PhoenixTest.Playwright.Case.new_session(config, context)]
+    [shared_conn: PhoenixTest.Playwright.Case.new_session(Config.validate!(context), context)]
   end
 
   test "new_session/2 in setup_all uses phoenix_test's base_url", %{shared_conn: conn} do
@@ -147,10 +144,9 @@ defmodule PhoenixTest.Playwright.CaseSetupAllModuleBaseUrlTest do
   @moduletag Playwright.Test.use(base_url: "http://localhost:#{@port}/page/")
 
   setup_all context do
-    config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
-
     conn =
-      config
+      context
+      |> Config.validate!()
       |> PhoenixTest.Playwright.Case.new_session(context)
       |> step("Visit in setup_all", &visit(&1, "index"))
 
@@ -178,8 +174,7 @@ defmodule PhoenixTest.Playwright.CaseSetupAllProjectBaseUrlTest do
   alias PhoenixTest.Playwright.Config
 
   setup_all context do
-    config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
-    [shared_conn: PhoenixTest.Playwright.Case.new_session(config, context)]
+    [shared_conn: PhoenixTest.Playwright.Case.new_session(Config.validate!(context), context)]
   end
 
   test "new_session/2 in setup_all uses the project's base_url", %{shared_conn: conn} do

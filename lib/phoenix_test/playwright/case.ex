@@ -138,8 +138,7 @@ defmodule PhoenixTest.Playwright.Case do
   def do_setup(context, context_options \\ []) do
     Config.reject_removed!(context, inspect(Map.get(context, :module)))
     warn_plain_recording_tags(context)
-    config = context |> Map.take(Config.setup_keys()) |> Config.validate!()
-    [conn: new_session(config, context, context_options)]
+    [conn: new_session(Config.validate!(context), context, context_options)]
   end
 
   @doc false
