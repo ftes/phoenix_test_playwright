@@ -1,0 +1,65 @@
+name: OpenCode Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened, edited]
+
+permissions: {}
+
+env:
+  MIX_ENV: test
+
+jobs:
+  review:
+    # Setup runs the PR branch's code. Only same-repo branches get OIDC access.
+    if: >-
+      (github.event.action != 'edited' || github.event.changes.base.ref.from != null) &&
+      !github.event.pull_request.draft &&
+      !startsWith(github.head_ref, 'renovate/') &&
+      (github.event.pull_request.user.type != 'Bot' ||
+        contains(fromJSON('["claude[bot]","opencode-agent[bot]"]'), github.event.pull_request.user.login)) &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    concurrency:
+      group: claude-review-${{ github.event.pull_request.number }}
+      # Let the publisher finish checking the submitted verdict against the current snapshot.
+      cancel-in-progress: false
+    runs-on: ${{ vars.RUNNER == 'github' && 'ubuntu-26.04' || 'ubicloud-standard-2-ubuntu-2604' }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Dismiss superseded verdicts
+        uses: ftes/ci/opencode@c3e5466f314f3ab1db763f462605f2670c124929 # ftes/ci#17
+        with:
+          mode: reconcile-reviews
+      - uses: ftes/ci/opencode-install@c3e5466f314f3ab1db763f462605f2670c124929 # ftes/ci#17
+      - id: auth
+        uses: ftes/ci/opencode-auth@0e4b067199ea2f6a255a26ab43403f6f6acb5cb6 # v1.0.12
+        with:
+          client-id: ${{ vars.OPENCODE_CLIENT_ID }}
+      - name: Switch to the reviewed commit
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: git switch --detach "$HEAD"
+      - name: Set up toolchain and deps
+        continue-on-error: true
+        uses: ftes/ci/setup@3b7244fd1eb84225fcf94fd3f7d6cad6bb40d5c4 # v1.0.11
+      - name: Fetch Playwright source
+        continue-on-error: true
+        run: mix phoenix_test_playwright.playwright_source
+      - name: Review and publish
+        uses: ftes/ci/opencode@c3e5466f314f3ab1db763f462605f2670c124929 # ftes/ci#17
+        with:
+          mode: review
+          model-token: ${{ steps.auth.outputs.token }}
+          guidance: |
+            CI covers formatting, Credo, compilation warnings, Dialyzer, the docs build, and tests.
+            Review Playwright behavior against the pinned upstream sources in `tmp/playwright-*`.
+            User-visible changes need a CHANGELOG.md entry; CI and internal changes do not.
