@@ -18,7 +18,7 @@ jobs:
     permissions:
       contents: write # the commit job pushes the sync
       actions: write # and dispatches CI
-    uses: ftes/ci/.github/workflows/usage-rules-sync.yml@3b7244fd1eb84225fcf94fd3f7d6cad6bb40d5c4 # v1.0.11
+    uses: ftes/ci/.github/workflows/usage-rules-sync.yml@0e4b067199ea2f6a255a26ab43403f6f6acb5cb6 # v1.0.12
     with:
       runs-on: ${{ vars.RUNNER == 'github' && 'ubuntu-26.04' || 'ubicloud-standard-2-ubuntu-2604' }}
       skills-path: .agents/skills
