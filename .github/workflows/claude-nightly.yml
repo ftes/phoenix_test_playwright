@@ -35,11 +35,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        # A human comment or review keeps a PR out of triage; Claude's own review doesn't. The
-        # allowlist names each PR, so Claude can't read or close any other.
+        # A human comment or review keeps a PR out of triage; Claude's and CodeRabbit's reviews
+        # don't. The allowlist names each PR, so Claude can't read or close any other.
         run: |
           prs=$(gh pr list --state open --limit 1000 --json number,headRefName,isCrossRepository,comments,reviews \
-            --jq '[.[] | select((.isCrossRepository | not) and (.headRefName | startswith("claude/nightly-")) and ([.comments[], .reviews[]] | all(.author.login == "claude"))) | {number, branch: .headRefName}]')
+            --jq '[.[] | select((.isCrossRepository | not) and (.headRefName | startswith("claude/nightly-")) and ([.comments[], .reviews[]] | all(.author.login | IN("claude", "coderabbitai")))) | {number, branch: .headRefName}]')
           numbers=$(jq -c 'map(.number)' <<< "$prs")
           {
             echo "numbers=$(jq -r 'join(" ")' <<< "$numbers")"
@@ -121,7 +121,7 @@ jobs:
       statuses: read
     outputs:
       recreate: ${{ steps.list.outputs.recreate }}
-      failing: ${{ steps.list.outputs.failing }}
+      work: ${{ steps.work.outputs.work }}
     steps:
       - name: Sort open nightly PRs without human comments or reviews by what they need
         id: list
@@ -143,7 +143,7 @@ jobs:
         run: |
           list() {
             gh pr list --state open --limit 40 --json number,headRefName,isCrossRepository,mergeable,commits,statusCheckRollup,comments,reviews \
-              --jq '[.[] | select((.isCrossRepository | not) and (.headRefName | startswith("claude/nightly-")) and ([.comments[], .reviews[]] | all(.author.login == "claude"))) | {number, branch: .headRefName, mergeable, commits: (.commits | length), failing: ([.statusCheckRollup[] | select(.workflowName == "CI")] | group_by(.name) | map(max_by(.startedAt)) | any(.conclusion == "FAILURE" or .conclusion == "TIMED_OUT"))}]'
+              --jq '[.[] | select((.isCrossRepository | not) and (.headRefName | startswith("claude/nightly-")) and ([.comments[], .reviews[]] | all(.author.login | IN("claude", "coderabbitai")))) | {number, branch: .headRefName, mergeable, commits: (.commits | length), failing: ([.statusCheckRollup[] | select(.workflowName == "CI")] | group_by(.name) | map(max_by(.startedAt)) | any(.conclusion == "FAILURE" or .conclusion == "TIMED_OUT"))}]'
           }
           list > /dev/null
           sleep 30
@@ -156,11 +156,29 @@ jobs:
               + map(select(.mergeable == "CONFLICTING") | {number, why: "It conflicts with main."})
             | unique_by(.number)' <<< "$prs")
           others=$(jq -c --argjson recreate "$recreate" 'map(select(.number as $n | $recreate | all(.number != $n)))' <<< "$prs")
+          # Mergeable and within the fix budget: fix picks those that fail CI or have open findings.
+          candidates=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.mergeable == "MERGEABLE" and .commits < $max) | {number, branch, failing})' <<< "$others")
           {
             echo "recreate=$recreate"
-            echo "failing=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.mergeable == "MERGEABLE" and .failing and .commits < $max) | {number, branch})' <<< "$others")"
+            echo "candidates=$candidates"
+            echo "candidate-numbers=$(jq -r 'map(.number) | join(" ")' <<< "$candidates")"
             echo "exhausted=$(jq -r 'join(" ")' <<< "$exhausted")"
           } >> "$GITHUB_OUTPUT"
+      # The findings Claude's review and CodeRabbit left unresolved, which a ruleset requiring
+      # resolved conversations blocks the merge on. Should it fail, only CI failures get fixed.
+      - name: List open review findings
+        id: threads
+        if: steps.list.outputs.candidate-numbers != ''
+        continue-on-error: true
+        uses: ftes/ci/review-threads@d0ea4438e80af3b2811b75e5ee72181e826b7488 # review-threads (ftes/ci#16)
+        with:
+          prs: ${{ steps.list.outputs.candidate-numbers }}
+      - name: Pick the PRs to fix
+        id: work
+        env:
+          CANDIDATES: ${{ steps.list.outputs.candidates || '[]' }}
+          OPEN: ${{ steps.threads.outputs.open || '[]' }}
+        run: echo "work=$(jq -cn --argjson open "$OPEN" 'env.CANDIDATES | fromjson | map(select(.failing or (.number as $n | $open | any(. == $n))))')" >> "$GITHUB_OUTPUT"
       - name: Close PRs still failing after two fixes
         env:
           GH_TOKEN: ${{ github.token }}
@@ -172,20 +190,22 @@ jobs:
           done
 
   # Pushes a fix to each PR whose CI failed, which is where a change gets tested: improve publishes
-  # without running the suite. Only new commits, nothing merged from main, so no workflow files.
+  # without running the suite, or that has open review findings, which it then answers. Only new
+  # commits, nothing merged from main, so no workflow files.
   fix:
     needs: classify
-    if: ${{ !cancelled() && needs.classify.result == 'success' && needs.classify.outputs.failing != '[]' }}
+    if: ${{ !cancelled() && needs.classify.result == 'success' && needs.classify.outputs.work != '[]' }}
     runs-on: ${{ vars.RUNNER == 'github' && 'ubuntu-26.04' || 'ubicloud-standard-2-ubuntu-2604' }}
     timeout-minutes: 45
     permissions:
       contents: read
       actions: read # gh run view, for the failed log.
       id-token: write # Exchanged for the Claude app token.
+      pull-requests: write # Answers the review findings.
     strategy:
       fail-fast: false
       matrix:
-        pr: ${{ fromJSON(needs.classify.outputs.failing) }}
+        pr: ${{ fromJSON(needs.classify.outputs.work) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -202,6 +222,7 @@ jobs:
         continue-on-error: true
         run: mix phoenix_test_playwright.playwright_source
       - name: Save the failed CI log
+        if: matrix.pr.failing
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -216,6 +237,13 @@ jobs:
           if [[ -z $run ]]; then echo "::error::no CI run of $BRANCH at $head"; exit 1; fi
           mkdir -p tmp
           gh run view "$run" --log-failed | tail -n 5000 > tmp/ci-failed.log
+      # Should it fail, Claude fixes CI alone.
+      - name: List open review findings
+        id: threads
+        continue-on-error: true
+        uses: ftes/ci/review-threads@d0ea4438e80af3b2811b75e5ee72181e826b7488 # review-threads (ftes/ci#16)
+        with:
+          prs: ${{ matrix.pr.number }}
       - name: Run Claude
         id: claude
         uses: ftes/ci/claude@e53e22699f50c88157237931a10500d367cca47c # v1.0.13
@@ -225,25 +253,38 @@ jobs:
             REPO: ${{ github.repository }}
             PR: ${{ matrix.pr.number }}
             BRANCH: ${{ matrix.pr.branch }} (already checked out)
+            CI: ${{ matrix.pr.failing && 'failed, the end of the failed steps log is in tmp/ci-failed.log' || 'passing' }}
+            FINDINGS: tmp/review-threads/${{ matrix.pr.number }}.md (tmp/ is gitignored)
 
-            CI failed on this simplification PR. The end of the failed steps' log is in
-            tmp/ci-failed.log (tmp/ is gitignored).
+            This simplification PR needs work: its CI failed, reviewers left findings on it, or
+            both. Read `gh pr view ${{ matrix.pr.number }}`, `gh pr diff ${{ matrix.pr.number }}`,
+            FINDINGS and the CI log, if CI failed. Tests can't run here: CI runs them on your push.
+            Don't merge or rebase on main.
 
-            Read it along with `gh pr view ${{ matrix.pr.number }}` and
-            `gh pr diff ${{ matrix.pr.number }}` and find the cause. Tests can't run here: CI runs
-            them on your push. Don't merge or rebase on main. End with exactly one of these:
+            Fix the findings that hold along with any CI failure, in one commit and one push as
+            below, and answer every finding in `threads` as FINDINGS says. With CI passing and no
+            finding that holds, push nothing. If CI failed, end with exactly one of these:
 
             - The PR caused it: fix it, keeping what the PR set out to do and the public behaviour,
               and matching the surrounding code. Don't weaken or skip a test to get it green. Run
               `mix format`, `mix compile --warnings-as-errors` and `mix credo`, `git add` the files,
               commit with one imperative sentence as the subject (match `git log`), then run exactly:
                 git push origin ${{ matrix.pr.branch }}
-            - It is unrelated to this PR, like a flaky browser test: run exactly
-              `git commit --allow-empty -m "Re-run CI"`, then the push above.
+            - It is unrelated to this PR, like a flaky browser test: push your findings' fix, or
+              with none run exactly `git commit --allow-empty -m "Re-run CI"`, then the push above.
             - It can't be fixed without redesigning the change: run exactly
               gh pr close ${{ matrix.pr.number }} --delete-branch --comment "<one sentence on why>"
+                (then answer no findings)
           max-turns: "60"
-          allowed-tools: "Read,Grep,Glob,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr.number }}),Bash(gh pr view ${{ matrix.pr.number }} *),Bash(gh pr diff ${{ matrix.pr.number }}),Bash(gh pr diff ${{ matrix.pr.number }} *),Bash(git push origin ${{ matrix.pr.branch }}),Bash(gh pr close ${{ matrix.pr.number }} *)"
+          json-schema: ${{ steps.threads.outputs.schema }}
+          allowed-tools: "Read,Grep,Glob,Edit,Write,StructuredOutput,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(mix format:*),Bash(mix compile:*),Bash(mix usage_rules.docs:*),Bash(mix usage_rules.search_docs:*),Bash(mix credo:*),Bash(gh pr view ${{ matrix.pr.number }}),Bash(gh pr view ${{ matrix.pr.number }} *),Bash(gh pr diff ${{ matrix.pr.number }}),Bash(gh pr diff ${{ matrix.pr.number }} *),Bash(git push origin ${{ matrix.pr.branch }}),Bash(gh pr close ${{ matrix.pr.number }} *)"
+      # Replies to each finding; reacts to and resolves the fixed ones.
+      - name: Answer the review findings
+        if: ${{ !cancelled() && steps.claude.outputs.structured_output != '' }}
+        uses: ftes/ci/review-threads/answer@d0ea4438e80af3b2811b75e5ee72181e826b7488 # review-threads (ftes/ci#16)
+        with:
+          pr: ${{ matrix.pr.number }}
+          answers: ${{ steps.claude.outputs.structured_output }}
 
   # Replaces each conflicted PR, and each that triage found no longer fits main, with one on a new
   # branch from main. The Claude app can't push workflow file changes, which a merge or rebase of
