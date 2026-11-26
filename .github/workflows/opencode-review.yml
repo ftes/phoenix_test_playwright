@@ -27,6 +27,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+      # The runner exchanges OIDC for a separate OpenCode GitHub App token to publish and dismiss reviews.
       pull-requests: read
       issues: read
       id-token: write

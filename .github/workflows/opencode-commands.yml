@@ -92,8 +92,12 @@ jobs:
             git switch -c "$BRANCH"
           fi
       - name: Set up toolchain and deps
+        id: setup
         continue-on-error: true
         uses: ftes/ci/setup@3b7244fd1eb84225fcf94fd3f7d6cad6bb40d5c4 # v1.0.11
+      - name: Restore the committed lockfile after failed setup
+        if: steps.setup.outcome == 'failure'
+        run: git restore --source=HEAD --staged --worktree -- mix.lock
       - name: Fetch Playwright source
         continue-on-error: true
         run: mix phoenix_test_playwright.playwright_source
