@@ -41,7 +41,7 @@ jobs:
       comment-authors: ${{ steps.gate.outputs.comment-authors }}
     steps:
       - id: gate
-        uses: ftes/ci/claude-tag@8d4b89855fa8ed572511317d4ed2bdbf3492e333 # v1.0.9
+        uses: ftes/ci/claude-tag@69c1983b7caa80316be46edc22ba0b70f8c46b77 # v1.0.10
 
   # Says so on a PR from another repository, which `claude` skips.
   reply:
@@ -89,13 +89,13 @@ jobs:
       # Soft, so a branch whose mix.exs, deps or code doesn't build still gets a Claude run.
       - name: Set up toolchain and deps
         continue-on-error: true
-        uses: ftes/ci/setup@8d4b89855fa8ed572511317d4ed2bdbf3492e333 # v1.0.9
+        uses: ftes/ci/setup@69c1983b7caa80316be46edc22ba0b70f8c46b77 # v1.0.10
       - name: Fetch Playwright source
         continue-on-error: true
         run: mix phoenix_test_playwright.playwright_source
 
       # No prompt: Claude follows the comment that tagged it.
-      - uses: ftes/ci/claude@8d4b89855fa8ed572511317d4ed2bdbf3492e333 # v1.0.9
+      - uses: ftes/ci/claude@69c1983b7caa80316be46edc22ba0b70f8c46b77 # v1.0.10
         with:
           token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           comment-authors: ${{ needs.gate.outputs.comment-authors }}
