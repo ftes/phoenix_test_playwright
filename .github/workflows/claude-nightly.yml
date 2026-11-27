@@ -131,25 +131,26 @@ jobs:
               + map(select(.mergeable == "CONFLICTING") | {number, branch, head, base: $base, why: "It conflicts with the default branch."})
             | unique_by(.number)' <<< "$prs")
           others=$(jq -c --argjson recreate "$recreate" 'map(select(.number as $n | $recreate | all(.number != $n)))' <<< "$prs")
-          # Mergeable and within the fix budget: fix picks those that fail CI or have open findings.
-          candidates=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.mergeable == "MERGEABLE" and .commits < $max) | {number, branch, head, failing})' <<< "$others")
+          mergeable=$(jq -c 'map(select(.mergeable == "MERGEABLE"))' <<< "$others")
+          # Listing retries earlier resolutions without another commit. Only new fixes use the budget.
+          candidates=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.commits < $max) | {number, branch, head, failing})' <<< "$mergeable")
           {
             echo "base=$base"
             echo "recreate=$recreate"
             echo "candidates=$candidates"
-            echo "candidate-numbers=$(jq -r 'map(.number) | join(" ")' <<< "$candidates")"
+            echo "review-prs=$(jq -r 'map(.number) | join(" ")' <<< "$mergeable")"
             echo "exhausted=$exhausted"
           } >> "$GITHUB_OUTPUT"
       # The findings Claude's review and CodeRabbit left unresolved, which a ruleset requiring
       # resolved conversations blocks the merge on. Should it fail, only CI failures get fixed.
       - name: List open review findings
         id: threads
-        if: steps.list.outputs.candidate-numbers != ''
+        if: steps.list.outputs.review-prs != ''
         continue-on-error: true
-        uses: ftes/ci/review-threads@e59c4b0b13300a060349ceac1781be70363a0850 # review-threads (ftes/ci#16)
+        uses: ftes/ci/review-threads@0e4b067199ea2f6a255a26ab43403f6f6acb5cb6 # v1.0.12
         with:
           authors: claude opencode-agent coderabbitai
-          prs: ${{ steps.list.outputs.candidate-numbers }}
+          prs: ${{ steps.list.outputs.review-prs }}
       - name: Pick the PRs to fix
         id: work
         env:
