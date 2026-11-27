@@ -51,7 +51,7 @@ jobs:
       - name: Triage
         id: triage
         if: steps.list.outputs.targets != '[]'
-        uses: ftes/ci/opencode-scheduled@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@8386c6cbd07ae70efb0071c9cacdd04ffe7b5b6f # ftes/ci#18
         with:
           mode: triage
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
@@ -155,7 +155,7 @@ jobs:
         id: threads
         if: steps.list.outputs.review-prs != ''
         continue-on-error: true
-        uses: ftes/ci/review-threads@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
+        uses: ftes/ci/review-threads@8386c6cbd07ae70efb0071c9cacdd04ffe7b5b6f # ftes/ci#18
         with:
           require-snapshot: true
           authors: claude opencode-agent coderabbitai
@@ -167,13 +167,18 @@ jobs:
           OPEN: ${{ steps.threads.outputs.open || '[]' }}
         run: echo "work=$(jq -cn --argjson open "$OPEN" 'env.CANDIDATES | fromjson | map(select(.failing or (.number as $n | $open | any(. == $n))))')" >> "$GITHUB_OUTPUT"
       - name: Exhaust
+        id: exhaust
         if: steps.list.outputs.exhausted != '[]'
-        uses: ftes/ci/opencode-scheduled@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
+        continue-on-error: true
+        uses: ftes/ci/opencode-scheduled@8386c6cbd07ae70efb0071c9cacdd04ffe7b5b6f # ftes/ci#18
         with:
           mode: exhaust
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
           base: ${{ env.BASE_BRANCH }}
           targets: ${{ steps.list.outputs.exhausted }}
+      - name: Report exhaustion failure
+        if: steps.exhaust.outcome == 'failure'
+        run: echo "::warning::Could not finish closing or cleaning up exhausted nightly PRs. Independent repairs and recreations will proceed."
 
   fix:
     needs: classify
@@ -197,7 +202,7 @@ jobs:
           fetch-depth: 0
       - name: Prepare fix
         id: prepare
-        uses: ftes/ci/opencode-scheduled@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@8386c6cbd07ae70efb0071c9cacdd04ffe7b5b6f # ftes/ci#18
         with:
           mode: prepare-fix
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
@@ -215,7 +220,7 @@ jobs:
         id: threads
         if: steps.prepare.outputs.active == 'true'
         continue-on-error: true
-        uses: ftes/ci/review-threads@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
+        uses: ftes/ci/review-threads@8386c6cbd07ae70efb0071c9cacdd04ffe7b5b6f # ftes/ci#18
         with:
           require-snapshot: true
           prs: ${{ matrix.pr.number }}
@@ -223,7 +228,7 @@ jobs:
       - name: Fix
         id: fix
         if: steps.prepare.outputs.active == 'true'
-        uses: ftes/ci/opencode-scheduled@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@8386c6cbd07ae70efb0071c9cacdd04ffe7b5b6f # ftes/ci#18
         with:
           mode: fix
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
@@ -264,7 +269,7 @@ jobs:
       - name: Fetch Playwright's source
         run: mix phoenix_test_playwright.playwright_source
       - name: Recreate
-        uses: ftes/ci/opencode-scheduled@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@8386c6cbd07ae70efb0071c9cacdd04ffe7b5b6f # ftes/ci#18
         with:
           mode: recreate
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
@@ -367,7 +372,7 @@ jobs:
           echo "area=$area" >> "$GITHUB_OUTPUT"
 
       - name: Improve
-        uses: ftes/ci/opencode-scheduled@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@8386c6cbd07ae70efb0071c9cacdd04ffe7b5b6f # ftes/ci#18
         with:
           mode: improve
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
