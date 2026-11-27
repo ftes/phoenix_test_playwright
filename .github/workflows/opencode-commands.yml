@@ -36,7 +36,7 @@ jobs:
       branch: ${{ steps.gate.outputs.branch }}
     steps:
       - id: gate
-        uses: ftes/ci/opencode@b4b5623a6415b2740137e9f42cc26c3ed1b4ec11 # ftes/ci#17
+        uses: ftes/ci/opencode@7189594bd1ed9e6d173e28daefed2982b760c02c # ftes/ci#21
         with:
           mode: gate
 
@@ -105,9 +105,10 @@ jobs:
         continue-on-error: true
         run: mix phoenix_test_playwright.playwright_source
       - name: Run command and publish
-        uses: ftes/ci/opencode@b4b5623a6415b2740137e9f42cc26c3ed1b4ec11 # ftes/ci#17
+        uses: ftes/ci/opencode@7189594bd1ed9e6d173e28daefed2982b760c02c # ftes/ci#21
         with:
           mode: command
+          model: ${{ vars.OPENCODE_MODEL }}
           branch: ${{ needs.gate.outputs.branch }}
           model-token: ${{ steps.auth.outputs.token }}
           guidance: |
