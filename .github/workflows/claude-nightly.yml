@@ -39,7 +39,8 @@ jobs:
               and (.headRefName | test("^(claude|opencode)/nightly-[0-9]+(-[0-9]+)?$"))
               and ([.comments[], .reviews[]] | all(.author.login | IN("claude", "opencode-agent", "coderabbitai"))))
               | {number, branch: .headRefName, head: .headRefOid}]')
-          echo "targets=$prs" >> "$GITHUB_OUTPUT"
+          targets=$(jq -c . <<< "$prs")
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.BASE_BRANCH }}
@@ -48,15 +49,13 @@ jobs:
       - name: Triage
         id: triage
         if: steps.list.outputs.targets != '[]'
-        uses: ftes/ci/opencode-scheduled@e4c1ffa77b35270481b125b4c9bc76ddeeea47b2 # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@537efd2d12b4c498e977c461dc25059395c5e6a4 # ftes/ci#18
         with:
           mode: triage
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
           base: ${{ env.BASE_BRANCH }}
           targets: ${{ steps.list.outputs.targets }}
           prompt: |
-            OPEN NIGHTLY PRS, each with its branch: ${{ steps.list.outputs.listed }}
-
             An earlier nightly run opened these simplification PRs, and main has moved on since.
             Check that each still makes sense on main as it is now. main is checked out.
 
@@ -132,8 +131,8 @@ jobs:
             | unique_by(.number)' <<< "$prs")
           others=$(jq -c --argjson recreate "$recreate" 'map(select(.number as $n | $recreate | all(.number != $n)))' <<< "$prs")
           mergeable=$(jq -c 'map(select(.mergeable == "MERGEABLE"))' <<< "$others")
-          # Listing retries earlier resolutions without another commit. Only new fixes use the budget.
-          candidates=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.commits < $max) | {number, branch, head, failing})' <<< "$mergeable")
+          # Green PRs at the cap may answer findings on unchanged code.
+          candidates=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.commits < $max or (.failing | not)) | {number, branch, head, failing, answer_only: (.commits >= $max)})' <<< "$mergeable")
           {
             echo "base=$base"
             echo "recreate=$recreate"
@@ -147,7 +146,7 @@ jobs:
         id: threads
         if: steps.list.outputs.review-prs != ''
         continue-on-error: true
-        uses: ftes/ci/review-threads@0e4b067199ea2f6a255a26ab43403f6f6acb5cb6 # v1.0.12
+        uses: ftes/ci/review-threads@537efd2d12b4c498e977c461dc25059395c5e6a4 # ftes/ci#18
         with:
           authors: claude opencode-agent coderabbitai
           prs: ${{ steps.list.outputs.review-prs }}
@@ -159,7 +158,7 @@ jobs:
         run: echo "work=$(jq -cn --argjson open "$OPEN" 'env.CANDIDATES | fromjson | map(select(.failing or (.number as $n | $open | any(. == $n))))')" >> "$GITHUB_OUTPUT"
       - name: Exhaust
         if: steps.list.outputs.exhausted != '[]'
-        uses: ftes/ci/opencode-scheduled@e4c1ffa77b35270481b125b4c9bc76ddeeea47b2 # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@537efd2d12b4c498e977c461dc25059395c5e6a4 # ftes/ci#18
         with:
           mode: exhaust
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
@@ -188,7 +187,7 @@ jobs:
           fetch-depth: 0
       - name: Prepare fix
         id: prepare
-        uses: ftes/ci/opencode-scheduled@e4c1ffa77b35270481b125b4c9bc76ddeeea47b2 # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@537efd2d12b4c498e977c461dc25059395c5e6a4 # ftes/ci#18
         with:
           mode: prepare-fix
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
@@ -206,14 +205,14 @@ jobs:
         id: threads
         if: steps.prepare.outputs.active == 'true'
         continue-on-error: true
-        uses: ftes/ci/review-threads@0e4b067199ea2f6a255a26ab43403f6f6acb5cb6 # v1.0.12
+        uses: ftes/ci/review-threads@537efd2d12b4c498e977c461dc25059395c5e6a4 # ftes/ci#18
         with:
           prs: ${{ matrix.pr.number }}
           authors: claude opencode-agent coderabbitai
       - name: Fix
         id: fix
         if: steps.prepare.outputs.active == 'true'
-        uses: ftes/ci/opencode-scheduled@e4c1ffa77b35270481b125b4c9bc76ddeeea47b2 # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@537efd2d12b4c498e977c461dc25059395c5e6a4 # ftes/ci#18
         with:
           mode: fix
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
@@ -229,12 +228,6 @@ jobs:
             unrelated CI failure if you made no edits; give-up with a reason if a redesign is
             needed; or skip if CI passed and no changes are justified. For fix, retry or skip,
             answer every listed finding with its id, fixed boolean and short reply.
-      - name: Answer the review findings
-        if: steps.fix.outputs.answers != ''
-        uses: ftes/ci/review-threads/answer@0e4b067199ea2f6a255a26ab43403f6f6acb5cb6 # v1.0.12
-        with:
-          pr: ${{ matrix.pr.number }}
-          answers: ${{ steps.fix.outputs.answers }}
 
   recreate:
     needs: classify
@@ -260,7 +253,7 @@ jobs:
       - name: Fetch Playwright's source
         run: mix phoenix_test_playwright.playwright_source
       - name: Recreate
-        uses: ftes/ci/opencode-scheduled@e4c1ffa77b35270481b125b4c9bc76ddeeea47b2 # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@537efd2d12b4c498e977c461dc25059395c5e6a4 # ftes/ci#18
         with:
           mode: recreate
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
@@ -363,7 +356,7 @@ jobs:
           echo "area=$area" >> "$GITHUB_OUTPUT"
 
       - name: Improve
-        uses: ftes/ci/opencode-scheduled@e4c1ffa77b35270481b125b4c9bc76ddeeea47b2 # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@537efd2d12b4c498e977c461dc25059395c5e6a4 # ftes/ci#18
         with:
           mode: improve
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
