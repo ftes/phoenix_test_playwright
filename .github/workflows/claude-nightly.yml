@@ -37,7 +37,9 @@ jobs:
           prs=$(gh pr list --state open --limit 1000 --json number,headRefName,headRefOid,baseRefName,isCrossRepository,comments,reviews \
             --jq '[.[] | select((.isCrossRepository | not) and .baseRefName == env.BASE_BRANCH
               and (.headRefName | test("^(claude|opencode)/nightly-[0-9]+(-[0-9]+)?$"))
-              and ([.comments[], .reviews[]] | all(.author.login | IN("claude", "opencode-agent", "coderabbitai"))))
+              and all(.comments[]; .author.login | IN("claude", "opencode-agent", "coderabbitai"))
+              and all(.reviews[]; (.author.login | IN("claude", "opencode-agent", "coderabbitai"))
+                or (.author.login == "github-actions" and .state == "COMMENTED" and (.body // "") == "")))
               | {number, branch: .headRefName, head: .headRefOid}]')
           targets=$(jq -c . <<< "$prs")
           echo "targets=$targets" >> "$GITHUB_OUTPUT"
@@ -49,7 +51,7 @@ jobs:
       - name: Triage
         id: triage
         if: steps.list.outputs.targets != '[]'
-        uses: ftes/ci/opencode-scheduled@922ec907b44a7362091b9e67c1df36620b6c9288 # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
         with:
           mode: triage
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
@@ -116,7 +118,14 @@ jobs:
         run: |
           list() {
             gh pr list --state open --limit 40 --json number,headRefName,headRefOid,baseRefName,isCrossRepository,mergeable,commits,statusCheckRollup,comments,reviews \
-              --jq '[.[] | select((.isCrossRepository | not) and .baseRefName == env.BASE_BRANCH and (.headRefName | test("^(claude|opencode)/nightly-[0-9]+(-[0-9]+)?$")) and ([.comments[], .reviews[]] | all(.author.login | IN("claude", "opencode-agent", "coderabbitai")))) | {number, branch: .headRefName, head: .headRefOid, mergeable, commits: (.commits | length), failing: ([.statusCheckRollup[] | select(.workflowName == "CI")] | group_by(.name) | map(max_by(.startedAt)) | any(.conclusion == "FAILURE" or .conclusion == "TIMED_OUT"))}]'
+              --jq '[.[] | select((.isCrossRepository | not) and .baseRefName == env.BASE_BRANCH
+                and (.headRefName | test("^(claude|opencode)/nightly-[0-9]+(-[0-9]+)?$"))
+                and all(.comments[]; .author.login | IN("claude", "opencode-agent", "coderabbitai"))
+                and all(.reviews[]; (.author.login | IN("claude", "opencode-agent", "coderabbitai"))
+                  or (.author.login == "github-actions" and .state == "COMMENTED" and (.body // "") == "")))
+                | {number, branch: .headRefName, head: .headRefOid, mergeable, commits: (.commits | length),
+                   failing: ([.statusCheckRollup[] | select(.workflowName == "CI")] | group_by(.name)
+                     | map(max_by(.startedAt)) | any(.conclusion == "FAILURE" or .conclusion == "TIMED_OUT"))}]'
           }
           base=$(gh api "repos/$GH_REPO/git/ref/heads/$BASE_BRANCH" --jq .object.sha)
           list > /dev/null
@@ -146,7 +155,7 @@ jobs:
         id: threads
         if: steps.list.outputs.review-prs != ''
         continue-on-error: true
-        uses: ftes/ci/review-threads@922ec907b44a7362091b9e67c1df36620b6c9288 # ftes/ci#18
+        uses: ftes/ci/review-threads@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
         with:
           require-snapshot: true
           authors: claude opencode-agent coderabbitai
@@ -159,7 +168,7 @@ jobs:
         run: echo "work=$(jq -cn --argjson open "$OPEN" 'env.CANDIDATES | fromjson | map(select(.failing or (.number as $n | $open | any(. == $n))))')" >> "$GITHUB_OUTPUT"
       - name: Exhaust
         if: steps.list.outputs.exhausted != '[]'
-        uses: ftes/ci/opencode-scheduled@922ec907b44a7362091b9e67c1df36620b6c9288 # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
         with:
           mode: exhaust
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
@@ -188,7 +197,7 @@ jobs:
           fetch-depth: 0
       - name: Prepare fix
         id: prepare
-        uses: ftes/ci/opencode-scheduled@922ec907b44a7362091b9e67c1df36620b6c9288 # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
         with:
           mode: prepare-fix
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
@@ -206,7 +215,7 @@ jobs:
         id: threads
         if: steps.prepare.outputs.active == 'true'
         continue-on-error: true
-        uses: ftes/ci/review-threads@922ec907b44a7362091b9e67c1df36620b6c9288 # ftes/ci#18
+        uses: ftes/ci/review-threads@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
         with:
           require-snapshot: true
           prs: ${{ matrix.pr.number }}
@@ -214,7 +223,7 @@ jobs:
       - name: Fix
         id: fix
         if: steps.prepare.outputs.active == 'true'
-        uses: ftes/ci/opencode-scheduled@922ec907b44a7362091b9e67c1df36620b6c9288 # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
         with:
           mode: fix
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
@@ -255,7 +264,7 @@ jobs:
       - name: Fetch Playwright's source
         run: mix phoenix_test_playwright.playwright_source
       - name: Recreate
-        uses: ftes/ci/opencode-scheduled@922ec907b44a7362091b9e67c1df36620b6c9288 # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
         with:
           mode: recreate
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
@@ -358,7 +367,7 @@ jobs:
           echo "area=$area" >> "$GITHUB_OUTPUT"
 
       - name: Improve
-        uses: ftes/ci/opencode-scheduled@922ec907b44a7362091b9e67c1df36620b6c9288 # ftes/ci#18
+        uses: ftes/ci/opencode-scheduled@c9b8517b4d040e40bc5474c4b43616770745245f # ftes/ci#18
         with:
           mode: improve
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
