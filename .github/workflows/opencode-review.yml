@@ -42,7 +42,7 @@ jobs:
           mode: reconcile-reviews
       - uses: ftes/ci/opencode-install@b4b5623a6415b2740137e9f42cc26c3ed1b4ec11 # ftes/ci#17
       - id: auth
-        uses: ftes/ci/opencode-auth@e53e22699f50c88157237931a10500d367cca47c # v1.0.13
+        uses: ftes/ci/opencode-auth@41939eef91514e8ac6b33a1d6e7923edc42f4628 # v1.0.14
         with:
           client-id: ${{ vars.OPENCODE_CLIENT_ID }}
       - name: Switch to the reviewed commit
@@ -51,7 +51,7 @@ jobs:
         run: git switch --detach "$HEAD"
       - name: Set up toolchain and deps
         continue-on-error: true
-        uses: ftes/ci/setup@e53e22699f50c88157237931a10500d367cca47c # v1.0.13
+        uses: ftes/ci/setup@41939eef91514e8ac6b33a1d6e7923edc42f4628 # v1.0.14
       - name: Fetch Playwright source
         continue-on-error: true
         run: mix phoenix_test_playwright.playwright_source
