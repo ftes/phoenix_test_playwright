@@ -50,7 +50,7 @@ jobs:
       actions: read
       pull-requests: write
       id-token: write
-    uses: ftes/ci/.github/workflows/scheduled-candidate.yml@41939eef91514e8ac6b33a1d6e7923edc42f4628 # v1.0.14
+    uses: ftes/ci/.github/workflows/scheduled-candidate.yml@d9bcc15fd99293982021b09e2da746145d67126f # Temporary: ftes/ci#20
     with:
       mode: triage
       base: ${{ github.event.repository.default_branch }}
@@ -142,7 +142,7 @@ jobs:
             | unique_by(.number)' <<< "$prs")
           others=$(jq -c --argjson recreate "$recreate" 'map(select(.number as $n | $recreate | all(.number != $n)))' <<< "$prs")
           mergeable=$(jq -c 'map(select(.mergeable == "MERGEABLE"))' <<< "$others")
-          # Green PRs at the cap may answer findings on unchanged code.
+          # PRs at the cap also need a successful CI run before they can answer findings.
           candidates=$(jq -c --argjson max "$MAX_COMMITS" 'map(select(.commits < $max or (.failing | not)) | {number, branch, head, failing, answer_only: (.commits >= $max)})' <<< "$mergeable")
           {
             echo "base=$base"
@@ -164,10 +164,32 @@ jobs:
           prs: ${{ steps.list.outputs.review-prs }}
       - name: Pick the PRs to fix
         id: work
+        shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           CANDIDATES: ${{ steps.list.outputs.candidates || '[]' }}
           OPEN: ${{ steps.threads.outputs.open || '[]' }}
-        run: echo "work=$(jq -cn --argjson open "$OPEN" 'env.CANDIDATES | fromjson | map(select(.failing or (.number as $n | $open | any(. == $n))))')" >> "$GITHUB_OUTPUT"
+        run: |
+          candidates=$(jq -cn --argjson open "$OPEN" 'env.CANDIDATES | fromjson | .[] | select(.failing or (.number as $n | $open | any(. == $n)))')
+          work=$(
+            while IFS= read -r candidate; do
+              [[ -n $candidate ]] || continue
+              if [[ $(jq -r .answer_only <<< "$candidate") == true ]]; then
+                read -r number branch head < <(jq -r '[.number, .branch, .head] | @tsv' <<< "$candidate")
+                # Check the newest PR run for this exact head; a queued rerun is not green.
+                runs=$(gh api --method GET "repos/$GH_REPO/actions/workflows/ci.yml/runs" \
+                  -f branch="$branch" -f head_sha="$head" -f event=pull_request -F per_page=100) || continue
+                jq -e --arg repo "$GH_REPO" --arg head "$head" --argjson number "$number" '
+                  [.workflow_runs[] | select(.head_repository.full_name == $repo and .head_sha == $head
+                    and (.pull_requests | length == 0 or any(.number == $number)))]
+                  | max_by(.run_number) | .status == "completed" and .conclusion == "success"
+                ' <<< "$runs" > /dev/null || continue
+              fi
+              echo "$candidate"
+            done <<< "$candidates" | jq -cs .
+          )
+          echo "work=$work" >> "$GITHUB_OUTPUT"
       - name: Exhaust
         id: exhaust
         if: steps.list.outputs.exhausted != '[]'
@@ -184,7 +206,7 @@ jobs:
 
   fix:
     needs: classify
-    if: needs.classify.outputs.work != '' && needs.classify.outputs.work != '[]'
+    if: ${{ !cancelled() && needs.classify.result == 'success' && needs.classify.outputs.work != '' && needs.classify.outputs.work != '[]' }}
     strategy:
       fail-fast: false
       matrix:
@@ -194,7 +216,7 @@ jobs:
       actions: read
       pull-requests: write
       id-token: write
-    uses: ftes/ci/.github/workflows/scheduled-candidate.yml@41939eef91514e8ac6b33a1d6e7923edc42f4628 # v1.0.14
+    uses: ftes/ci/.github/workflows/scheduled-candidate.yml@d9bcc15fd99293982021b09e2da746145d67126f # Temporary: ftes/ci#20
     with:
       mode: fix
       base: ${{ github.event.repository.default_branch }}
@@ -216,7 +238,7 @@ jobs:
 
   recreate:
     needs: classify
-    if: needs.classify.outputs.recreate != '' && needs.classify.outputs.recreate != '[]'
+    if: ${{ !cancelled() && needs.classify.result == 'success' && needs.classify.outputs.recreate != '' && needs.classify.outputs.recreate != '[]' }}
     strategy:
       fail-fast: false
       matrix:
@@ -226,7 +248,7 @@ jobs:
       actions: read
       pull-requests: write
       id-token: write
-    uses: ftes/ci/.github/workflows/scheduled-candidate.yml@41939eef91514e8ac6b33a1d6e7923edc42f4628 # v1.0.14
+    uses: ftes/ci/.github/workflows/scheduled-candidate.yml@d9bcc15fd99293982021b09e2da746145d67126f # Temporary: ftes/ci#20
     with:
       mode: recreate
       base: ${{ github.event.repository.default_branch }}
@@ -322,12 +344,13 @@ jobs:
 
   improve:
     needs: improve_context
+    if: ${{ !cancelled() && needs.improve_context.result == 'success' }}
     permissions:
       contents: read
       actions: read
       pull-requests: write
       id-token: write
-    uses: ftes/ci/.github/workflows/scheduled-candidate.yml@41939eef91514e8ac6b33a1d6e7923edc42f4628 # v1.0.14
+    uses: ftes/ci/.github/workflows/scheduled-candidate.yml@d9bcc15fd99293982021b09e2da746145d67126f # Temporary: ftes/ci#20
     with:
       mode: improve
       base: ${{ github.event.repository.default_branch }}
